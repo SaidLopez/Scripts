@@ -11,15 +11,6 @@
 
 ;tinker tool GTL
 ;tong TBG
-   ;  0 - 30: Train from a Carpenter NPC.
-   ; 30 - 48: Craft Medium Crates.
-    ;48 - 53: Craft Large Crates.
-    ;53 - 60: Craft Wooden Shields.
-    ;60 - 74: Craft Fukiyas.
-    ;74 - 79: Craft Quarter Staffs.
-    ;79 - 82: Craft Gnarled Staffs or Shepherd's Crooks.
-    ;82 - 96: Craft Black Staffs.
-    ;96 - 100: Shepherd Staffs.
 set %my_items VMF_UMF_OIK
 set %tooltk GTL_KTL
 set %toolbs UFG
