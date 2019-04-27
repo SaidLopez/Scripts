@@ -1,0 +1,31 @@
+;==================================================
+; Script Name: GM Detection
+; Author: Said Lopez
+; Version: 1
+; Shard OSI / FS: FS
+; Revision Date: 2019
+; Purpose: Raise Detect if a GM shows up whilst unnatended resourcing
+; Special Thanks: Shakyj
+;==================================================
+
+
+
+set %jrnl #jindex
+while #true
+   {
+   if #jindex > %jrnl
+      {
+      set %jrnl %jrnl + 1
+      scanjournal %jrnl
+      if Dan in #journal || You_Dexter in #journal
+         {
+         sound C:\Windows\media\Alarm01.wav
+         wait 5s
+         event macro 1 0 Hey
+          wait 10
+          event macro 1 0 all right?
+          }
+      }
+   }
+}
+

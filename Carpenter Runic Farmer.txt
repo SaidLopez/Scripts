@@ -1,0 +1,901 @@
+;==================================================
+; Script Name: Carpenter Runic Farmer
+; Author: Said Lopez
+; Version: 1
+; Shard OSI / FS: FS
+; Revision Date: 2019
+; Purpose: Farm Runics from quests in HW
+; Special Thanks: TrailMyx and Endless Night
+;==================================================
+;id settings
+set %mob VCAD ; Id of the NPC handing out the quest 
+set %trashbarrelid BNOVKMD ;ID of your trash Barrel
+set %securechest RMEYJMD ;ID of your secure with resources
+set %runetochest IBUTLMD  ;Rune to Your secure
+set %runetohw ZAUTLMD ;Rune To HW
+set %runetotrash  JBUTLMD ;Rune To your trash barrel
+
+;Only modify the below if you know what you are doing
+;type settings
+set %ttools KTL
+set %ftools EGG
+set %bow QFE
+set %crsbow USF
+set %hcrsbow LMH
+set %rcrsbow PPO
+set %ingots ENK
+set %boards TLK
+
+;color settings
+set %questitemcolor 1258
+
+;loot settings
+set %stashtypes AGG_PIP_FWR_GWR_EWR_DWR_LWL_UJG_CWL_IJG_PFR_QPO_WER_VRH_RRH_VTH_YSF
+;set %trashtypes PIP_FWR_GWR_EWR_DWR_LWL_UJG_CWL_IJG_PFR_QPO_LMH_PPO_WOH_USF_WER_EWH
+set %talismans FWR_GWR_EWR_DWR
+set %recipe PIP
+
+set %jewel LWL_UJG_CWL_IJG
+set %jparam1 Hit , #spc , Chance
+set %jparam2 Cast , #spc , Recovery
+set %jparam3 Lower , #spc , Reagent
+set %jparam4 Defense , #spc , Chance
+set %jparam5 Faster , #spc , Casting
+set %jparam6 Swing , #spc , Speed
+set %jparam7 Damage , #spc , Increase
+
+set %weaponstype VRH_RRH_VTH_YSF_NSF_GFF
+set %wparam1 Slayer
+set %wparam2 Demon , #spc , Slayer
+set %wparam3 Repond , #spc , Slayer
+set %wparam4 Undead , #spc , Leech
+
+;declare vars
+set %closecnter 0
+set %itemtomake 0
+set #lpc 1000
+
+;set %lastmakeditem 0
+;set %lastmakedcnt 0
+
+
+
+loop:
+  if H notin #CHARSTATUS
+    event macro 13 21
+  gosub checkalltools
+  gosub checkallbows
+  gosub takequest
+  gosub makeitems
+  gosub returnquest
+  gosub trashrewards
+goto loop
+
+
+sub trashrewards
+  ignoreitem reset
+  trashrewardsstart:
+  finditem ZJF C_ , #backpackid
+  if #findcnt > 0
+  {
+    set %bag #findid
+    set #lobjectid %bag
+    event macro 17 0
+    gosub waitgump 230_204 container_gump
+    if #result = #false
+      goto trashrewardsstart
+    wait 9
+    ;start looting
+    trashrewardsbagloot:
+
+    finditem AGG C_ , %bag  ;f tools (runic); col: 2010 - oak, 1191 ash, 1192 yew, 1193 heartwood
+    if #findkind <> -1
+    {
+      lootrunictools:
+      ;if #findcol <> 2010 && #findcol <> 1191
+        Exevent Drag #findid
+        wait 1
+        Exevent Dropc #backpackid
+        wait 10
+        goto trashrewardsbagloot
+      if #findcnt > #findindex && #findcnt < 50
+      {
+        set #findindex #findindex + 1
+        goto lootrunictools
+      }
+
+    }
+
+
+    finditem %weaponstype C_ , %bag
+    if #findkind <> -1
+    {
+      event property #findid
+      if %wparam2 in #property || %wparam1 in #property || %wparam3 in #property || %wparam4 in #property
+      {
+        Exevent Drag #findid
+        wait 1
+        Exevent Dropc #backpackid
+        wait 10
+        goto trashrewardsbagloot
+      }
+      ignoreitem #findid
+      goto trashrewardsbagloot
+    }
+
+    finditem %jewel C_ , %bag
+    if #findkind <> -1
+    {
+       if %jparam6 in #property
+      {
+        Exevent Drag #findid
+        wait 1
+        Exevent Dropc #backpackid
+        wait 10
+        goto trashrewardsbagloot
+      }
+       if %jparam2 in #property
+      {
+       if %jparam5 in #property
+       {
+        Exevent Drag #findid
+        wait 1
+        Exevent Dropc #backpackid
+        wait 10
+        goto trashrewardsbagloot
+        }
+      }
+      ignoreitem #findid
+      goto trashrewardsbagloot
+    }
+
+    ;talismans
+    finditem %talismans C_ , %bag
+    if #findkind <> -1
+    {
+      event property #findid
+        str Pos #property Bonus: 1
+        set %pos1 #strres + 7
+        str Mid #property %pos1 2
+        set %bonus1 #strres
+        str Pos #property Bonus: 2
+        set %pos2 #strres + 7
+        str Mid #property %pos2 2
+        set %bonus2 #strres
+        str Pos #property Killer: 1
+        set %pos3 #strres + 9
+        str Mid #property %pos3 2
+        set %bonus3 #strres
+        str Pos #property Protection: 1
+        set %pos4 #strres + 13
+        str Mid #property %pos2 2
+        set %bonus4 #strres
+      if %bonus1 > 10 && %bonus2 > 15
+      {
+        if Fletching , #spc , Bonus in #property && Fletching , #spc , Exceptional in #property
+        {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+        }
+      }
+        if %bonus1 > 15 && %bonus2 > 20
+        {
+          if Blacksmithing , #spc , Bonus in #property && Blacksmithing , #spc , Exceptional in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+          }
+        }
+        if %bonus1 > 15 && %bonus2 > 20
+        {
+          if Tailoring , #spc , Bonus in #property && Tailoring , #spc , Exceptional in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+          }
+        }
+        if %bonus1 > 10 && %bonus2 > 15
+        {
+          if Tinkering , #spc , Bonus in #property && Tinkering , #spc , Exceptional in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+           }
+        }
+      if %bonus1 > 20 && %bonus2 > 20
+        {
+          if Inscription , #spc , Bonus in #property && Inscription , #spc , Exceptional in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+           }
+        }
+       if %bonus1 > 0 && %bonus2 > 20
+        {
+          if Alchemy , #spc , Bonus in #property && Alchemy , #spc , Exceptional in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+           }
+        }
+
+
+       if %bonus1 > 0 && %bonus2 > 25
+        {
+          if Cooking , #spc , Bonus in #property && Cooking , #spc , Exceptional in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+           }
+        }
+   if %bonus2 > 20
+        {
+          if Carpentry , #spc , Bonus in #property && Carpentry , #spc , Exceptional in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+           }
+        }
+        if %bonus3 > 15
+        {
+          if Succubus || Corpse || Lich || Silver in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+           }
+        }
+            if %bonus4 > 20
+        {
+        if Succubus || Corpse || Lich || Silver in #property
+          {
+            Exevent Drag #findid
+            wait 1
+            Exevent Dropc #backpackid
+            wait 10
+            goto trashrewardsbagloot
+           }
+        }
+
+      ignoreitem #findid
+      goto trashrewardsbagloot
+    }
+   ; finditem %recipe C_ , %bag
+   ; if #findcnt > 0
+   ; {
+    ;  event property #findid
+    ;  if Acid in #property || Bramble in #property || Ironwood in #property || Phantom in #property
+    ;  {
+    ;   Exevent Drag #findid
+     ;       wait 1
+      ;      Exevent Dropc #backpackid
+       ;     wait 10
+        ;    goto trashrewardsbagloot
+         ;   }
+    ;}
+
+    ;Exevent Drag %bag
+    ;wait 1
+    ;Exevent Dropc %trashbarrelid
+    ;wait 10
+    ;goto trashrewardsstart
+  }
+   key f12
+   wait 5
+return
+
+
+
+
+  
+
+
+
+
+
+
+sub stashitems
+  ignoreitem reset
+  set %chest %1
+  stashitemsstart:
+  finditem %stashtypes C_ , #backpackid
+  if #findcnt > 0
+  {
+    Exevent Drag #findid #findstack
+    wait 1
+    Exevent Dropc %chest
+    wait 10
+    goto stashitemsstart
+  }
+  finditem %ftools C_ , #backpackid
+  if #findcnt > 0
+  {
+    if #findcol <> 0
+    {
+      Exevent Drag #findid #findstack
+      wait 1
+      Exevent Dropc %chest
+      wait 10
+      goto stashitemsstart
+    }
+    else
+    {
+      ignoreitem #findid
+      goto stashitemsstart
+    }
+  }
+  ignoreitem reset
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+sub checkresourses
+  finditem %ingots C_ , #backpackid
+  if #findstack < 25
+    gosub takeresourses
+  finditem %boards C_ , #backpackid
+  if #findstack < 20
+    gosub takeresourses
+return
+
+sub takeresourses
+event macro 17 0
+    move 7027 400 0 30s
+  move 7029 380 0 30s
+  move 6998 348 0 30s
+  move 6988 338 0 30s
+  move 6985 338 0 3s
+  movefromtown:
+  move 6984 338 0 5
+  wait 3
+  viajar:
+  event macro 15 31 ;sacred journey 210
+  target 8s
+  set #ltargetid %runetotrash
+  set #ltargetkind 1
+  wait 3
+  event macro 22 0
+  gosub waitposchange
+  if #result <> #true
+     goto viajar
+     wait 5
+  for %i 1 30
+  {
+  finditem ZJF C_ , #backpackid
+  if #findkind <> -1
+  {
+  exevent drag #findid
+  wait 10
+  exevent dropc %trashbarrelid
+  wait 10
+  }
+  }
+
+
+  goto recalltobox
+  goto movefromtown
+
+  recalltobox:
+  event macro 15 31 ;sacred journey 210
+  target 8s
+  set #ltargetid %runetochest
+  set #ltargetkind 1
+  event macro 22 0
+  gosub waitposchange
+  if #result = #true
+    event macro 13 21 ;hidding
+  if #CHARPOSX >= 520 && #CHARPOSX <= 550 && #CHARPOSY >= 970 && #CHARPOSY <= 1000
+    goto recalltobox
+  ;open chest
+  opensecurechest:
+  set #lobjectid %securechest
+  event macro 17 0
+  wait 5
+  finditem * C_ , %securechest
+  if #findcnt < 1
+    goto opensecurechest
+
+  gosub stashitems %securechest
+
+  ;take res from chest
+  finditem %ttools C_ , %securechest  ;place 1 tool
+  if #findcnt < 1
+  {
+    finditem %ttools C_ , #backpackid
+    Exevent Drag #findid #findstack
+    wait 1
+    Exevent Dropc %securechest
+    wait 10
+  }
+
+  takeresboards:
+  finditem %boards C_ , #backpackid
+  if #findstack < 280
+  {
+    set %grabstack 280 - #findstack
+    finditem %boards C_ , %securechest
+    Exevent Drag #findid %grabstack
+    wait 1
+    Exevent Dropc #backpackid
+    wait 10
+    goto takeresboards
+  }
+  takeresingots:
+  finditem %ingots C_ , #backpackid
+  if #findstack < 80
+  {
+    set %grabstack 80 - #findstack
+    finditem %ingots C_ , %securechest
+    Exevent Drag #findid %grabstack
+    wait 1
+    Exevent Dropc #backpackid
+    wait 10
+    goto takeresingots
+  }
+
+  recalltohw:
+  if #CHARPOSX > 6950 && #CHARPOSY < 350
+    goto movetomobspot
+  set #targcurs 0
+  wait 1
+  event macro 15 31 ;sacred journey
+  target 3s
+  set #ltargetid %runetohw
+  set #ltargetkind 1
+  event macro 22 0
+  gosub waitposchange
+  if #CHARPOSX >= 520 && #CHARPOSX <= 550 && #CHARPOSY >= 970 && #CHARPOSY <= 1000
+    goto movetotown
+  goto recalltohw
+  movetotown:
+  move 535 992 0 10
+  if #CHARPOSX >= 520 && #CHARPOSX <= 550 && #CHARPOSY >= 970 && #CHARPOSY <= 1000
+  {
+    if #CHARPOSX = 535 && #CHARPOSY = 992
+    {
+      move 535 996 0 1s
+      goto recalltohw ;movetotown
+    }
+    goto movetotown
+  }
+  movetomobspot:
+  move 7022 380 0 60s
+  move 7027 404 0 30s
+  move 7029 408 0 30s
+  if H notin #CHARSTATUS
+    event macro 13 21
+return
+
+sub waitposchange
+  set %px #CHARPOSX
+  set %py #CHARPOSY
+  for %i 1 20
+  {
+    wait 1
+    if %px <> #CHARPOSX || %py <> #CHARPOSY
+      return #true
+  }
+return #false
+
+
+
+sub returnquest
+  for %i 1 9
+  {
+    returnqueststart:
+    ;gosub walkto %mob
+    gosub usemob
+    wait 5
+    gosub waitgump 507_496 generic_gump   ;1 size 2 name
+    if #result = #false
+      goto returnqueststart
+
+    set %x #contposx + 130
+    set %y #contposy + 462
+    click %x %y f dmc
+    wait 5
+    click %x %y f dmc
+    wait 5
+    if You_receive_a_reward in #SYSMSG
+      break
+  }
+return
+
+
+
+
+
+
+
+
+
+
+
+sub makeitems
+  if %itemtomake = %bow
+  {
+    set %itemcnt 10
+    set %sel 1
+  }
+
+  set %makelastbow 0
+  makeitemsstart:
+  gosub checkresourses
+  finditem %itemtomake C_ , #backpackid
+  if #findcnt < ( %itemcnt + 1 )
+  {
+    set %wfindcnt #findcnt
+    finditem %ftools C_ , #backpackid
+    if #findcnt < 2
+    {
+      gosub checkalltools
+      goto makeitemsstart
+    }
+    if #findcol <> 0
+    {
+      ignoreitem #findid
+      goto makeitemsstart
+    }
+    set #lobjectid #findid
+
+    if #contsize = 530_497 && #contname = generic_gump ;close craft gump
+    {
+      if %closecnter > 300
+      {
+        set %cx #contposx + 100
+        set %cy #contposx + 100
+        click %cx %cy r dmc
+        wait 2
+        event macro 17 0
+        set %closecnter %closecnter - 100
+      }
+      else
+      {
+        set %closecnter %closecnter + 1
+      }
+    }
+    else
+    {
+      event macro 17 0
+    }
+    gosub waitgump 530_497 generic_gump   ;1 size 2 name
+    if #result = #true
+    {
+      if %makelastbow = 1
+      {
+        gosub MakeFirstItem 99 makelast
+        wait 10
+        gosub waitgump 530_497 generic_gump
+      }
+      else
+      {
+        gosub MakeFirstItem 3 %sel
+        wait 10
+        gosub waitgump 530_497 generic_gump
+        finditem %itemtomake C_ , #backpackid
+        if #findcnt > %wfindcnt
+          set %makelastbow 1
+      }
+    }
+    goto makeitemsstart
+  }
+
+  markitemsstart:
+  exevent Popup #charid
+  wait 5
+  click 50 110
+  target 2s
+  finditem %itemtomake C_ , #backpackid
+  for #findindex 1 %itemcnt
+  {
+    if #findcol <> %questitemcolor
+    {
+      set #ltargetkind 1
+      set #ltargetid #findid
+      event macro 22 0
+      target 2s
+    }
+  }
+  wait 1
+  set #targcurs 0
+
+  set %markeditems 0
+  finditem %itemtomake C_ , #backpackid
+  for #findindex 1 %itemcnt
+  {
+    if #findcol = %questitemcolor
+      set %markeditems %markeditems + 1
+  }
+  if %markeditems <> %itemcnt
+    goto markitemsstart
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+sub takequest
+  takequeststart:
+  for %i 1 2
+  {
+    takequeststart:
+    ;gosub walkto %mob
+    gosub usemob
+    wait 3
+    gosub waitgump 507_496 generic_gump   ;1 size 2 name
+    if #result = #false
+      goto takequeststart
+    set %x #contposx + 130
+   set %y #contposy + 462
+    click %x %y f dmc
+    ;;key f1
+    wait 20
+    if You_have_accepted in #SYSMSG
+      break
+  }
+
+  ;target all weapons
+  for %i 1 1
+  {
+    finditem %bow C_ , #backpackid
+    set %weapon1 #findid
+
+    exevent Popup #charid
+    wait 5
+    click 50 110
+    target 2s
+    set #ltargetid %weapon1
+    set #ltargetkind 1
+    event macro 22 0
+    wait 1
+    set #TARGCURS 0
+
+    set %itemtomake 0
+    finditem %weapon1 C_ , #backpackid
+    if #findcol = %questitemcolor
+    {
+      set %itemtomake #findtype
+      break
+    }
+  }
+  if %itemtomake = 0
+    goto takequeststart
+return
+
+
+
+
+
+
+sub usemob
+  if #targcurs > 0
+    set #targcurs 0
+  usemobstart:
+  set #lobjectid %mob
+  if #lobjectid = %mob
+  {
+    ;;event macro 54 0 ;use selected target
+    wait 1
+    event macro 17 0 ;use selected target
+    return #true
+  }
+  goto usemobstart
+return
+
+
+
+sub checkalltools
+  set %closecnter 500
+  checkalltools:
+  gosub checkresourses
+    finditem %ttools C_ , #backpackid
+    if #findcnt < 2
+    {
+      finditem %ttools C_ , #backpackid
+      set #lobjectid #findid
+      event macro 17 0
+      gosub waitgump 530_497 generic_gump   ;1 size 2 name
+      if #result = #true
+      {
+        gosub MakeFirstItem 4 4
+        wait 30
+        goto checkalltools
+      }
+    }
+    finditem %ftools C_ , #backpackid
+    if #findcnt < 3
+    {
+      finditem %ttools C_ , #backpackid
+      set #lobjectid #findid
+      event macro 17 0
+      gosub waitgump 530_497 generic_gump   ;1 size 2 name
+      if #result = #true
+      {
+        gosub MakeFirstItem 4 8
+        wait 30
+        goto checkalltools
+      }
+    }
+return
+
+sub checkallbows
+  checkallbowsstart:
+  gosub checkresourses
+    finditem %bow C_ , #backpackid
+    if #findcnt < 1
+    {
+      finditem %ftools C_ , #backpackid
+      if #findcol <> 0
+      {
+        ignoreitem #findid
+        goto checkallbowsstart
+      }
+      set #lobjectid #findid
+      event macro 17 0
+      gosub waitgump 530_497 generic_gump   ;1 size 2 name
+      if #result = #true
+      {
+        gosub MakeFirstItem 3 1
+        wait 30
+      }
+      goto checkallbowsstart
+    }
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+sub waitgump    ;1 size 2 name
+  set %tryout 0
+  waitgumpstart:
+  if #contsize = %1 && #contname = %2
+    return #true
+  set %tryout %tryout + 1
+  wait 2
+  if %tryout > 20 ;2 sec
+    return #false
+  goto waitgumpstart
+return #false
+
+
+
+sub MakeFirstItem
+; %1 = category , %2 = selection       ; 1 or 2 = 99 skip click, 2 = nextpage - click netc  , 2 = makelast
+;gumpwait
+set %MF1_G 0
+primGumpWait:
+if #contname <> generic_gump || #contsize <> 530_497
+{
+	set %MF1_G %MF1_G + 1
+	if %MF1_G > 50
+		return #false
+	wait 1
+	goto primGumpWait
+}
+;end gumpwait
+set %gumpx #contposx
+set %gumpy #contposy
+if %1 = 99
+	goto MFI1
+set %clickx %gumpx + 27
+set %clicky %gumpy + 50 + ( %1 * 20 )
+set %MF1_G 0
+MF1_GumpWait:
+if #contname <> generic_gump
+{
+	set %MF1_G %MF1_G + 1
+	if %MF1_G > 50
+		return #false
+	wait 1
+	goto MF1_GumpWait
+}
+click %clickx %clicky
+if %2 = 99
+	return #true
+wait 3
+set %mfi 0
+MFI1:
+wait 1
+if #contname <> generic_gump
+{
+	set %mfi %mfi + 1
+	if %mfi > 50
+		return #false
+	goto MFI1
+}
+MFI2:
+if %2 = nextpage
+{
+	set %clickx %gumpx + 385
+	set %clicky %gumpy + 274
+	goto MFI3
+}
+if %2 = makelast
+{
+	set %clickx %gumpx + 280
+	set %clicky %gumpy + 450
+	goto MFI3
+}
+;set %clicky 100 + %2 * 20
+set %clickx %gumpx + 235
+set %clicky %gumpy + 50 + ( %2 * 20 )
+MFI3:
+click %clickx %clicky
+wait 1
+return #true

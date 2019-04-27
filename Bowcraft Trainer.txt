@@ -1,0 +1,262 @@
+;==================================================
+; Script Name: Bowcraft Trainer
+; Author: Said Lopez
+; Version: 1
+; Shard OSI / FS: FS
+; Revision Date: 2019
+; Purpose: Raise Bowcrafting skill
+; Special Thanks: Crome and Trailmyx
+;==================================================
+
+
+;tinker tool GTL
+;tong TBG
+   ;  0 - 30: Train from a Carpenter NPC.
+   ; 30 - 48: Craft Medium Crates.
+    ;48 - 53: Craft Large Crates.
+    ;53 - 60: Craft Wooden Shields.
+    ;60 - 74: Craft Fukiyas.
+    ;74 - 79: Craft Quarter Staffs.
+    ;79 - 82: Craft Gnarled Staffs or Shepherd's Crooks.
+    ;82 - 96: Craft Black Staffs.
+    ;96 - 100: Shepherd Staffs.
+set %my_items VMF_UMF_OIK
+set %tooltk GTL_KTL
+set %toolbs UFG
+set %my_secure ODZZJMD
+set %my_resource TLK
+set %basura AOKWNMD
+;gump bs 530_507
+
+inicio:
+;gosub comprueba_base
+gosub Restock
+gosub Comprovarskill
+gosub Cambiaritem
+gosub makelast %toolbs 10
+gosub fundir
+goto inicio
+
+halt
+
+;########### restock ###########
+sub Restock
+finditem %my_resource C_ , #backpackid
+  if #findstack > 100
+    return
+finditem %my_resource C_ , %my_secure
+  if #findstack < 100
+  {
+    display Nos hemos quedado sin madera!
+    halt
+  }
+exevent drag #findid 100
+wait 5
+Exevent Dropc #backpackid
+wait 5
+return
+
+;########### Comprueba_base ###########
+sub comprueba_base
+if  #weight  > #maxweight
+  gosub fundir
+finditem * c_ , #backpackid
+if #findcnt > 60
+  gosub fundir
+return
+
+;########### Comprovarskill ###########
+sub comprovarskill
+chooseSkill bowc
+if #skill < 200
+{
+  msg Vete a entrenarla en New Heaven!! $
+  halt
+}
+if ( #skill >= 300 ) && ( #skill < 550 )
+{
+  set %nitem WOH
+  return
+}
+if ( #skill >= 550 ) && ( #skill < 650 )
+{
+  set %nitem SGP
+  return
+}
+if ( #skill >= 650 ) && ( #skill < 750 )
+{
+  set %nitem USF
+  return
+}
+if ( #skill >= 750 ) && ( #skill < 850 )
+{
+  set %nitem QPO
+  return
+}
+if ( #skill >= 850 ) && ( #skill < 950 )
+{
+  set %nitem LMH
+  return
+}
+if ( #skill >= 950 ) && ( #skill < 1200 )
+{
+  set %nitem PPO
+  return
+}
+
+
+return
+;########### Cambiaritem ###########
+sub cambiaritem
+;usage cambiaritem typenitem.
+if %nitem = %aitem
+{
+  return
+  }
+if %nitem = WOH
+{
+  gosub makeone %toolbs 3 1 1
+  set %aitem WOH
+}
+if %nitem = SGP
+{
+  gosub makeone %toolbs 2 3 1
+  set %aitem SGP
+}
+if %nitem = USF
+{
+  gosub makeone %toolbs 3 2 1
+  set %aitem USF
+}
+if %nitem = QPO
+{
+  gosub makeone %toolbs 3 4 1
+  set %aitem QPO
+}
+if %nitem = LMH
+{
+  gosub makeone %toolbs 3 3 1
+  set %aitem LMH
+}
+if %nitem = PPO
+{
+  gosub makeone %toolbs 3 5 1
+  set %aitem PPO
+}
+
+return
+
+;########### Makeone ###########
+sub makeone   ; gosub makeone toolid numCategory numItem nºitems
+set %amount %4 + 1
+finditem %1 C_ , #BACKPACKID
+if #FINDKIND = -1
+     display notool , #spc , %1
+set #LOBJECTID #FINDID
+set #LTARGETKIND 1
+event Macro 17 0
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 550_497 || %timeout = #SCNT
+ set %YY #CONTPOSY + ( 70 + ( 20 * %2 ) )  ; categoria  %1 = 1-9
+ set %XX #CONTPOSX + 30
+ click %XX %YY
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 550_497 || %timeout = #SCNT
+
+if %3 > 10
+{
+   if  ! ( %3 % 10 )
+   {
+      set %3 %3 - 10
+      set %itemnum 10
+   }
+   else
+   {
+      set %itemnum  ( %3 % 10 )
+   }
+   set %contNext ( %3 / 10 )
+   for %i 1 %contNext
+   {
+      set %nextY #CONTPOSY + 270
+      set %nextX #CONTPOSX + 385
+      click %nextX %nextY
+      set %timeout #SCNT + 5
+      repeat
+      until #CONTSIZE = 530_497 || %timeout = #SCNT
+   }
+}
+else
+{
+   set %itemnum %3
+}
+set %YY #CONTPOSY + ( 70 + ( 20 * ( %itemnum - 1 ) ) )   ; items
+set %XX #CONTPOSX + 235
+click %XX %YY
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 530_497 || %timeout = #SCNT
+gosub craftlast %bstools %amount
+return
+
+;########### makelast ###########
+sub makelast
+;gosub makelast toolid nºitems
+set #LTARGETKIND 1
+set %toolid %1
+set %nitems %2
+repeat
+if #CONTSIZE <> 530_497
+{
+  finditem %toolid C_ , #backpackid
+  if #findcnt < 3
+  {
+    gosub makeone %tooltk 3 21 3
+  }
+  set #LOBJECTID #findid
+  event Macro 17 0
+  gosub waitforgump 530_497
+}
+  gosub clikea 285 450
+  gosub waitforgump 530_497
+  wait 10
+  finditem %aitem C_ , #backpackid
+  wait 20
+until #FINDCNT >= 0 || #FINDSTACK >= 1
+
+return
+
+;########### Fundir ###########
+sub fundir
+finditem %aitem C_ , #BACKPACKID
+if #FINDCNT > 0
+{
+ Exevent Drag #findid 1
+	wait 10
+	Exevent Dropc %basura
+	wait 10
+}
+return
+
+;########### Clikea ###########
+sub clikea
+
+set %my_x #contposx + %1
+set %my_y #contposy + %2
+click %my_x %my_y
+
+return
+
+;########### waitforgump ###########
+sub waitforgump
+set #result 0
+set %Csize %1
+set %timeout #SCNT + 7
+repeat
+until #CONTSIZE = %Csize || %timeout = #SCNT
+if %timeout = #SCNT
+  return no
+return
+
+halt
