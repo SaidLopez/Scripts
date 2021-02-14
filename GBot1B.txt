@@ -1,0 +1,314 @@
+;=================================================
+; Script Name: GBot - Global Bot B
+; Author: Cerveza
+; Version: 1
+; Shard OSI / FS: OSI
+; Revision Date: 2007/08/08 
+; Purpose: Control second char using EUO interface
+;          This is SECONDARY player 
+; Special Thanks: TrailMyx and Endless Night
+;=================================================
+
+namespace Global NSG1
+set %timer #sCnt
+set %peacetime #sCnt
+set %pt 2 ; <----- Time in seconds between peacemaking
+;set %inst QRF_NRF_MQF_PRF_LQF_OQF_RGP_KRF
+ 
+set #lpc 1000
+
+repeat
+
+===== Cure Primary =====
+;if C in !charstatus && !charGhost = NO
+  ;gosub doit 15 24 !charID 40 !charstatus
+
+===== Heal Primary =====
+if !hits < 100 && !charGhost = NO
+  ;gosub doit 15 28 !charID 40 !hits
+  gosub bandage !CharID
+
+;===== Auto Peacemake =====
+;if #sCnt > %peacetime && !peace = #TRUE
+;  gosub autopeace
+===== Attack Primary =====
+If !Enemy <> N/A && !charGhost = NO
+
+   set #enemyid !Enemy
+   event macro 22 0
+ 
+ 
+;===== Hide Bot =====
+;if !hide = #TRUE
+;  gosub doit 13 21 NONE 10
+;set !hide #FALSE
+
+===== Follow =====
+Finditem !charID G_15 
+if #finddist > 4 && !follow = #TRUE
+    event pathfind #findx #findy #findz
+
+===== Invis Bot if Targetted =====
+;finditem #enemyid G
+;if #findcnt > 0
+;  {
+;    event macro 15 43
+;    target 3s
+;    set #ltargetKind 1
+;    event macro 23 0
+;    wait 10
+;    set #enemyID n/a
+;  }
+
+===== Anti Logout =====
+;if #sCnt > %timer + 300
+;  {
+;    event macro 8 1
+;    set %timer #sCnt
+;  }
+; 
+
+Until #Clilogged = 0 || #CharGhost = YES
+halt
+
+===== SUBS =====
+
+sub autopeace
+event macro 3 0  ; whisper next line
+msg $            ;clears hotkey so add wont mess up
+gosub TM_SyncTextScan
+event macro 13 9 ; peace
+target
+event macro 23 0
+TM_FindValidText The_instrument_becomes_forever_quiet NULL
+if #RESULT
+  {
+    finditem %inst C_ , %pack
+    if #findkind = -1
+      {
+        display ok out of instruments
+        return
+      }
+    set #ltargetid #findid
+    wait 5
+    event macro 22 0
+    wait 10
+  }
+event macro 3 0  ; whisper next line
+msg /add$
+target
+key esc
+set %peacetime #sCnt + %pt
+return
+
+;-------------------------------------
+; %1 = Event Macro Param 1
+; %2 = Event Macro Param 2
+; %3 = Target ID or NONE
+; %4 = Spell Delay
+sub doit
+  if %3 = NONE
+    {
+      event macro %1 %2
+      wait %4
+      return
+    }
+  finditem %3 G_8
+  if #findkind = -1 
+      return
+  set #ltargetID %3
+  set #ltargetKind 1
+  event macro %1 %2
+  target 5s
+if C in !charstatus && !charGhost = NO
+  {
+    key esc
+    return
+  }
+  event macro 22 0
+  wait %4
+return
+;-------------------------------------
+sub bandage
+    finditem ZLF CA_ , #BACKPACKID
+    if #findstack < 15
+  {
+       event ExMsg !charID 2 38 Only #findstack Bandages left!
+
+  }
+  else
+   [
+   set #lobjectid #findid
+   event macro 17 0
+   finditem %3 G_8
+  if #findkind = -1
+      return
+  set #ltargetID %1
+  set #ltargetKind 1
+   event macro 22 0
+   wait 5s
+   return
+   ]
+;=================================================================
+; Script Name: TrailMyx's Journal Scanning subs (#jindex based)
+; Author: TrailMyx
+; Version: 1.3
+; Shard OSI / FS: OSI / FS?
+; Revision Date: 2007/07/09
+;-------------------------------------------------------------------------------
+; Brings !_jindex up to the most recent #journal entry
+sub TM_SyncTextScan
+  namespace push
+  namespace local text
+  set !_jindex #jindex + 1
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1, %2, %3, etc strings to match
+; returns #TRUE for match, #FALSE for no match
+;  Will not advance !_jindex pointer to allow for scanning journal history for more than one search.
+;  Also searches for : , #SPC in journal entry to be sure someone isn't spamming the text
+sub TM_FindValidTextNoAdvance
+  namespace push
+  namespace local text
+  set !temp_lpc #LPC
+  set #LPC 1000
+  set !num_args %0
+  set !first_arg 1
+  if !_jindex = N/A
+    set !_jindex #jindex
+  set !index !first_arg
+  repeat
+    set !temp_jindex !_jindex
+    set !text % . !index
+    while !temp_jindex <= #jindex
+    {
+      scanjournal !temp_jindex
+      str pos #JOURNAL #CHARNAME 1
+      set !namepos #STRRES
+      str pos #JOURNAL :_ 1
+      set !smcpos #STRRES
+      str pos #JOURNAL !text 1
+      set !textpos #STRRES
+      if !textpos < !smcpos && !smcpos <> 0
+        set !pass #TRUE
+      else
+        set !pass #FALSE
+      if ( !text in #journal && ( :_ notin #JOURNAL || !namepos = 1 || !pass ) )
+      {
+        set !temp_jindex !temp_jindex + 1
+        set #LPC !temp_lpc
+        namespace pop
+        return #TRUE
+      }
+      set !temp_jindex !temp_jindex + 1
+    }
+    set !index !index + 1
+  until ( ( !index - !first_arg ) >= ( !num_args - 1 ) )
+  set #LPC !temp_lpc
+  namespace pop
+return #FALSE
+;-------------------------------------------------------------------------------
+; %1, %2, %3, etc strings to match
+; returns #TRUE for match, #FALSE for no match
+;  Also searches for : , #SPC in journal entry to be sure someone isn't spamming the text
+sub TM_FindValidText
+  namespace push
+  namespace local text
+  set !temp_lpc #LPC
+  set #LPC 1000
+  set !num_args %0
+  set !first_arg 2
+  if !_jindex = N/A
+    set !_jindex #jindex
+  set !index !first_arg
+  repeat
+    set !text % . !index
+    while !_jindex <= #jindex
+    {
+      scanjournal !_jindex
+      if !text in #journal
+      {
+        if :_ , !text notin #journal
+        {
+          set !_jindex !_jindex + 1
+          set #LPC !temp_lpc
+          namespace pop
+          return #TRUE
+        }
+      }
+      set !_jindex !_jindex + 1
+    }
+    set !index !index + 1
+  until ( ( !index - !first_arg ) >= ( !num_args - 1 ) )
+  set #LPC !temp_lpc
+  namespace pop
+return #FALSE
+;-------------------------------------------------------------------------------
+; %1, %2, %3, etc strings to match
+; returns #TRUE for match, #FALSE for no match
+;  Will not advance %_jindex pointer to allow for scanning journal history for more than one search.
+sub TM_FindTextNoAdvance
+  namespace push
+  namespace local text
+  set !temp_lpc #LPC
+  set #LPC 1000
+  set !num_args %0
+  set !first_arg 2
+  if !_jindex = N/A
+    set !_jindex #jindex
+  set !index !first_arg
+  repeat
+    set !temp_jindex !_jindex
+    set !text % . !index
+    while !temp_jindex <= #jindex
+    {
+      scanjournal !temp_jindex
+      if !text in #journal
+      {
+        set !temp_jindex !temp_jindex + 1
+        set #LPC !temp_lpc
+        namespace pop
+        return #TRUE
+      }
+      set !temp_jindex !temp_jindex + 1
+    }
+    set !index !index + 1
+  until ( ( !index - !first_arg ) >= ( !num_args - 1 ) )
+  set #LPC !temp_lpc
+  namespace pop
+return #FALSE
+;-------------------------------------------------------------------------------
+; %1, %2, %3, etc strings to match
+; returns #TRUE for match, #FALSE for no match
+;  Advances !_jindex so that you won't scan for past journal entries.
+sub TM_FindText
+  namespace push
+  namespace local text
+  set !temp_lpc #LPC
+  set #LPC 1000
+  set !num_args %0
+  set !first_arg 2
+  if !_jindex = N/A
+    set !_jindex #jindex
+  set !index !first_arg
+  repeat
+    set !text % . !index
+    while !_jindex <= #jindex
+    {
+      scanjournal !_jindex
+      if !text in #journal
+      {
+        set !_jindex !_jindex + 1
+        set #LPC !temp_lpc
+        namespace pop
+        return #TRUE
+      }
+      set !_jindex !_jindex + 1
+    }
+    set !index !index + 1
+  until ( ( !index - !first_arg ) >= ( !num_args - 1 ) )
+  set #LPC !temp_lpc
+  namespace pop
+return #FALSE
+

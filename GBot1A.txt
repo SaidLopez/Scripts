@@ -1,0 +1,82 @@
+;==================================================
+; Script Name: GBot - Global Bot A
+; Author: Cerveza
+; Version: 1
+; Shard OSI / FS: OSI
+; Revision Date: 2007/08/08 
+; Purpose: Control second char using EUO interface: 
+;          This is PRIMARY player script
+; Special Thanks: TrailMyx and Endless Night
+;==================================================
+
+namespace Global NSG1
+set !follow #FALSE
+set !hide #FALSE
+set !peace #FALSE
+set !pause #FALSE
+set !charID #charID
+set #menubutton n/a
+set !Enemy n/a
+gosub showEUOMenu1
+
+set #lpc 1000
+
+repeat
+if #menubutton <> n/a
+  gosub #menubutton
+set !charGhost #charGhost
+set !hits #hits
+set !charstatus #charStatus
+wait 5
+until #clilogged = 0
+ 
+sub hide
+set #menubutton n/a
+set !hide #TRUE
+return
+
+sub follow
+  set #menubutton n/a
+  set !follow ! !follow
+  set !Color Red
+  if !follow
+    set !Color Lime
+  menu Delete follow
+  menu Font BGColor !Color
+  menu Button follow 5 65 105 25 Follow
+return
+
+return
+
+sub peace
+  set #menubutton n/a
+  set !peace ! !peace
+  set !Color Red
+  if !peace
+    set !Color Lime
+  menu Delete peace
+  menu Font BGColor !Color
+  menu Button peace 5 5 105 25 Peace
+return
+
+;--------- EasyUO Menu Designer Code Begin ---------
+sub showEUOMenu1
+	menu Clear
+	menu Window Title GBot
+	menu Window Color Teal
+	menu Window Size 200 200
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style b
+	menu Font Color WindowText
+	menu Font BGColor Red
+	menu Button peace 5 5 105 25 Peace
+	menu Font BGColor Lime
+	menu Button hide 5 35 105 25 Hide
+	menu Font BGColor Red
+	menu Button follow 5 65 105 25 Follow
+	menu Show 421 270
+return
+;--------- EasyUO Menu Designer Code End ---------
