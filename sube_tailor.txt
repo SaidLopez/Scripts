@@ -1,0 +1,268 @@
+
+
+set %my_items DCI_FWL_RTI_JCP
+set %tooltk GTL_KTL
+set %toolbs HAG
+set %my_secure LKOSJMD
+set %my_resource CUI_JJG
+set %ingot ENK
+
+;gump bs 530_507
+
+inicio:
+;gosub comprueba_base
+gosub Restock
+gosub Comprovarskill
+gosub Cambiaritem
+gosub makelast %toolbs 10
+;gosub fundir
+goto inicio
+
+halt
+
+;########### restock ###########
+sub Restock
+if #weight < #maxweight
+{
+finditem %my_resource C_ , #backpackid
+  if #findstack > 150
+    return
+finditem %my_resource C_ , %my_secure
+  if #findstack < 150
+  {
+    display Nos hemos quedado sin tela!
+    halt
+  }
+exevent drag #findid 150
+wait 5
+Exevent Dropc #backpackid
+wait 5
+}
+
+return
+
+;########### Comprueba_base ###########
+sub comprueba_base
+if  #weight  > #maxweight
+  gosub fundir
+finditem * c_ , #backpackid
+if #findcnt > 60
+  gosub fundir
+return
+  
+;########### Comprovarskill ###########
+sub comprovarskill
+chooseSkill Tail
+if #skill < 300
+{
+  msg Vete a entrenarla en New Heaven!! $
+  halt
+}
+if ( #skill >= 300 ) && ( #skill < 490 )
+{
+  set %nitem EDI
+  return
+  }
+if ( #skill >= 490 ) && ( #skill < 560 )
+{
+  set %nitem DCI
+  return
+}
+if ( #skill >= 560 ) && ( #skill <  700 )
+{
+  set %nitem FWL
+  return
+}
+if ( #skill >= 700 ) && ( #skill < 742 )
+{
+  set %nitem JCP
+  return
+}
+if ( #skill >= 742 ) && ( #skill < 950 )
+{
+  set %nitem RTI
+  return
+}
+if ( #skill >= 950 ) && ( #skill < 1040 )
+{
+  set %nitem UWAB
+  return
+}
+if ( #skill >= 1040 ) && ( #skill < 1100 )
+{
+  set %nitem GLH
+  return
+}
+return
+;########### Cambiaritem ###########
+sub cambiaritem
+;usage cambiaritem typenitem.
+if %nitem = %aitem
+{
+  return
+  }
+  if %nitem = EDI
+{
+  gosub makeone %toolbs 3 20 1
+  set %aitem EDI
+}
+if %nitem = DCI
+{
+  gosub makeone %toolbs 5 2 1
+  set %aitem DCI
+}
+if %nitem = FWL
+{
+  gosub makeone %toolbs 3 9 1
+  set %aitem DCI
+}
+
+if %nitem = JCP
+{
+  gosub makeone %toolbs 5 3 1
+  set %aitem JCP
+}
+if %nitem = RTI
+{
+  gosub makeone %toolbs 4 13 1
+  set %aitem  RTI
+}
+if %nitem = UWAB
+{
+  gosub makeone %toolbs 4 13 1
+  set %aitem  UWAB
+}
+if %nitem = GLH
+{
+  gosub makeone %toolbs 4 13 1
+  set %aitem  GLH
+}
+
+
+return
+
+;########### Makeone ###########
+sub makeone   ; gosub makeone toolid numCategory numItem nºitems
+set %amount %4 + 1
+finditem %1 C_ , #BACKPACKID
+if #FINDKIND = -1
+     display notool , #spc , %1
+set #LOBJECTID #FINDID
+set #LTARGETKIND 1
+event Macro 17 0
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 530_497 || %timeout = #SCNT
+ set %YY #CONTPOSY + ( 70 + ( 20 * %2 ) )  ; categoria  %1 = 1-9
+ set %XX #CONTPOSX + 30
+ click %XX %YY
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 530_497 || %timeout = #SCNT
+
+if %3 > 10
+{
+   if  ! ( %3 % 10 )
+   {
+      set %3 %3 - 10
+      set %itemnum 10
+   }
+   else
+   {
+      set %itemnum  ( %3 % 10 )
+   }
+   set %contNext ( %3 / 10 )
+   for %i 1 %contNext
+   {
+      set %nextY #CONTPOSY + 270
+      set %nextX #CONTPOSX + 385
+      click %nextX %nextY
+      set %timeout #SCNT + 5
+      repeat
+      until #CONTSIZE = 530_497 || %timeout = #SCNT
+   }
+}
+else
+{
+   set %itemnum %3
+}
+set %YY #CONTPOSY + ( 70 + ( 20 * ( %itemnum - 1 ) ) )   ; items
+set %XX #CONTPOSX + 235
+click %XX %YY
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 530_497 || %timeout = #SCNT
+gosub craftlast %bstools %amount
+return
+
+;########### makelast ###########
+sub makelast
+;gosub makelast toolid nºitems
+set #LTARGETKIND 1
+set %toolid %1
+set %nitems %2
+repeat
+if #CONTSIZE <> 530_497
+{
+  finditem %toolid C_ , #backpackid
+  if #findcnt < 3
+  {
+    finditem %ingot C_ , #backpackid
+    if #findkind < 50
+       {
+       finditem %ingot C_ , %my_secure
+       wait 5
+       exevent drag #findid 50
+       wait 5
+       exevent dropc #backpackid
+       wait 10
+       gosub makeone %tooltk 2 7 2
+       return
+       }
+    else
+    gosub makeone %tooltk 2 7 2
+  }
+  set #LOBJECTID #findid
+  event Macro 17 0
+  gosub waitforgump 530_497
+}
+  gosub clikea 285 450
+  gosub waitforgump 530_497
+  wait 10
+  finditem %aitem C_ , #backpackid
+  wait 20
+until #FINDCNT >= 0 || #FINDSTACK >= 1
+wait 600s
+return
+
+;########### Fundir ###########
+sub fundir
+finditem %aitem C_ , #BACKPACKID
+
+
+
+}
+
+return
+
+;########### Clikea ###########
+sub clikea
+
+set %my_x #contposx + %1
+set %my_y #contposy + %2
+click %my_x %my_y
+
+return
+
+;########### waitforgump ###########
+sub waitforgump
+set #result 0
+set %Csize %1
+set %timeout #SCNT + 7
+repeat
+until #CONTSIZE = %Csize || %timeout = #SCNT
+if %timeout = #SCNT
+  return no
+return
+
+halt

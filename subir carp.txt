@@ -1,0 +1,878 @@
+                   ;=============================================
+; Script Name: XIIxOveR's Carpentry Trainer
+; Author: XIIxOveR
+; Version: 1.0
+; Revision: 05/2014
+; Purpose: Train Carpentry
+;=============================================
+; Description:
+; Train Carpentry from 0 to GM using resources from a secure in your bank or home
+; Will pull carpentry tools from the secure if not tinkering
+; If Tinkering, script will create Smoothing Planes and requires you have at least 31 Tinkering
+;
+; Instructions:
+; 1. Put normal wood, iron ingots if tinkering, and Carpentry tools if not tinkering into a secure in your home or bankbox.
+; 2. If Tinkering, must have at least one Tinker Tool in your characters backpack or in the secure.
+; 3. If using the bankbox make sure to have it open, your secure must be visible before starting
+; 4. Hit Play and follow the prompts
+;
+; Notes:
+; 1. Tinkering Smoothing Planes requires a minimum of 30.1 Tinkering however the minimum skill
+;    will cause you to fail most of the time. Recommend at least 50.
+;
+;===========================================================================
+; Set these variables only if you know what you are doing
+;
+set %WoodTypes TLK
+set %IngotTypes ENK
+set %WorkingTypes TLK_ENK
+set %CarpToolTypes ZHG_AGG_ZFG_EGG_AIG_BIG_CIG_CGG_YFG_WFG_KGG_IGG
+set %TinkerToolTypes JTL_GTL_KTL
+set %BarrelStaveTypes BTL ;0-10.9
+set %BarrelLidTypes OJL ;11-20.9
+set %WoodenBoxTypes HKF ;21-31.5
+set %MedCrateTypes VMF ;31.6-42.1
+set %SmallTableTypes XIE ;42.2-52.6
+set %WoodenShieldTypes NIK ;52.7-60
+set %FukiyaTypes LDP ;60.1-70
+set %BokutoTypes JDP ;70.1-82
+set %BlackStaffTypes GFF ;82.1-92
+set %WildStaffTypes BFR ;92.1-100
+set %AllCarpCraftTypes BTL_OJL_KKF_HKF_WMF_YIE_UMF_OIK_MDP_KDP_ZPF_DMH_GFF_BFR
+set %sWait 10
+set %mWait 20
+
+;===========================================================================
+; Start XIIxOveR's Carpentry Trainer
+gosub Setup
+
+;Mainloop
+repeat
+   gosub XIIxSkillCheck Carp %StartSkill
+   set %CurrentSkill #RESULT
+   gosub ItemSet %CurrentSkill
+   set %CurrentItem #RESULT
+
+   while %ToHide = yes && H notin #CHARSTATUS
+      {
+      event macro 13 21
+      wait 11s
+      }
+
+   repeat
+      finditem %AllCarpCraftTypes C_ , #backpackid
+      if #findkind <> -1
+         gosub XIIxRecycle %Axe %AllCarpCraftTypes #backpackid
+   until #findkind = -1
+
+   gosub DropNStock
+   gosub XIIxCrafter Carp Craft Plai %CurrentItem #TRUE
+
+   if #menubutton = Pause
+      gosub XIIxPause 230 5 55 20 Pause
+until #FALSE
+; End Mainloop
+
+;#######################
+; Sub Setup
+;#######################
+sub Setup
+   gosub XIIxSkillCheck Carp
+   set %StartSkill #RESULT
+
+   display yesno Would you like to use Tinkering?
+   if #dispres = yes
+      set %ToTinker #TRUE
+   if #dispres = no
+      set %ToTinker #FALSE
+
+   display ok Target your secure container
+   set #targcurs 1
+   while #targcurs = 1
+      wait 1
+   set %Secure #ltargetid
+   nextcpos 10 10
+   set #lobjectid %Secure
+   event macro 17
+
+   repeat
+      display ok Target your Axe
+      set #targcurs 1
+      while #targcurs = 1
+         wait 1
+      set %Axe #ltargetid
+      event property %Axe
+      If Axe NOTIN #property && Hatchet NOTIN #property
+         Display ok That doesn't seem to be an Axe, try again
+   until Axe IN #property || Hatchet IN #property
+
+   repeat
+      gosub XIIxMoveStuff %WorkingTypes #FALSE #backpackid #findstack %Secure
+   until #RESULT = #FALSE
+
+   repeat
+      finditem %WoodTypes C_ , %Secure
+      if #findkind <> -1 && #findcol <> 0
+         ignoreitem #findid
+      else
+         {
+         if #findkind = -1
+            {
+            Display Can't find normal wood in your secure. Please put wood in your secure and start again. Script halting!
+            Halt
+            }
+         }
+   until #findkind <> -1 && #findcol = 0
+
+   if %ToTinker = #TRUE
+      {
+      set %T_Flag N/A
+      gosub XIIxSkillCheck Tink
+      if #RESULT < 301
+         set %T_Flag #FALSE
+      else
+         set %T_Flag #TRUE
+
+      if %T_Flag = #TRUE
+         {
+         gosub XIIxCrafter Tink ToolCheck
+         if #RESULT = NoTool
+            {
+            gosub XIIxMoveStuff %TinkerToolTypes #FALSE 1 %Secure #backpackid
+            if #RESULT = #FALSE
+               set %T_Flag #FALSE
+            }
+         }
+
+      if %T_Flag = #TRUE
+         {
+         set %T_Flag NA
+         repeat
+            finditem %IngotTypes C_ , %Secure
+            if #findkind = -1
+               set %T_Flag #FALSE
+            else
+               {
+               if #findcol <> 0
+                  ignoreitem #findid
+               else
+                  set %T_FLAG #TRUE
+               }
+         until %T_Flag = #TRUE || %T_Flag = #FALSE
+         }
+
+      if %T_Flag = #FALSE
+         {
+         Display You have opted to use Tinkering but you do not meet the requirements.$
+               + $
+               + Requirements are:$
+               + , #spc , #spc , #spc , 1. At least 30.1 Tinkering skill (recommend 50)$
+               + , #spc , #spc , #spc , 2. At least one Tinkers Toolkit in your secure or backpack$
+               + , #spc , #spc , #spc , 3. Iron ingots in yur secure for making more tinker tools$
+               + $
+               + Script halting. Try again when you meet these requirements.
+         Halt
+         }
+      }
+   else
+      {
+      finditem %CarpToolTypes C_ , %Secure
+      if #findkind = -1
+         {
+         Display You have opted to not use tinkering but you have no Carpentry tools in your secure. $
+               + Make sure you have a lot of tools in the secure and start again. Script halting!
+         Halt
+         }
+      }
+
+   chooseskill Hidi
+   finditem #charid
+   if #skill >= 200 || #findtype notin AV_XU_OCB_NCB ;Human JOAT = 20 Hiding
+      {
+      display yesno Hide while training?
+      if #dispRes = yes
+         set %ToHide yes
+      if #dispRes = no
+         set %ToHide no
+      }
+
+   gosub Display_M_Skill
+return
+
+;#######################
+;SUB ItemSet
+;#######################
+; %1 = Skill Level
+sub ItemSet
+   Namespace Push
+   Namespace Local XIIxSetItem
+   set !CurrentSkill %1
+
+   if !CurrentSkill >= 0 && !CurrentSkill <= 109
+      set #RESULT BarrelStave
+   if !CurrentSkill >= 110 && !CurrentSkill <= 209
+      set #RESULT BarrelLid
+   If !CurrentSkill >= 210 && !CurrentSkill <= 315
+      set #RESULT WoodenBox
+   If !CurrentSkill >= 316 && !CurrentSkill <= 421
+      set #RESULT MedCrate
+   if !CurrentSkill >= 422 && !CurrentSkill <= 526
+      set #RESULT SmallTable
+   If !CurrentSkill >= 527 && !CurrentSkill <= 600
+      set #RESULT WoodenShield
+   If !CurrentSkill >= 601 && !CurrentSkill <= 700
+      set #RESULT Fukiya
+   if !CurrentSkill >= 701 && !CurrentSkill <= 820
+      set #RESULT Bokuto
+   If !CurrentSkill >= 821 && !CurrentSkill <= 920
+      set #RESULT BlackStaff
+   If !CurrentSkill >= 921 && !CurrentSkill <= 999
+      set #RESULT WildStaff
+   If !CurrentSkill = 1000
+      {
+      Display Congratulations, you've reached GM Carpentry! Script Complete!
+      halt
+      }
+   Namespace Pop
+return #RESULT
+
+;#######################
+;SUB DropNStock
+;#######################
+sub DropNStock
+   repeat
+      finditem %WoodTypes C_ , #BackPackID
+      if #findkind = -1 || #findstack < 20
+         {
+         gosub XIIxMaxWeight 0
+         set %BoardAmount #RESULT - #WEIGHT
+         gosub XIIxMoveStuff %WoodTypes 0 %Secure %BoardAmount #backpackid
+         if #RESULT = #FALSE
+            {
+            Display You seem to be out of Normal Wood. Please restock and Resume. Script Pausing!
+            gosub XIIxPause 230 5 55 20 Pause
+            }
+         else
+            gosub counters #RESULT #FALSE
+         }
+      finditem %WoodTypes C_ , #BackPackID
+   until #findstack >= 20
+
+   if %ToTinker = #TRUE
+      {
+      repeat
+         finditem %IngotTypes C_ , #backpackid
+         if #findkind = -1 || #findstack < 3
+            {
+            gosub XIIxMoveStuff %IngotTypes 0 %Secure 50 #backpackid
+            if #RESULT = #FALSE
+               {
+               Display You seem to be out of iron ingots, please restock and resume. Script pausing!
+               gosub XIIxPause 230 5 55 20 Pause
+               }
+            }
+         finditem %IngotTypes C_ , #backpackid
+      until #findkind <> -1
+
+      repeat
+         finditem %TinkerToolTypes C_ , #backpackid
+         if #findcnt < 2
+            {
+            gosub XIIxMoveStuff %TinkerToolTypes #FALSE %Secure 1 #backpackid
+            if #RESULT = #FALSE
+               gosub XIIxCrafter Tink Craft Iron TinkersTools #TRUE
+            }
+      until #findcnt >= 2
+      }
+
+   repeat
+      finditem %CarpToolTypes C_ , #BackPackID
+      if #findcnt < 2
+         {
+         gosub XIIxMoveStuff %CarpToolTypes #FALSE %Secure 1 #backpackid
+         if #RESULT = #FALSE && %ToTinker = #FALSE
+            {
+            Display You seem to be out of Carpentry Tools. Please restock and resume. Script Pausing!
+            gosub XIIxPause 230 5 55 20 Pause
+            }
+         else if #RESULT = #FALSE && %ToTinker = #TRUE
+            gosub XIIxCrafter Tink Craft Plai SmoothingPlane #TRUE
+         }
+   until #findcnt >= 2
+return
+
+;####################
+;SUB COUNTERS
+;####################
+; %1 Number of Boards or #FALSE if not updating boards
+; %2 Timer info or #FALSE if not updating timer
+sub Counters
+   menu Font BGColor Black
+   menu Font Color Silver
+   if %1 <> #FALSE
+      {
+      set %Boards %Boards + %1
+      menu Text Boards 5 40 Boards: %Boards
+      }
+   if %2 <>#FALSE
+      {
+      menu Text RunTime 125 40 Run Time: %RunTime
+      }
+return
+
+;--------------------STANDARD SUBS--------------------;
+;####################
+;SUB XIIxRecycle
+;####################
+;%1 - Tool Type
+;%2 - Item Type
+;%3 - Container ID
+;Returns NoTool if tool not found, #TRUE if completes without error
+Sub XIIxRecycle
+   Namespace Push
+   Namespace Local nsXIIxRecycle
+   set !ToolType %1
+   set !ItemType %2
+   set !Container %3
+   set !sWait 10
+
+   finditem !ToolType C_ , #backpackid
+   if #findkind = -1
+      {
+      set #RESULT NoTool
+      namespace clear
+      namespace pop
+      return #RESULT
+      }
+   set #lobjectid #findid
+   event macro 17
+   target 3s
+
+   finditem !ItemType C_ , !Container
+   if #findkind = -1
+      {
+      set #RESULT #FALSE
+      namespace clear
+      namespace pop
+      return #RESULT
+      }
+   else
+      {
+      exevent drag #findid
+      wait 10
+      exevent dropc XTPUKMD
+      wait !sWait
+      set #RESULT #TRUE
+      }
+   namespace clear
+   namespace pop
+return #RESULT
+
+;####################
+;SUB XIIxMaxWeight
+;####################
+; %1 = Maxweight offset
+sub XIIxMaxWeight
+   Namespace Push
+   Namespace Local nsXIIxMaxWeight
+   set !offset %1
+   If #maxweight = N/A
+      {
+      event macro 8 2
+      wait 5
+      event macro 10 2
+      }
+
+   set !MaxWeight #MaxWeight
+
+   finditem #CHARID
+   if #findtype NOTIN AV_XU_OCB_NCB ;char is human
+      set !MaxWeight !MaxWeight + 60
+
+   if !MaxWeight > 550
+      set !MaxWeight 550 ;Backpack maximum
+
+   set !MaxWeight !MaxWeight - !offset ;Adjust as see fit for overfull buffer
+   set #RESULT !MaxWeight
+   namespace clear
+   Namespace pop
+Return #RESULT
+
+;####################
+;SUB XIIxSkillCheck
+;####################
+; Checks skill, updates menu, and engages RoT Timer if applicable
+; %1 Required = Skill to check
+; %2 Optional = Starting skill level
+; Returns Skill Level
+sub XIIxSkillCheck
+   Namespace Push
+   NameSpace Local nsXIIxSkillCheck
+   set !SkillName %1
+   set !StartSkill %2
+   set !RoTShards Siege_Perilous_Mugen_
+
+   chooseskill !SkillName
+   set !CurrentSkill #skill
+   set !LastGain !GainedSkill
+
+   set !GainedSkill !CurrentSkill - !StartSkill
+   gosub XIIxWhole2Dec !CurrentSkill
+   Menu set M_Skill_Current #RESULT
+   gosub XIIxWhole2Dec !GainedSkill
+   Menu set M_Skill_Gained #RESULT
+
+   if #Shard in !RoTShards && !CurrentSkill >= 700 && !GainedSkill > !LastGain
+      gosub XIIxRoTimer !CurrentSkill
+
+   set #RESULT !CurrentSkill
+   namespace clear
+   Namespace Pop
+return #RESULT
+
+;#######################
+;SUB XIIxMoveStuff
+;#######################
+; %1 ItemType or ID to move
+; %2 Color or #FALSE if color doesn't matter
+; %3 Container to move from
+; %4 Number of items to move
+; %5 Container to move to
+; Returns #FALSE if item to move is not found or #findstack if successful
+sub XIIxMoveStuff
+   Namespace Push
+   Namespace Local nsXIIxMoveStuff
+   set !Item2Move %1
+   set !Color %2
+   set !SourceContainer %3
+   set !Amount2Move %4
+   set !TargetContainer %5
+   set !sWait 10
+
+   finditem !Item2Move C_ , !SourceContainer
+   wait !swait
+   if #findkind = -1
+      {
+      namespace clear
+      NameSpace Pop
+      Return #FALSE
+      }
+   else
+      {
+      if !Color <> #FALSE && #findcol <> !Color
+         {
+         ignoreitem #findid
+         namespace clear
+         namespace pop
+         return IGNORE
+         }
+      else
+         {
+         if #findstack < !Amount2Move
+            set !Amount2Move #findstack
+         exevent drag #findid !Amount2Move
+         wait !sWait
+         exevent dropc !TargetContainer
+         wait !sWait
+         set #RESULT !Amount2Move
+         }
+      }
+   namespace clear
+   Namespace Pop
+return #RESULT
+
+;#######################
+;SUB XIIxClickNWait
+;#######################
+; %1 = Required: Xoffset
+; %2 = Required: Yoffset
+; %3 = Required: #TRUE to wait for gump, any other value to return after click
+; %4 = Required if %3 is #TRUE: Gump_Name
+; %5 = Required if %3 is #TRUE: Gump_Size
+sub XIIxClickNWait
+   namespace push
+   namespace local nsXIIxClickNWait
+   set !clickx #contposx + %1
+   set !clicky #contposy + %2
+   set !gName1 %4
+   set !gName2 %4
+   set !gSize %5
+   click !clickx !clicky
+   if %3 <> #TRUE
+      {
+      namespace clear
+      namespace pop
+      return
+      }
+   if %0 > 3
+      gosub XIIxGumpWait !gName1 !gName2 !gSize
+   namespace clear
+   namespace pop
+return
+
+;#######################
+;SUB XIIxGumpWait
+;#######################
+; %1 = Required: Gumpname 1
+; %2 = Required only if using Gumpsize: Gumpname 2
+; %3 = Optional: Gumpsize
+; Returns #TRUE if gump occured before timeout, #FALSE if timeout occured
+sub XIIxGumpWait
+   namespace push
+   namespace local nsXIIxGumpWait
+   wait 10
+   set !gName1 %1
+   set !gName2 %2
+   set !gSize %3
+   set !_time #SCNT
+   while #SCNT <= !_time + 5
+      {
+      if %0 > 2
+         {
+         if ( #CONTNAME = !gName1 && #CONTSIZE = !gSize ) || ( #CONTNAME = !gName2 && #CONTSIZE = !gSize )
+            {
+            namespace clear
+            namespace pop
+            return #TRUE
+            }
+         }
+      else
+         {
+         if #CONTNAME = !gName1 || #CONTNAME = !gName2
+            {
+            namespace clear
+            namespace pop
+            return #TRUE
+            }
+         }
+      }
+   namespace clear
+   namespace pop
+return #FALSE
+
+;#######################
+;SUB XIIxWhole2Dec
+;#######################
+; %1 Whole number value to convert to Decimal form
+; Returns Decimal value
+sub XIIxWhole2Dec
+   Namespace Push
+   Namespace Local nsXIIxWhole2Dec
+   set !Int %1 / 10
+   set !Dec %1 % 10
+   set #RESULT !Int , #dot , !Dec
+   namespace clear
+   Namespace Pop
+return #RESULT
+
+;#######################
+;SUB XIIxPause
+;#######################
+; %1 = Button position 1
+; %2 = Button position 2
+; %3 = Button position 3
+; %4 = Button position 4
+; %5 = Button Name
+; e.g. "gosub pause 340 92 40 25 Pause"
+Sub XIIxPause
+   namespace push
+   namespace local XIIxPause
+   set !1 %1
+   set !2 %2
+   set !3 %3
+   set !4 %4
+   set !5 %5
+   menu delete !5
+   menu Font BGColor BtnFace
+   menu Font Color WindowText
+   menu button resume !1 !2 !3 !4 Resume
+   set #menubutton N/A
+   while #menubutton <> Resume
+      wait 1
+   menu delete resume
+   menu Font BGColor BtnFace
+   menu Font Color WindowText
+   menu Button !5 !1 !2 !3 !4 !5
+   namespace pop
+Return
+
+;####################
+;SUB XIIxRoTimer
+;####################
+; %1 Skill Level
+Sub XIIxRoTimer
+   Namespace Push
+   Namespace Local nsXIIxRoTimer
+   set !Skill %1
+
+   If !Skill > 699 && !Skill < 800
+      Set !Timer #SCNT + 300
+   If !Skill > 799 && !Skill < 900
+      Set !Timer #SCNT + 480
+   If !Skill > 899 && !Skill < 1000
+      Set !Timer #SCNT + 720
+   If !Skill > 999 && !Skill < 1200
+      Set !Timer #SCNT + 900
+
+   Repeat
+      wait 1220
+      Set #LobjectID #BackpackID
+      Event Macro 17 0
+   Until #SCNT >= !Timer
+   namespace clear
+   Namespace Pop
+Return
+
+;####################
+;SUB XIIxCrafter
+;####################
+; Version 1.0620
+; %1 - Required - Skill to use: Blac/Cook/Carp/Cart/Flet/Tail/Tink
+; %2 - Required - Mode, Options: SetLast/MakeLast/SetMaterial/Craft/Enhance/Repair/SetQuest/Toolcheck
+; %3 - Material - Required if %2 = SetMaterial, Craft, or Enhance (Iron, Gold, Leat, Spin, etc)
+; %4 - Item to Craft or ID to Enhance, or Repair - Required if %2 = Craft or Enhance
+; %5 - Exit Gump #TRUE or #FALSE - Required if %2 = Craft or Enhance
+;
+sub XIIxCrafter
+   Namespace Push
+   Namespace Local nsXIIxCraft , %1
+   set !Values %0
+   set !Skill %1
+   set !Mode %2
+   set !Material %3
+   set !Item %4
+   set !g_GumpSize 530_497
+   set !g_GumpName generic_gump
+   set !TinkToolTypes JTL_GTL_KTL
+   set !CarpToolTypes ZHG_AGG_ZFG_EGG_AIG_BIG_CIG_CGG_YFG_WFG_KGG_IGG
+   set !sWait 10 ;adjust for lag issues
+
+   if !skill = Tink
+      set !CurrentTool !TinkToolTypes
+   if !skill = Carp
+      set !CurrentTool !CarpToolTypes
+
+   finditem !CurrentTool C_ , #backpackid
+   if #findkind = -1
+      {
+      set #RESULT NoTool
+      namespace clear
+      namespace pop
+      return #RESULT
+      }
+   if !Mode = ToolCheck && #findkind <> -1
+      {
+      set #RESULT #findid
+      namespace clear
+      namespace pop
+      return #RESULT
+      }
+
+;****************
+   ;while #contname <> !g_GumpName && #contsize <> !g_GumpSize
+   ;   {
+      set #lobjectid #findid
+      event macro 17
+      gosub XIIxGumpWait !g_GumpName !g_GumpName !g_GumpSize
+   ;   }
+;****************
+
+   ;-----Begin sub mode functions
+   if !Mode = MakeLast
+      {
+      gosub XIIxClickNWait 280 450 #TRUE !g_GumpName !g_GumpSize ;make last
+      namespace clear
+      namespace pop
+      return
+      }
+
+   ;----- Set Material Color -----
+   if !Mode in Material_Craft_Enhance
+      {
+      if !LastMaterial <> !Material && !Material <> N/A
+         {
+         gosub XIIxClickNWait 30 375 #TRUE !g_GumpName !g_gumpsize ;Material
+         if !Material = Iron || !Material = Leat || !Material = Plai
+            gosub XIIxClickNWait 230 70 #TRUE !g_GumpName !g_gumpsize ;Iron/Leather/Plain Wood
+         if !Material = Dull || !Material = Spin || !Material = Oak
+            gosub XIIxClickNWait 230 90 #TRUE !g_GumpName !g_gumpsize ;Dull Copper/Spined/Oak
+         if !Material = Shad || !Material = Horn || !Material = Ash
+            gosub XIIxClickNWait 230 110 #TRUE !g_GumpName !g_gumpsize ;Shadow Iron/Horned/Ash
+         if !Material = Copp || !Material = Barb || !Material = Yew
+            gosub XIIxClickNWait 230 130 #TRUE !g_GumpName !g_gumpsize ;Copper/Barbed/Yew
+         if !Material = Bron || !Material = Hear
+            gosub XIIxClickNWait 230 150 #TRUE !g_GumpName !g_gumpsize ;Bronze/Heartwood
+         if !Material = Gold || !Material = Bloo
+            gosub XIIxClickNWait 230 170 #TRUE !g_GumpName !g_gumpsize ;Gold/Bloodwood
+         if !Material = Agap || !Material = Fros
+            gosub XIIxClickNWait 230 190 #TRUE !g_GumpName !g_gumpsize ;Agapite/Frostwood
+         if !Material = Veri
+            gosub XIIxClickNWait 230 210 #TRUE !g_GumpName !g_gumpsize ;Verite
+         if !Material = Valo
+            gosub XIIxClickNWait 230 230 #TRUE !g_GumpName !g_gumpsize ;Valorite
+         set !LastMaterial !Material
+         if !Mode = Material
+            {
+            gosub XIIxClickNWait 30 450 #FALSE ;Exit
+            set #RESULT #TRUE
+            Namespace Pop
+            return #RESULT
+            }
+         }
+      }
+
+   ;----- Craft Item -----
+   if !Mode = Craft
+      {
+      if !CraftLast = !Item
+         {
+         gosub XIIxClickNWait 280 450 #TRUE !g_GumpName !g_GumpSize ;make last
+         namespace pop
+         return
+         }
+
+      ;-----Tinkering: Wooden Items-----
+      if !Item = SmoothingPlane
+         {
+         set !CraftLast SmoothingPlane
+         gosub XIIxClickNWait 30 110 #TRUE generic_gump !g_GumpSize ;Wooden Items
+         gosub XIIxClickNWait 230 90 #TRUE generic_gump !g_GumpSize ;JointingPlane
+         }
+
+      ;-----Tinkering: Tools Page 1-----
+      if !Item = TinkersTools
+         {
+         set !CraftLast TinkersTools
+         gosub XIIxClickNWait 30 130 #TRUE !g_GumpName !g_GumpSize ;Tools
+         gosub XIIxClickNWait 230 130 #TRUE !g_GumpName !g_GumpSize ;Tinker's Tools
+         }
+
+      ;------Carpentry: Other-----
+      if !Item = BarrelStave
+         {
+         set !CraftLast BarrelStave
+         gosub XIIxClickNWait 30 90 #TRUE !g_GumpName !g_GumpSize ;Other
+         gosub XIIxClickNWait 230 70 #TRUE !g_GumpName !g_GumpSize ;Barrel Stave
+         }
+      if !Item = BarrelLid
+         {
+         set !CraftLast BarrelLid
+         gosub XIIxClickNWait 30 90 #TRUE !g_GumpName !g_GumpSize ;Other
+         gosub XIIxClickNWait 230 90 #TRUE !g_GumpName !g_GumpSize ;Barrel Lid
+         }
+      ;------Carpentry: Furniture-----
+      if !Item = SmallTable
+         {
+         set !CraftLast SmallTable
+         gosub XIIxClickNWait 30 110 #TRUE !g_GumpName !g_GumpSize ;Furniture
+         gosub XIIxClickNWait 230 250 #TRUE !g_GumpName !g_GumpSize ;Small Table
+         }
+       ;------Carpentry: Containers-----
+       if !Item = SmallCrate
+         {
+         set !CraftLast SmallCrate
+         gosub XIIxClickNWait 30 130 #TRUE !g_GumpName !g_GumpSize ;Containers
+         gosub XIIxClickNWait 230 70 #TRUE !g_GumpName !g_GumpSize ;Small Crate
+         }
+      if !Item = WoodenBox
+         {
+         set !CraftLast WoodenBox
+         gosub XIIxClickNWait 30 130 #TRUE !g_GumpName !g_GumpSize ;Containers
+         gosub XIIxClickNWait 230 90 #TRUE !g_GumpName !g_GumpSize ;Wooden Box
+         }
+      if !Item = MedCrate
+         {
+         set !CraftLast MedCrate
+         gosub XIIxClickNWait 30 130 #TRUE !g_GumpName !g_GumpSize ;Containers
+         gosub XIIxClickNWait 230 110 #TRUE !g_GumpName !g_GumpSize ;Medium Crate
+         }
+      if !Item = LrgCrate
+         {
+         set !CraftLast LrgCrate
+         gosub XIIxClickNWait 30 130 #TRUE !g_GumpName !g_GumpSize ;Containers
+         gosub XIIxClickNWait 230 130 #TRUE !g_GumpName !g_GumpSize ;Large Crate
+         }
+
+      ;------Carpentry: Armor-----
+      if !Item = WoodenShield
+         {
+         set !CraftLast WoodenShield
+         gosub XIIxClickNWait 30 170 #TRUE !g_GumpName !g_GumpSize ;Armor
+         gosub XIIxClickNWait 230 70 #TRUE !g_GumpName !g_GumpSize ;Wooden Shield
+         }
+
+      ;------Carpentry: Weapon-----
+      if !Item = ShepCrook
+         {
+         set !CraftLast ShepCrook
+         gosub XIIxClickNWait 30 150 #TRUE !g_GumpName !g_GumpSize ;Weapon
+         gosub XIIxClickNWait 230 70 #TRUE !g_GumpName !g_GumpSize ;Shepards Crook
+         }
+      if !Item = QuarterStaff
+         {
+         set !CraftLast QuarterStaff
+         gosub XIIxClickNWait 30 150 #TRUE !g_GumpName !g_GumpSize ;Weapon
+         gosub XIIxClickNWait 230 90 #TRUE !g_GumpName !g_GumpSize ;Quarter Staff
+         }
+      if !Item = Bokuto
+         {
+         set !CraftLast Bokuto
+         gosub XIIxClickNWait 30 150 #TRUE !g_GumpName !g_GumpSize ;Weapon
+         gosub XIIxClickNWait 230 130 #TRUE !g_GumpName !g_GumpSize ;Bokuto
+         }
+      if !Item = Fukiya
+         {
+         set !CraftLast Fukiya
+         gosub XIIxClickNWait 30 150 #TRUE !g_GumpName !g_GumpSize ;Weapon
+         gosub XIIxClickNWait 230 150 #TRUE !g_GumpName !g_GumpSize ;Fukiya
+         }
+      if !Item = BlackStaff
+         {
+         set !CraftLast BlackStaff
+         gosub XIIxClickNWait 30 150 #TRUE !g_GumpName !g_GumpSize ;Weapon
+         gosub XIIxClickNWait 380 270 #TRUE !g_GumpName !g_GumpSize ;Next
+         gosub XIIxClickNWait 230 170 #TRUE !g_GumpName !g_GumpSize ;Black Staff
+         }
+      if !Item = WildStaff
+         {
+         set !CraftLast WildStaff
+         gosub XIIxClickNWait 30 150 #TRUE !g_GumpName !g_GumpSize ;Weapon
+         gosub XIIxClickNWait 230 190 #TRUE !g_GumpName !g_GumpSize ;Wild Staff
+         }
+      }
+   if !ExitGump = #TRUE
+      gosub XIIxClickNWait 30 450 #FALSE ;exit
+   Namespace Pop
+return
+
+;####################
+;SUB DISPLAY_M_SKILL
+;####################
+sub Display_M_Skill
+	set %Boards 0
+	menu Clear
+	menu Window Title XIIxCarp - #CHARNAME - #SHARD
+	menu Window Color Black
+	menu Window Size 310 60
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color Silver
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+	menu Text CurrentSkill 5 10 Current Skill:
+	menu Text GainedSkill 125 10 Gained:
+	menu Text Boards 5 40 Boards: %Boards
+;	menu Text RunTime 125 40 Run Time: 0
+	menu Font Color White
+	menu Edit M_Skill_Current 82 5 35
+	menu Edit M_Skill_Gained 175 5 35
+	menu Font Color WindowText
+	menu Font BGColor BtnFace
+	menu Button Pause 230 5 55 20 Pause
+	menu Show 100 10
+return
+

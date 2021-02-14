@@ -1,0 +1,4155 @@
+;==================================
+; Script Name: Runebook Mining
+; Author: Spewy
+; Version: 3.5
+; Client Tested with: 5.0.1c
+; EUO version tested with: 1.5 build 62
+; Shard OSI / FS: OSI Tested
+; Revision Date: October 19th, 2005
+; Public Release: September 16th, 2003
+; Purpose: Efficient mining with the use of runebooks and pack animal
+;==================================
+GoSub InitializeRuneBookMiningBySpewy  ; Do not change/remove this line
+
+Set %UseInteractiveSetup #true ; ******* Set to #false to manually set the values for variables ******
+
+If %UseInteractiveSetup
+   GoSub InteractiveDefaults
+
+; ********* MANUAL ENTRY OF VARIABLES ***************
+If ! %UseInteractiveSetup
+{
+   LinesPerCycle %lpsFast
+;*********** REQUIRED Variables  ******************
+   ; ---------- Backpacks and Home Base Setup ----------
+   Set %BaseRunebook XXXXXXX ; Set this to the ID of your House or Bank Runebook
+   Set %NumBaseRunes 2 ; *** NEW *** Set the Total Number of Base runes to randomly use
+   Set %BaseRune1 5 ; The position of the house/bank rune in the runebook (1=First rune, 16=last rune)
+   Set %BaseRune2 6 ; An alternative rune just in case your first one is blocked (1=First rune, 16=last rune)
+
+   ; For House Drop-off
+   Set %SecureId XXXXXXX ; Set to your HOUSE Secure ID (best if on stairs 2 squares away from recall spot)
+
+   Set %BankDrop #false ; Drop ore at the bank? #true = Bank, #false = House (Default)
+   Set %OreBagId XXXXXXX ; Set to the backpack id INSIDE your bank or house secure (Needed: House and Bank)
+   ;---------- Mining Runebook Setup --------------------
+   ; GoSub AddRunebook <RuneBook ID> <# of Mining Runes> [Color] [External Definition Filename]
+   ; GoSub AddRunebook XXXXXXX 16
+
+   ; Examples: (!!! Make sure you delete the semicolon ';' !!!) (!!! Filename must not contain spaces !!!)
+   ; GoSub AddRunebook XXXXXXX 14 %Valorite SpewRunes.euo
+   ; GoSub AddRunebook XXXXXXX 11 %Verite SpewRunes.euo
+   ; GoSub AddRunebook XXXXXXX 16 %Agapite SpewRunes.euo
+
+   ; *** LOOK FOR *** SetDigLocations subroutine to enter your mining locations
+
+;********* OPTIONAL Variables *********
+   ;---------- Bonded Packhorse/Packllama Setup ----------
+   Set %UsePackAnimal #false ; Use #true to use a bonded pack animal, #false otherwise
+   Set %PackAnimalId XXXXXXX ; The pack animal ID (use a dagger on it and look at #lTargetId)
+   Set %PackAnimalBagId XXXXXXX ; The Container ID of the pack animal backpack (Open Pack and use #ContId value)
+   Set %PackAnimalDropId XXXXXXX ; Backpack INSIDE pack animal backpack where the ore will be unloaded
+
+   ;---------- Miscellaneous Variables ----------
+   Set %MaxWeight 360 ; Set this to the weight you would like to stop digging at 400 for trammel 380 for felluca
+   Set %RegSuit #false ; #false = Restock regeants, #true = Do not need regeants
+   Set %MineUseTime 15 ; Time between shovel usage is much smaller (For 'You must wait...' messages while mining set this higher)
+   Set %UseTime 23 ; The wait between item usage other than shovels (For 'You must wait...' message when not mining set this higher)
+
+   Set %HideMineInFel #true ; *** NEW *** Hide when mining in Feluca only
+   Set %HideMineElsewhere #false ; *** NEW *** Hide when mining even when not in Fel
+   Set %HideWhileManaWait #true ; *** NEW *** Hide when you are waiting for mana to regenerate
+   Set %HideOnPackUnload #true ; *** NEW *** Hide when you unload to the pack animal
+   Set %HideOnBaseUnload #true ; *** NEW *** Hide when you unload to your bank/house
+
+   Set %ShowStatus #true ; Show the status window while mining (Really should be #true, pause/escape button are on the status window)
+   Set %MinShovels 2 ; Set to the minimum number of shovels to carry when leaving Bank/House (Use up all those damn sturdy shovels)
+   Set %UseTinkering #true ; In case you don't have enough tinkering to make shovels (Make sure you set %MinShovels
+   Set %MakeTwoShovels #true ; Make 2 shovels when you have to make a shovel
+   Set %UseAnyColourIngot #false ; *** NEW *** Change this to true if you want the script to pickup coloured ingots from your bank/secure to tinker with
+   Set %TravelMethod 0 ; *** NEW *** Change this to True for Magery, False for Chivalry
+   Set %GiveUpTime 20 ; # of *seconds* of no successful mining strikes before script moves to the next mining spot
+
+   ;---------- Walking directions to House Secure after Recall ---------------
+   Set %StandLocationX 0 ; Set these three variables to #CharPosX, #CharPosY, #CharPosZ when you have your
+   Set %StandLocationY 0 ;   character standing in the spot close enough to unload the ore
+   Set %StandLocationZ -1
+
+   Set %DoorID XXXXXXX ; To use a door heading to %StandLocation, provide the ID of the door (double click door, use #LObjectID)
+   Set %DoorUseX 0 ; Set these three variables to #CharPosX, #CharPosY, #CharPosZ when you have your
+   Set %DoorUseY 0 ;   character standing in the spot close enough open the door
+   Set %DoorUseZ -1
+   ;---------- Enemy Detection and Evasion ---------------
+   Set %RedEscape #true ; Run the escape sequence if a red is detected
+   Set %RedCheckNPC #false ; Take extra time to see if Red found is a Red Healer
+   Set %TrackPackAnimal #true ; If your pack animal (if used) moves away from you, the escape sequence is run
+   Set %EscapeOnMonsterSighting #true ; #true: When a monster targets you, the script will try to escape (even before damage is done)
+   Set %HighThreatMonster N/A ; Upon the sighting of the specified monsters you will immediately try to escape
+   Set %NoThreatMonster GD ; (Corpsers, Reapers) Specified monsters will not cause an escape attempt (will still escape on damage)
+   Set %PauseAfterEscape #false
+   Set %EscapeOnDamage #true ; #true: Run the Escape sequence when you take more than %DamageThreshold damage
+   Set %DamageThreshold 10 ; the amount of damage before the escape is triggered [Fixes the escape problem caused by items that increase Hit Points]
+   Set %EscapeRecallTarget XXXXXXX ; ID of runebook or rune to target when you click on the ESCAPE button.
+                                   ; Leave as is and script will open house runebook and recall from there
+                                   ; Spewy sets this to %BaseRunebook and in UO sets the runebook default rune to be the house rune.
+   Set %MinutesBeforeReturn 20 ; Minutes to avoid the dangerous rune location (NOT TESTED, PLEASE POST IF IT WORKS)
+   Set %CureWithMagery #true ; Attempts to cast Cure after an escape attempt (after you press Run Macro after the pause)
+   Set %GrHealAfterEscape #true ; Attempts to cast Greater Heal after an escape attempt (after you press Run Macro after the pause)
+   Set %WaitForMana #true ; Make sure you have enough mana to recall to and recall out of a mining location (32 mana)
+   Set %MountBeforeRecall #true ; #true to mount your beetle before recalling to a mining location (less chance of loosing the beetle especially if you have hiding)
+
+   ;---------- Mining Filter Setup ---------------
+   Set %BringUpMenuForFilters #true ; Brings up a selection menu for which colors to mine, and prospect
+   Set %UseProspector %NoColor ; Add (literally +) all the colors you want prospected !!! Spaces between everything are required !!!
+   Set %MineFor %AllColors ; Add (using +) all the colors you wish to mine (filters runebooks used)
+   ; Color Variables:
+   ; %AllColors, %NoColor, %Iron, %Dull, %Shadow, %Copper %Bronze, %Gold, %Agapite, %Verite, %Valorite, and %UnknownColor
+   ; Examples:
+   ; Set %UseProspector %UnknownColor + %Dull + %Bronze + %Agapite ; Prospect Dull Copper, Bronze, Agapite and any unlabelled runebooks
+   ; Set %MineFor %AllColors ; Use all runebooks
+   ; Set %MineFor %Bronze + %Gold ; Use Bronze and Gold runebooks ('Set %UseProspector %Bronze' and you only get Gold ore)
+
+   ;---------- Mining Efficiency Variables ------------
+   ; These variables are intended for people wanting to increase mining efficiency as much as possible.
+   ; Choosing good mining locations (w/ multiple veins per rune) will yield easy improvements
+   Set %DumpIron #true ; #true results in large IRON ore to be dropped on exisint piles of ore within reach
+                           ; Note: I manually place large iron ore in a visible spot 2 squares from me (saw 12% improvement))
+   Set %NextRuneOnBaseUnload #true ; #true results in recalling to the next rune after Unloading to Bank/House [Suggested by Paton]
+   ; This is displayed on the the status window (Keep track of your mining efficiency)
+   Set %TrackGPValue %ShowStatus ; Tracks how much gold (equivalent) you have mined based on the ore evaluation set below
+  
+   ;---------- Logging Variables ----------
+   ; [REQUIRES: ALLOW EXECUTE and the file Save.js, saves to MiningSpots.txt]
+   Set %LogMiningResults #false ; Saves how many large color/iron ore is mined at each mining location
+
+   ;------------- Siege Support -------------
+   Set %CastGate #false
+   ; Set %UseGateScrolls #false ; Support in future versions
+
+   ;---------- UOAssist Integration Setup ----------
+   ; For these variables Key is the keystroke (A-Z, 0-9, F1 to F12) and the Mod comes from the list of EUO's Key function (Alt, Ctrl, Shift)
+
+   ; *** NOTE *** This area was not tested, please report any problems *** NOTE ***
+   ; Tinker Tool creation UOA macro (Should Use Item Type (tinker tools), Choose Tinker Tool, Close Tinker Menu)
+   Set %UOATinkerToolKey N/A
+   Set %UOATinkerToolMod N/A
+   Set %UOATinkerToolWait 10s
+   ; Shovel creation UOA macro (Should Use Item Type (tinker tools), Choose Shovel, Close Tinker Menu)
+   Set %UOAShovelKey N/A
+   Set %UOAShovelMod N/A
+   Set %UOAShovelWait 10s
+   ; Escape UOA macro key (If this is defined, the Escape button will press this key and then pause the script)
+   Set %UOAEscapeKey N/A
+   Set %UOAEscapeMod N/A
+
+   LinesPerCycle %lpsNormal
+}
+
+;********* User Defined Digging Locations Setup *******************************
+Sub SetDigLocations
+   GoSub RunExternalDefinitions ; Do not change/remove this line
+
+   ; You can define multiple mining spots (veins) per recall location (rune). Undefined mining locations will only work in a cave (it mines at your feet)
+   ; There is a howto post on the thread for this script on how to set this up
+
+   GoSub FindRunebook XXXXXXX ; or %_RuneBook1 if you used the Interactive Setup and do not know the IDs
+   Set %sdlBook %return
+   if %sdlBook > 0
+   {
+      ; SetUserDigCoord - *** Specify world coordinate mining locations ***
+      ; Mine the location then use #LTargetX, #LTargetY, #LTargetZ, #LTargetKind #LTargetTile in EUO (Ctrl-R to View variables)
+      ;
+      ; GoSub SetUserDigCoord <RuneBook Index> <Rune Index 1-16> <#lTargetX> <#lTargetY> <#lTargetZ> <#lTargetKind> <#lTargetTile>
+
+      ; Look at http://www.easyuo.com/forum/viewtopic.php?t=200 for tutorial on how to set these up
+   }
+   GoSub FindRunebook XXXXXXX ; or %_RuneBook2
+   Set %sdlBook %return
+   if %sdlBook > 0
+   {
+      ; See above
+   }
+Return
+
+;*******************************************************
+;******** DONT CHANGE ANYTHING PAST HERE
+;*******************************************************
+LinesPerCycle %lpsFast
+Set %FixForUORecallBug #false ; I left this in here just in case the UO Bug hasn't been fixed
+
+Set %HaveTargetted #false
+Set %HaveProspected #false
+Set %LastMadeWasShovel #false
+Set %BackpackId null
+Set %IsMounted #true
+Set %UsingBeetle #true
+Set %LastEnemyID #enemyID
+
+Set %gNeedsCoordConv #false
+Set #sCnt2 0
+Set #sCnt 0
+Set %_uowLastUse #scnt2
+Set %TryHideAgain 0
+
+Set %LogTimeUsage #false ; Log how much time major operations take and when they happen (Optimize the script, so internal use)
+
+ChooseSkill tink
+Set %TinkerSkill #skill
+GoSub SetDigLocations
+LinesPerCycle %lpsNormal
+
+;*****************************************
+;******** Start Up Code
+;*****************************************
+GoSub MineForMenu
+Set %iRune 1
+Set %iSpot 1
+Set %iRuneBook 0
+GoSub CheckInit
+GoSub IncrementRuneBook
+GoSub CreateStatusWindow
+;*****************************************
+;******** Main Loop
+;*****************************************
+GoSub RecordTimingComment Starting...
+MainLoop:
+   GoSub RecallMine
+
+   CheckShovel:
+   GoSub FindShovel
+   If %return = Escape
+   {
+      GoSub Escape
+      Goto MainLoop
+   }
+   GoSub Digger
+   If %return = Escape
+      GoSub Escape
+   If %return = CheckShovel
+      goto CheckShovel
+goto MainLoop
+
+;*****************************************
+;******** Tinkering
+;*****************************************
+; ** FindShovel **
+; Tries to find a shovel, if non are found will initial
+; tinkering or recall back to home base
+Sub FindShovel
+   GoSub UpdateStatusWindow FindShovel
+   FindShovelStart:
+      GoSub CheckEscapeStatus
+      If %CheckEscapeStatus
+         Return
+
+      GoSub FindUsableMiningTool %BackpackId
+      If #FindId = X
+      {
+         if %UseTinkering
+         {
+            If %TinkerSkill >= 900
+               Set %_fsIngotsNeeded 10
+            Else
+               Set %_fsIngotsNeeded 20
+            FindItem %IngotType C_ , %BackpackId
+            If #FindKind = -1 || #FindStack < %_fsIngotsNeeded
+               GoSub UnloadAtBase #false
+            GoSub MakeShovel
+            Goto FindShovelStart
+         }
+         if ! %UseTinkering
+         {
+            GoSub UnloadAtBase #false
+            Goto FindShovelStart
+         }
+      }
+Return
+
+; ** MakeShovel **
+; Will make 1-2 shovels using tinkering - Using the menus or
+; UOA macros if they have been setup
+Sub MakeShovel
+   GoSub CheckEscapeStatus
+   If %CheckEscapeStatus
+      Return
+
+   Set %_msTimeStart #sCnt2
+   GoSub UpdateStatusWindow MakeShovel
+
+   FindItem %TinkerType C_ , %BackpackId
+   Wait 5
+   If #FindKind <> -1 && #FindCnt = 1
+   {
+      If %UOATinkerToolKey <> N/A
+      {
+         Key %UOATinkerToolKey %UOATinkerToolMod
+         Wait %UOATinkerToolWait
+      }
+      If %UOATinkerToolKey = N/A
+      {
+         GoSub BringUpTinkerMenu #FindId
+         Wait 10
+         GoSub ClickTinkerButton 30 110
+         If %return
+            GoSub ClickTinkerButton 230 130
+         Set %LastMadeWasShovel #false
+      }
+   }
+   FindItem %TinkerType C_ , %BackpackId
+   If #FindKind <> -1
+   {
+      If %UOAShovelKey <> N/A
+      {
+         Key %UOAShovelKey %UOAShovelMod
+         Wait %UOAShovelWait
+      }
+      If %UOAShovelKey = N/A
+      {
+         GoSub BringUpTinkerMenu #FindId
+         If %LastMadeWasShovel  ; If the last thing we made was a shovel, its easy!
+            GoSub ClickTinkerButton 285 550
+         If ! %LastMadeWasShovel
+         {
+            GoSub ClickTinkerButton 30 110
+            If %Return
+            {
+               GoSub ClickTinkerButtonNext
+               GoSub ClickTinkerButton 230 70
+            }
+         }
+         If %return
+         {
+            Set %LastMadeWasShovel #true
+            If %MakeTwoShovels
+               GoSub ClickTinkerButton 285 550
+         }
+      }
+      Set %_msCancelX #ContPosX + 10
+      Set %_msCancelY #ContPosY + 10
+      Click %_msCancelX %_msCancelY R ; Close tinker menu
+   }
+   GoSub RecordTiming %_msTimeStart MakeShovel
+Return
+
+; ** ClickTinkerButton **
+Sub ClickTinkerButton
+   Set %_ctbX %1 + #ContPosX
+   Set %_ctbY %2 + #ContPosY
+   Click %_ctbX %_ctbY
+   Gosub waitForSysVar contSize <> 550_587 30
+   Gosub waitForSysVar contSize = 550_587 30
+   Wait 5
+Return
+
+; ** ClickTinkerButtonNoWait **
+Sub ClickTinkerButtonNext
+   Set %_ctbnX 385 + #ContPosX
+   Set %_ctbnY 290 + #ContPosY
+   Click %_ctbnX %_ctbnY F
+   Wait 2s
+Return
+
+; ** BringUpTinkerMenu **
+; Lag resistant opening of tinker menu
+; Parameter 1: ID of tinker tool
+Sub BringUpTinkerMenu
+   Set %_butmTinkerTool %1
+   Wait 5 ; A lot of times the tinker tool usage get 'You must wait...'
+   _butmTinkerMenu:
+      GoSub UseObject %_butmTinkerTool #false #false
+      Gosub waitForSysVar contSize = 550_587 30
+      if ! %return
+         goto _butmTinkerMenu
+Return
+
+;*****************************************
+;******** Digging routines
+;*****************************************
+; ** Digger **
+; The main digging sub, this is called (at least) once per mining
+; location.  It will prospect, hide, mine, unload to pack, unload to base
+; Returns: GotoNextLocation. StayAtLocation, CheckShovel
+Sub Digger
+    _diggerStart:
+   Set %_diggerLastStrike #sCnt
+   Set %_diggerNoReponse #false
+
+   ; Give the reds less time to react, as soon as we come in, check if they are around and hide before dismounting
+   GoSub CheckEscapeStatus
+   If %CheckEscapeStatus
+      Return
+   If ( ( %HideMineInFel && #cursKind = 0 ) || ( %HideMineElsewhere && #cursKind <> 0 ) ) && ( H notin #CharStatus ) && #scnt > %TryHideAgain
+   {
+      Event Macro 13 21
+      Set %TryHideAgain #scnt + 12
+   }
+
+   GoSub ShouldProspect
+   Set %_digShouldProspect %return
+   If ! %_digShouldProspect
+      GoSub DismountBeetle
+
+   _diggerLoop:
+      GoSub UpdateStatusWindow Digging
+      GoSub CheckEscapeStatus
+      If %CheckEscapeStatus
+         Return
+      If ( ( %HideMineInFel && #cursKind = 0 ) || ( %HideMineElsewhere && #cursKind <> 0 ) ) && ( H notin #CharStatus ) && #scnt > %TryHideAgain
+      {
+         Event Macro 13 21
+         Set %TryHideAgain #scnt + 12
+      }
+      If ! %HaveTargetted && %_digShouldProspect
+         GoSub MountBeetle
+
+      GoSub FindUsableMiningTool
+      GoSub UseObject #Result %HaveTargetted #true
+      Set %_digShovelUsed ( %return <> Blocked )
+      if %_digShovelUsed
+      {
+         GoSub TargetMiningLocation
+         If %return = Failed
+         {
+            Set %return CheckShovel
+            Return
+         }
+      }
+      LinesPerCycle %lpsFast
+      GoSub CheckEscapeStatus
+      If %CheckEscapeStatus
+         Return
+
+      GoSub CheckProgress
+      Set %CheckProgress %return
+      If %CheckProgress = Success
+      {
+         If %gNeedsCoordConv
+            GoSub RedefineDigSpot
+         Set %_diggerLastStrike #sCnt
+         Set %_diggerNoReponse #false
+      }
+      If %CheckProgress = MustWait
+         goto _diggerLoop
+      If %CheckProgress = Dismount
+      {
+         Set %_diggerNoReponse #false
+         GoSub DismountUnexpected
+      }
+      If %CheckProgress = NoResult
+         Set %_diggerNoReponse #true
+      If %CheckProgress = GotoNextLocation || %CheckProgress = CheckShovel
+         Return
+      If %CheckProgress = StayAtLocation
+         Goto _diggerStart
+
+      If ( %_diggerLastStrike + %GiveUpTime < #sCnt )
+      {
+         GoSub IncrementRuneIndex
+         Set #MenuButton N/A
+         If %return = GotoNextLocation
+            Return
+         If %return = StayAtLocation
+            Goto _diggerStart
+      }
+      LinesPerCycle %lpsNormal
+
+      If %_digShovelUsed && %_digShouldProspect && ! %HaveProspected
+      {
+         GoSub CheckEscapeStatus
+         If %CheckEscapeStatus
+            Return
+         GoSub UpdateStatusWindow Prospecting
+         FindItem %ProspType C_ , %BackpackId
+         If #FindKind <> -1
+         {
+            GoSub UseObject #FindId #false #false
+            GoSub TargetMiningLocation
+            GoSub DismountBeetle
+         }
+         Set %HaveProspected #true
+      }
+   goto _diggerLoop
+return
+
+Sub CountUsableMiningTool
+   Set %_cumtCount 0
+   _cumtLoop:
+      FindItem %DiggingTools C_ , %BackpackId
+      If #FindKind <> -1
+      {
+         GoSub IsUsableMiningTool
+         If #Result
+            Set %_cumtCount %_cumtCount + 1
+         IgnoreItem #FindId
+         goto _cumtLoop
+      }
+   IgnoreItem Reset
+Return %_cumtCount
+
+Sub FindUsableMiningTool
+   _fumtLoop:
+      FindItem %DiggingTools C_ , %BackpackId
+      If #FindKind <> -1
+      {
+         GoSub IsUsableMiningTool
+         If ! #Result
+         {
+            IgnoreItem #FindId
+            goto _fumtLoop
+         }
+      }
+   IgnoreItem Reset
+Return #FindId
+
+Sub IsUsableMiningTool
+   If #FindType notin %PickAxe || #FindCol <> 0
+      Return #true
+   GoSub EventProperty #FindId
+Return ( Gargoyle notin #Property )
+
+Sub EventProperty
+   Event Property %1
+   Set %_propTimeout #sCnt + 4
+   _propLoop:
+   If #Property = 0 && #sCnt < %_propTimeout
+      goto _propLoop
+
+Return
+
+; ** TargetMiningLocation **
+; Gets the mining target for this location, waits for the target cursor
+; and actually does the targetting
+; Returns: Failed, Success
+Sub TargetMiningLocation
+   target 2s
+   If #TargCurs = 0
+   {
+      Set %return Failed
+      Return
+   }
+   Set %isClickLoc #true
+   If ! %HaveTargetted
+   {
+      GoSub GetUserDigLocation %iRuneBook %iRune %iSpot
+
+      if %return = InCoords
+         Set %isClickLoc #false
+      if %return <> InCoords
+         Set %gNeedsCoordConv #true
+   }
+   _tmlTargetAgain:
+      If #TargCurs = 1
+      {
+         If %HaveTargetted
+            Event Macro 22 0
+         If ! %HaveTargetted
+         {
+            if %isClickLoc
+               Click %DigSpotX %DigSpotY d
+            if ! %isClickLoc
+            {
+               Set #LTargetX %DigSpotX
+               Set #LTargetY %DigSpotY
+               Set #LTargetZ %DigSpotZ
+               Set #LTargetKind %DigSpotKind
+               Set #LTargetTile %DigSpotTile
+               Event Macro 22 0
+            }
+         }
+         Goto _tmlTargetAgain
+      }
+   Set %HaveTargetted #true
+   Set %return Success
+Return
+
+;*****************************************
+;******** Check mining progress
+;*****************************************
+; ** CheckProgress **
+; Checks weight and initiates unload, mining failur attempts, and report whether
+; mining is progressing
+; Returns: Success, GotoNextLocation, StayAtLocation, Dismount, MustWait
+Sub CheckProgress
+   Set %return Unknown
+   If #Weight > %MaxWeight
+   {
+      If %UsePackAnimal
+         GoSub UnloadToPackAnimal
+      If ! %UsePackAnimal
+         GoSub UnloadAtBase #false
+   }
+   for %_cpIndex 1 4
+   {
+      ScanJournal %_cpIndex
+      if #journal = N/A
+         Return
+      If ( you_dig_some in #journal ) || ( you_loosen_some_rocks in #journal )
+      {
+         Set %return Success
+         Goto _cpReturn
+      }
+      If ( There_is_no_metal_here_to_mine in #journal ) || ( that_is_too_far_away in #journal ) || ( you_can't_mine_that in #journal ) || ( you_can't_mine_there in #journal ) || ( you_cannot_see_that_location in #journal )
+      {
+         GoSub IncrementRuneIndex
+         Goto _cpReturn
+      }
+      If mine_while_riding in #journal
+      {
+         Set %return Dismount
+         Goto _cpReturn
+      }
+      If You_must_wait in #journal
+      {
+         Set %return MustWait7
+         Goto _cpReturn
+      }
+      If ( #Weight > %MaxWeight ) || ( Your_backpack_is_full in #journal )
+      {
+         Set %_cpReturnValue %return
+         If %UsePackAnimal
+            GoSub UnloadToPackAnimal
+         If ! %UsePackAnimal
+            GoSub UnloadAtBase #false
+         Set %_diggerLastStrike #sCnt
+         Goto _cpReturn
+      }
+   }
+   Return
+
+   _cpReturn:
+      deletejournal
+Return
+
+;*****************************************
+;******** Enemy Detection and Evasion
+;*****************************************
+; ** Escape **
+; Does its best attempt to recall away.  If successful it will attempt
+; to cure and heal before going to the next rune
+Sub Escape
+   _escapeTryRecallAgain:
+   Set %_escapeLocationX #charPosX
+   Set %_escapeLocationY #charPosY
+   Set #MenuButton N/A
+      If %UOAEscapeKey = N/A
+   {
+      If %EscapeRecallTarget <> XXXXXXX
+{
+         wait 30
+         GoSub RecallWithoutRunebook %EscapeRecallTarget
+}
+      If %EscapeRecallTarget = XXXXXXX
+         GoSub Travel %BaseRunebook %BaseRune1 %TravelMethod #true
+   }
+   If %UOAEscapeKey <> N/A
+      Key %UOAEscapeKey %UOAEscapeMod
+   GoSub UpdateStatusWindow Escape
+
+   GoSub GetUserAttention Emergency
+
+   If %PauseAfterEscape
+   {
+      ; Press [Play] when you are safe at your escape destination
+      pause
+      ; Press [Play] when you are safe at your escape destination
+   }
+   Else
+   {
+      Set %_escapeRecallTimeout #sCnt + 10
+      _escapeCheckRecall:
+         If #sCnt > %_escapeRecallTimeout
+         {
+            GoSub CheckForConnDeath
+            Goto _escapeTryRecallAgain
+         }
+         If %_escapeLocationX = #charPosX && %_escapeLocationY = #charPosY
+            Goto _escapeCheckRecall
+   }
+
+   GoSub IncrementRuneIndex 1
+   Set %LastEnemyID #enemyID
+
+   If %UsePackAnimal
+      Msg All Follow Me$
+
+   Wait 1s ; Allow time for recall and character information to populate (#charStatus)
+
+   Set %_escapeCureAttempt 0
+   _escapeCheckPoison:
+   If %CureWithMagery && %_escapeCureAttempt < 7 && ( C in #charStatus )
+   {
+      If %TravelMethod = 0
+         event macro 15 201
+      Else
+         event Macro 15 10
+      Target 6s
+      event Macro 23 0
+      Wait 2s
+      Set %_escapeCureAttempt %_escapeCureAttempt + 1
+      Goto _escapeCheckPoison
+   }
+   If C in #charStatus
+   {
+      GoSub GetUserAttention Emergency
+      Display OK You must cure yourself to continue (Press Play After)
+      Pause
+      Goto _escapeCheckPoison
+   }
+
+   Set %_escapeHealAttempt 0
+   _escapeCheckHP:
+   If %GrHealAfterEscape && %_escapeHealAttempt < 7 && ( #hits < #MaxHits )
+   {
+      If %TravelMethod = 0
+         event Macro 15 202
+      Else
+         event Macro 15 28
+      Target 6s
+      event Macro 23 0
+      Wait 10
+      Set %_escapeHealAttempt %_escapeHealAttempt + 1
+      Goto _escapeCheckHP
+   }
+   If #hits < #MaxHits
+   {
+      GoSub GetUserAttention
+      Display OK You must heal yourself to full to continue  (Press Play After)
+      Pause
+      Goto _escapeCheckHP
+   }
+   If ! %BankDrop
+   {
+      FindItem %SecureId G_2
+      If #FindKind <> -1
+         GoSub UnloadAtBase #true
+   }
+Return
+
+; ** CheckEscapeStatus **
+; Looks if there are reasons for the script to escape. Reds, damage, pack animal moving
+; Returns: Escape, N/A
+Sub CheckEscapeStatus
+   Set %return N/A
+   If %ShowStatus && #MenuButton = Escape
+   {
+      Set %return Escape
+      Set %escapeReason User , #spc , Request
+   }
+   If %EscapeOnDamage && #Hits + %DamageThreshold < #MaxHits
+   {
+      Set %return Escape
+      Set %escapeReason Damage
+   }
+   If %RedEscape && %return = N/A && #cursKind = 0
+   {
+      _cesSearch:
+         FindItem NAB_OAB_HS_IS
+         If #FindKind <> -1
+         {
+            If #FindRep <> 6 || #FindId = #CharID || #FindId in #CharID
+            {
+               IgnoreItem #findId
+               Goto _cesSearch
+            }
+            If %RedCheckNPC
+            {
+            }
+            Set %return Escape
+            Set %escapeReason Red , #spc , Sighted
+         }
+   }
+   If %HighThreatMonster <> N/A
+   {
+      _cesSearch2:
+         FindItem %HighThreatMonster
+         If #FindKind <> -1
+         {
+            If #FindId = #CharID || #FindId in #CharID
+            {
+               IgnoreItem #findId
+               Goto _cesSearch2
+            }
+            Set %return Escape
+            Set %escapeReason Monster , #spc , Threat
+         }
+   }
+   If %TrackPackAnimal && %UsePackAnimal && %return = N/A && ! %IsMounted
+   {
+      FindItem %PackAnimalId
+      If #FindDist > 1
+      {
+         Set %return Escape
+         Set %escapeReason Packy , #spc , Left
+         Msg All Follow Me$
+      }
+   }
+   If %EscapeOnMonsterSighting && %LastEnemyID <> #enemyID
+   {
+      Set %LastEnemyID #enemyID
+      FindItem %LastEnemyID
+      if #FindType notin %NoThreatMonster
+      {
+         Set %return Escape
+         Set %escapeReason Monster , #spc , Target
+      }
+   }
+   Set %CheckEscapeStatus ( %return <> N/A )
+
+   If ! %CheckEscapeStatus && %ShowStatus && #MenuButton = PauseBut
+   {
+      GoSub HandlePauseButton
+   }
+Return
+
+;*****************************************
+;******** UnloadAtBase
+;*****************************************
+; ** UnloadAtBase **
+; Unloads ore at the house or bank, recalls to the location, opens up all the containers
+; moves all the ore to the bag then picks up whatever is needed (ingots, shovels, prosp tools)
+; Parameter 1: boolean Need to recall or not
+Sub UnloadAtBase
+   Set %AlreadyAtBase %1
+   If ! %AlreadyAtBase
+   {
+      GoSub CheckEscapeStatus
+      If %CheckEscapeStatus
+         Return
+
+      If %MountBeforeRecall
+         GoSub MountBeetle
+      Set %_uabBaseRuneIndex ( #Random % %NumBaseRunes ) + 1
+      Set %_uabTimeStart #sCnt2
+      _uabStart:
+         GoSub Travel %BaseRunebook %BaseRune . %_uabBaseRuneIndex %TravelMethod #true
+         if %return = Blocked
+         {
+            Wait 6s
+            Set %_uabBaseRuneIndex %_uabBaseRuneIndex + 1
+            if %_uabBaseRuneIndex > %NumBaseRunes
+               Set %_uabBaseRuneIndex 1
+            Goto _uabStart
+         }
+   }
+
+   If %UsePackAnimal
+   {
+      GoSub DismountBeetle
+      Msg All Follow Me$
+      If ! %AlreadyAtBase
+         Wait 1s
+   }
+   If %StandLocationX <> 0
+   {
+      GoSub UpdateStatusWindow MoveToPosition
+      If %DoorID <> XXXXXXX
+      {
+         _uabRetryPFDoor:
+         GoSub PathFind %DoorUseX %DoorUseY %DoorUseZ 6
+         if ! %Return
+            goto _uabRetryPFDoor
+         GoSub UseObject %DoorID #false #false
+      }
+
+      _uabRetryPFSecure:
+      GoSub PathFind %StandLocationX %StandLocationY %StandLocationZ 6
+      If ! %Return
+         goto _uabRetryPFSecure
+   }
+
+   GoSub UpdateStatusWindow UnloadingToBase
+   GoSub UpdateMiningResults
+   GoSub OpenAnyContainer PaperDoll #CharID 534 1 5
+   GoSub OpenAnyContainer Backpack %BackpackId 650 335 5
+   If %BankDrop
+   {
+      GoSub OpenAnyContainer Bank N/A 27 49 5
+      Set %_uabSecureId #ContId
+   }
+   If %HideOnBaseUnload && H notin #CharStatus
+      Event Macro 13 21
+   If ! %BankDrop
+   {
+      FindItem %SecureId G
+      If #FindDist > 2
+         Move #findX #findy 2 5s
+      GoSub OpenAnyContainer Container %SecureId 27 49 5
+      Set %_uabSecureId %SecureId
+   }
+   FindItem %OreBagId
+   If #FindKind = -1
+   {
+      Display OK Cannot find Backpack in Bank Box/House Secure to drop off ore.$Is it missing or has it not been specified correctly (OreBagId).$$The script will now stop.
+      Halt
+   }
+   If %UsePackAnimal
+   {
+      GoSub OpenAnyContainer Container %PackAnimalBagId 40 480 5
+      ;FindItem %PackAnimalDropId C_ , %PackAnimalBagId
+      ;GoSub OpenAnyContainer Container #FindId 265 490 5
+      GoSub DragAnyItem %OreTypes #true %PackAnimalBagId All %OreBagId %TrackGPValue
+      GoSub DragAnyItem %GraniteType #true %PackAnimalBagId All %OreBagId #false
+      GoSub DragAnyItem %OreTypes #true %PackAnimalBagId All %OreBagId %TrackGPValue
+   }
+   GoSub DragAnyItem %OreTypes #true %BackpackId All %OreBagId %TrackGPValue
+   GoSub DragAnyItem %GraniteType #true %BackpackId All %OreBagId #false
+
+   If %UseProspector <> %NoColor
+   {
+      FindItem %ProspType C_ , %BackpackId
+      If #FindKind = -1
+      {
+         GoSub DragAnyItem %ProspType #true %_uabSecureId 1 #charid #false
+         If %return = NoneFound
+         {
+            Display YesNo Could not find any prospector's tools at the top of your bank/secure container.$$Would you like to continue without the use of a prospector's tool?
+            If #DispRes = No
+               Halt
+            Set %UseProspector %NoColor
+         }
+      }
+   }
+   if %UseTinkering
+   {
+      _uabMoreIngots:
+      FindItem %IngotType C_ , %BackpackId
+      If #FindKind = -1 || #FindStack < 40
+      {
+         GoSub DragAnyItem %IngotType %UseAnyColourIngot %_uabSecureId 60 %backpackid #false
+         If %return = NoneFound
+         {
+            Display YesNo Could not find any ingots at the top of your bank/secure container.$
+                          +Without more you will not be able to continue mining (can't make shovels)$$
+                          +Would you like to have 20 seconds to place some ingots at the top of your secure?
+            If #DispRes = No
+               Halt
+            Wait 20s
+            Goto _uabMoreIngots
+         }
+      }
+   }
+   _uabShovelLoop:
+   GoSub CountUsableMiningTool
+   If #Result < %MinShovels
+   {
+      GoSub DragAnyItem %DiggingTools #true %_uabSecureId 1 %BackpackId #false
+      If %return = NoneFound
+      {
+         If %UseTinkering
+            goto _uabBreakShovelLoop
+         Display YesNo Could not find any shovels at the top of your bank/secure container.$
+                       +You won't be able to continue without more.$$
+                       +Would you like to have 15 seconds to place shovels where script can find them?
+         If #DispRes = No
+            Halt
+         Wait 15s
+      }
+      Goto _uabShovelLoop
+   }
+   _uabBreakShovelLoop:
+
+   If ! %RegSuit
+   {
+      GoSub PickupReagent %MandrakeRoot Mandrake %_uabSecureId
+      GoSub PickupReagent %Bloodmoss Bloodmoss %_uabSecureId
+      GoSub PickupReagent %BlackPearl Black , #spc , Pearl %_uabSecureId
+   }
+   Event Macro 9 1 ; Close PaperDoll
+   GoSub SetStartOre #false
+   GoSub RecordTiming %_uabTimeStart UnloadToBase
+   If ! %AlreadyAtBase
+   {
+      If %NextRuneOnBaseUnload
+         GoSub IncrementRuneIndex 1
+      GoSub RecallMine
+   }
+Return
+
+; ** PickupReagent **
+; A support function to remove duplicate code
+; Parameter 1: ITEM_TYPE Type for Reagent
+; Parameter 2: STRING Name of Reagent for user displayed dialog
+; Parameter 3: ITEM_ID The container to look for reagents
+Sub PickupReagent
+   Set %_prRegType %1
+   Set %_prRegName %2
+   Set %_prSecureId %3
+
+   FindItem %_prRegType C_ , %BackpackId
+   If #findkind = -1 || #findstack < 20
+   {
+      _prMoreIngots:
+         GoSub DragAnyItem %_prRegType #true %_prSecureId 30 %BackpackId #false
+         If %return = NoneFound
+         {
+            Display YesNo Could not find any , #spc , %_prRegName , #spc , at the top of your bank/secure container.$
+                          +You won't be able to continue without more.$$
+                          +Would you like to have 15 seconds to place some regs at the top of your secure?
+            If #DispRes = No
+               Halt
+            Wait 15s
+            Goto _prMoreIngots
+         }
+   }
+Return
+
+;*****************************************
+;********  Pack Animal Routines
+;*****************************************
+; ** UnloadToPackAnimal **
+; Unloads ore from the backpack to the pack animal (uses DragAnyItem to do the work)
+Sub UnloadToPackAnimal
+   Set %_utpTimeStart #sCnt2
+   GoSub UpdateStatusWindow UnloadToPack
+   GoSub UpdateMiningResults
+   Set %_utpaUnload #false
+   _utpaStart:
+      FindItem %PackAnimalId
+      If #FindKind = -1
+         Set %_utpaUnload #true
+      If #FindKind <> -1
+      {
+         If #FindDist > 1
+         {
+            Msg All Follow Me$
+            Wait 1s
+            Goto _utpaStart
+         }
+
+         If %HideOnPackUnload && ( H notin #CharStatus ) && #scnt > %TryHideAgain
+         {
+            Event Macro 13 21
+            Set %TryHideAgain #scnt + 12
+         }
+         ;FindItem %PackAnimalDropId C_ , %PackAnimalBagId
+         ;If #FindKind = -1
+            ;GoSub OpenAnyContainer Container %PackAnimalBagId 40 480 5
+         ;FindItem %PackAnimalDropId C_ , %PackAnimalBagId
+         ;If #FindKind = -1
+            ;Display OK Could not find the drop bag inside the Pack Animal container$$Check PackAnimalBagId variable
+         GoSub DragAnyItem %OreTypes #true %BackpackId All %PackAnimalId #false
+         If %return = DestinationMissing
+         {
+            GoSub CheckEscapeStatus
+            If %CheckEscapeStatus
+               Return
+         }
+         If %return = ContainerFull
+            Set %_utpaUnload #true
+         GoSub DragAnyItem %GraniteType #true %BackpackId All %PackAnimalId #false
+         If %return = DestinationMissing
+         {
+            GoSub CheckEscapeStatus
+            If %CheckEscapeStatus
+               Return
+         }
+         If %return = ContainerFull
+            Set %_utpaUnload #true
+      }
+   GoSub SetStartOre #false
+   If ! %_utpaUnload
+      GoSub RecordTiming %_utpTimeStart UnloadToPack
+   If %_utpaUnload
+   {
+      GoSub RecordTiming %_utpTimeStart UnloadToPackPartial
+      GoSub UnloadAtBase #false
+   }
+Return
+
+; ** DismountUnexpected **
+; This is called to dismount when the script thought you were already dismounted
+Sub DismountUnexpected
+   GoSub UseObject #CharID #false #false
+   Set %IsMounted #false
+Return
+
+; ** DismountBeetle **
+; Dismount from your beetle, the sub will check if you are even using beetles
+; This moves the checking code to one place and removed 'if conditions' from places
+; like the Digger sub. MountBeetle is the other side of this function
+Sub DismountBeetle
+   If ! %UsePackAnimal || ! %UsingBeetle || ! %IsMounted
+      Return
+
+   FindItem %PackAnimalId G
+   If #FindKind = -1 || #FindBagId = #CharId
+   {
+      _dbLoop:
+         GoSub UseObject #CharID #false #false
+         Set %_dbTimeout #sCnt + 3
+         _dbWaitForBeetle:
+            if %_dbTimeout < #sCnt
+               Goto _dbLoop
+            FindItem %PackAnimalId
+            If #FindKind = -1
+               goto _dbWaitForBeetle
+   }
+   Set %IsMounted #false
+Return
+
+; ** MountBeetle **
+; Mount from your beetle, the sub will check if you are even using beetles
+; DismountBeetle is the other side of this function
+Sub MountBeetle
+   If ! %UsePackAnimal || ! %UsingBeetle || %IsMounted
+      Return
+
+   _mbCallBeetle:
+      FindItem %PackAnimalId
+      If #FindKind <> 1
+         Return
+      If #FindDist > 1
+      {
+         Msg All Follow Me$
+         Wait 1s
+      }
+      Set %_mbCallTimeout #scnt + 4
+      _mbWaitForBeetle:
+         If %_mbCallTimeout < #scnt
+            Goto _mbCallBeetle
+         If #FindDist > 1
+            goto _mbWaitForBeetle
+   _mbMount:
+      GoSub UseObject %PackAnimalId #false #false
+      Wait 1s
+      FindItem %PackAnimalId
+      If #FINDKIND <> -1 && #FindBagId <> #CharID
+         Goto _mbMount
+   Set %IsMounted #true
+Return
+
+;*****************************************
+;******** Runebook routines
+;*****************************************
+; ** RecallMine **
+; Recall for the purposes of going to another mining location (not escaping), waits for mana
+; and moves to the next rune if blocked
+Sub RecallMine
+   If %MountBeforeRecall
+      GoSub MountBeetle
+   If %WaitForMana && #Mana < 32
+   {
+      GoSub UpdateStatusWindow WaitMana
+      _rmWaitMana:
+         GoSub CheckEscapeStatus
+         If %CheckEscapeStatus
+            Return
+         If %HideWhileManaWait && ( H notin #CharStatus ) && #scnt > %TryHideAgain
+         {
+            Event Macro 13 21
+            Set %TryHideAgain #scnt + 12
+         }
+         If #Mana < 32
+            goto _rmWaitMana
+   }
+   _rmTryAgain:
+      GoSub Travel %_RuneBook . %iRuneBook %iRune %TravelMethod #true
+      If %return = Blocked
+      {
+         GoSub IncrementRuneIndex 1
+         goto _rmTryAgain
+      }
+   GoSub SetStartOre #true
+Return
+
+; ** RecallWithoutRunebook **
+; Recall by casting the spell and targetting a provided item
+; Parameter 1: ITEM_ID Target for the recall (rune or runebook)
+Sub RecallWithoutRunebook
+   Set %_rwrRuneTarget %1
+
+   _rwrCastRecall:
+      if %CastGate
+         Event Macro 15 51
+      Else
+      {
+          If %TravelMethod = 0
+             Event Macro 15 210
+          Else
+             Event Macro 15 31
+      }
+      Set #lTargetId %_rwrRuneTarget
+      Set #lTargetKind 1
+      Target 6s
+      If #TargCurs = 0
+         Goto _rwrCastRecall
+      Event Macro 22 0
+      if %CastGate
+      {
+         Set %_rwrGateTimeOut #sCnt + 6
+         _rwrLookForGate:
+         FindItem %GateType G_0
+         If #sCnt > %_rwrGateTimeOut
+            Goto _rwrCastRecall
+         If #FindKind = -1
+            Goto _rwrLookForGate
+         GoSub UseObject #FindID #false #false
+      }
+Return
+
+; ** Travel **
+; Slightly reworked version of Recall sub from Standard subs, handles Gates as well as recall
+; Parameter 1: ITEM_ID Runebook ID
+; Parameter 2: Integer Rune index (1-16)
+; Parameter 3: String Gate, SacredJourney, Recall
+; Parameter 4: Boolean #true if called during mining, #flase when used through Location Definer (doesn't update status window)
+Sub Travel
+   Set %_travelBookId %1
+   Set %_travelRune %2
+   If %3 = 0
+      Set %_travelType SacredJourney
+   Else
+      Set %_travelType Recall
+   Set %_travelStandard %4
+
+   Set %_travelLastMessage N/A
+
+   If %CastGate
+      Set %_travelType Gate
+
+   Set %_travelTimeStart #sCnt2
+   if %_travelStandard
+      GoSub UpdateStatusWindow Recall
+
+   Set %_pagex ( ( ( %_travelRune + 1 ) / 2 ) * 34 )
+   If ( ( %_travelRune + 1 ) / 2 ) > 4
+      Set %_pagex %_pagex + 31
+
+   _travelAgain:
+      Set %_travelOldX #CharPosx
+      Set %_travelOldY #CharPosy
+
+      _travelOpenAgain:
+         GoSub UseObject %_travelBookId #false #false
+         Gosub waitForSysVar contSize = 452_236 60
+         If ! %return
+         {
+               if %_travelStandard 2
+                  Set %_travelLastMessage %_uswLastMessage
+                  GoSub UpdateStatusWindow RecallBookError
+               Goto _travelOpenAgain
+         }
+      if %_travelLastMessage <> N/A
+         GoSub UpdateStatusWindow %_travelLastMessage
+      Wait 10
+      Set %_usePageX #ContPosX + 105 + %_pagex
+      Set %_usePageY #ContPosY + 200
+      Click %_usePageX %_usePageY F
+      Wait 5
+      deletejournal
+      Set %_usePageX #ContPosX + 140
+      If ( %_travelRune % 2 ) = 0
+         Set %_usePageX #ContPosX + 300
+      Set %_usePageY #ContPosY + 145
+      If %_travelType = Gate
+         Set %_usePageY %_usePageY + 20
+      If %_travelType = SacredJourney
+         Set %_usePageY %_usePageY + 40
+      Click %_usePageX %_usePageY F
+      Gosub waitForSysVar contSize <> 452_236 30
+
+      Set %_travelTimeout #sCnt + 10
+      _travelWaitForRecall:
+         If #SCNT > %_travelTimeout
+         {
+            If %FixForUORecallBug
+            {
+               Set %return Blocked ; This is a fix for the bug in UO, introduced in 4.0.0o
+               Return
+            }
+            goto _travelAgain
+         }
+         scanjournal 1
+         if something_is_blocking_the_location in #sysMsg
+         {
+            Set %return Blocked
+            Return
+         }
+         If for_this_spell in #journal
+         {
+            Event Macro 13 46
+            Wait 10s
+            goto _travelAgain
+         }
+         If %CastGate && You_open_a_magical in #journal
+         {
+            If %UsePackAnimal
+               Msg All Follow Me$
+            Set %_travelGateTimeOut #sCnt + 6
+            _travelLookForGate:
+            FindItem %GateType G_0
+            If #sCnt > %_travelGateTimeOut
+               Goto _travelAgain
+            If #FindKind = -1
+               Goto _travelLookForGate
+            GoSub UseObject #FindID #false #false
+            Wait 10
+            If #ContName = generic_gump && #ContSize = 420_280
+            {
+               Set %_usePageX #ContPosX + 25
+               Set %_usePageY #ContPosY + 261
+               Click 135 360
+            }
+         }
+      If %_travelOldX = #CharPosX && %_travelOldY = #CharPosY
+         goto _travelWaitForRecall
+
+   if %_travelStandard
+      GoSub RecordTiming %_travelTimeStart Recall
+   Set %return Success
+return
+
+;*****************************************
+;****** Rune Index - Mining Spots
+;*****************************************
+; ** IncrementRuneIndex **
+; Goes to the next mining location or the next rune if all mining locations for this spot are exhausted
+; Parameter 1: Boolean Force to next rune (eg called after you escape so it won't recall back to danger)
+Sub IncrementRuneIndex
+   Set %_iriParams %0
+   GoSub RecordMiningResults
+   LinesPerCycle %lpsFast
+
+   if %_iriTimeStart <> N/A
+   {
+      Set %_iriComment MiningOneSpot , #spc , %iRuneBook , #spc , %iRune , #spc , %iSpot
+      GoSub RecordTiming %_iriTimeStart %_iriComment
+   }
+   Set %_iriTimeStart #sCnt2
+
+   Set %HaveTargetted #false
+   Set %HaveProspected #false
+
+   If %_iriParams = 0
+   {
+      Set %_iriIndex ( ( %iRuneBook - 1 ) * 16 ) + %iRune
+      If %nDigSpots . %_iriIndex > %iSpot
+      {
+         Set %iSpot %iSpot + 1
+         Set %return StayAtLocation
+         LinesPerCycle %lpsNormal
+         Return
+      }
+   }
+
+   _iriTryNextRune:
+      Set %iSpot 1
+      Set %iRune %iRune + 1
+      If %iRune >= %_MaxRunes . %iRuneBook + 1
+         Set %iRune 1
+      If %iRune = 1
+         GoSub IncrementRuneBook
+
+      Set %_iriIndex ( ( %iRuneBook - 1 ) * 16 ) + %iRune
+      GoSub MakeUserDigVarName DigE %_iriIndex %iSpot
+      Set %_iriDangerTime % . %return
+      If #sCnt < %_iriDangerTime
+         goto _iriTryNextRune
+   Set %return GotoNextLocation
+   LinesPerCycle %lpsNormal
+Return
+
+Sub IncrementRuneBook
+   _irbFindRuneBookLoop:
+      Set %iRuneBook %iRuneBook + 1
+      If %iRuneBook >= %NumRuneBooks + 1
+         Set %iRuneBook 1
+      If ( %MineFor && ( %_Color . %iRuneBook ) ) = 0
+         goto _irbFindRuneBookLoop
+Return
+
+Sub AddRunebook
+   Set %_arId %1
+   Set %_arRuneCount %2
+   Set %_arColor %3
+   Set %_arExtFile %4
+   If %0 < 3
+      Set %_arColor %UnknownColor
+   If %0 < 4
+      Set %_arExtFile N/A
+   If %0 < 2 || %0 > 4
+   {
+      Display OK Invalid use of AddRunebook$(Gosub AddRunebook <Book_ID> <Rune_Count> [Color] [External_File])
+      Halt
+   }
+
+   If %numRuneBooks = N/A || %numRuneBooks < 1
+      Set %numRuneBooks 1
+   Else
+      Set %numRuneBooks %numRuneBooks + 1
+   Set %_RuneBook . %numRuneBooks %_arID
+   Set %_MaxRunes . %numRuneBooks %_arRuneCount
+   Set %_Color    . %numRuneBooks %_arColor
+   Set %_ExtFile  . %numRuneBooks %_arExtFile
+   If %_arExtFile <> N/A
+      Set %UsingExtFiles #true
+   Set %_arRuneMin ( ( %numRuneBooks - 1 ) * 16 ) + 1
+   Set %_arRuneMax ( ( %numRuneBooks - 1 ) * 16 ) + 16
+   For %_arRuneIndex %_arRuneMin %_arRuneMax
+   {
+      Set %nDigSpots . %_arRuneIndex 0
+   }
+Return
+
+Sub FindRunebook
+   for %_frbIndex 1 %numRuneBooks
+   {
+      if %1 = %_RuneBook . %_frbIndex
+      {
+         Set %return %_frbIndex
+         Return
+      }
+   }
+   Set %return 0
+Return
+
+Sub SetUserDigClickLoc
+   Set %_sudclRuneBook %1
+   Set %_sudclRune     %2
+   Set %_sudclX        %3
+   Set %_sudclY        %4
+   Set %_sudclColor    %5
+   Set %_sudclNumParams %0
+   If %_sudclNumParams < 5
+      Set %_sudclColor %_Color . %_sudclRuneBook
+   If %_sudclNumParams < 4 || %_sudclNumParams > 5
+      Display OK Invalid use of SetUserDigClickLoc
+
+   Set %_sudclIndex ( ( %_sudclRuneBook - 1 ) * 16 ) + %_sudclRune
+   If %nDigSpots . %_sudclIndex = N/A
+      Set %_sudclSpot 1
+   Else
+      Set %_sudclSpot %nDigSpots . %_sudclIndex + 1
+   Set %nDigSpots . %_sudclIndex %_sudclSpot
+
+   GoSub MakeUserDigVarName DigX %_sudclIndex %_sudclSpot
+   Set % . %return %_sudclX
+   GoSub MakeUserDigVarName DigY %_sudclIndex %_sudclSpot
+   Set % . %return %_sudclY
+   GoSub MakeUserDigVarName DigC %_sudclIndex %_sudclSpot
+   Set % . %return %_sudclColor
+   GoSub MakeUserDigVarName DigE %_sudclIndex %_sudclSpot
+   Set % . %return 0
+
+   GoSub MakeUserDigVarName DigXCoord %_sudclIndex %_sudclSpot
+   Set % . %return N/A
+Return
+
+Sub RemoveVein
+   Set %_rvRuneBook %1
+   Set %_rvRune %2
+   Set %_rvSpot %3
+   Set %_rvNumParams %0
+   If %_rvNumParams <> 3
+      Display OK Invalid use of RemoveVein
+
+   Set %_rvIndex ( ( %_rvRuneBook - 1 ) * 16 ) + %_rvRune
+   For %_rvSpotIndex %_rvSpot 4
+   {
+      if %_rvSpotIndex < 4
+      {
+         Set %_rvNextSpot %_rvSpotIndex + 1
+         GoSub GetUserDigLocation %_rvRuneBook %_rvRune %_rvNextSpot
+         GoSub DefineDigSpot %_rvIndex %_rvSpotIndex %DigSpotX %DigSpotY %DigSpotZ %DigSpotKind %DigSpotTile %DigSpotCol
+      }
+   }
+   Set %nDigSpots . %_rvIndex ( ( %nDigSpots . %_rvIndex ) - 1 )
+Return
+
+Sub SetUserDigCoord
+   Set %_sudcRuneBook %1
+   Set %_sudcRune %2
+   Set %_sudcX %3
+   Set %_sudcY %4
+   Set %_sudcZ %5
+   Set %_sudcK %6
+   Set %_sudcT %7
+   Set %_sudcColor %8
+   Set %_sudcNumParams %0
+   If %_sudcNumParams < 8
+      Set %_sudcColor %_Color . %_sudcRuneBook
+   If %_sudcNumParams < 7 || %_sudcNumParams > 8
+      Display OK Invalid use of SetUserDigCoord
+   Set %_sudcIndex ( ( %_sudcRuneBook - 1 ) * 16 ) + %_sudcRune
+   If %nDigSpots . %_sudcIndex = N/A
+      Set %_sudcSpot 1
+   Else
+      Set %_sudcSpot %nDigSpots . %_sudcIndex + 1
+   Set %nDigSpots . %_sudcIndex %_sudcSpot
+   GoSub DefineDigSpot %_sudcIndex %_sudcSpot %_sudcX %_sudcY %_sudcZ %_sudcK %_sudcT %_sudcColor
+Return
+
+Sub RedefineDigSpot
+   Set %_rssIndex ( ( %iRuneBook - 1 ) * 16 ) + %iRune
+   GoSub MakeUserDigVarName DigC %_sudclIndex %_sudclSpot
+   Set %_rssColor % . %return
+   GoSub DefineDigSpot %_rssIndex %iSpot #LTargetX #LTargetY #LTargetZ #LTargetKind #LTargetTile %_rssColor
+   Set %gNeedsCoordConv #false
+Return
+
+Sub DefineDigSpot
+   Set %_ddsIndex %1
+   Set %_ddsSpot %2
+   Set %_ddsX %3
+   Set %_ddsY %4
+   Set %_ddsZ %5
+   Set %_ddsK %6
+   Set %_ddsT %7
+   Set %_ddsColor %8
+   If %0 <> 8
+      Display OK Invalid use of DefineDigSpot (Spewy wrote a bug)
+
+   GoSub MakeUserDigVarName DigXCoord %_ddsIndex %_ddsSpot
+   Set % . %return %_ddsX
+   GoSub MakeUserDigVarName DigYCoord %_ddsIndex %_ddsSpot
+   Set % . %return %_ddsY
+   GoSub MakeUserDigVarName DigZCoord %_ddsIndex %_ddsSpot
+   Set % . %return %_ddsZ
+   GoSub MakeUserDigVarName DigKCoord %_ddsIndex %_ddsSpot
+   Set % . %return %_ddsK
+   GoSub MakeUserDigVarName DigTCoord %_ddsIndex %_ddsSpot
+   Set % . %return %_ddsT
+   GoSub MakeUserDigVarName DigCCoord %_ddsIndex %_ddsSpot
+   Set % . %return %_ddsColor
+   GoSub MakeUserDigVarName DigE %_ddsIndex %_ddsSpot
+   Set % . %return 0
+Return
+
+Sub GetUserDigLocation
+   Set %_gudlRunebook %1
+   Set %_gudlRune %2
+   Set %_gudlSpot %3
+
+   Set %_gudlIndex ( ( %_gudlRuneBook - 1 ) * 16 ) + %_gudlRune
+   GoSub MakeUserDigVarName DigXCoord %_gudlIndex %_gudlSpot
+   if % . %return <> N/A
+   {
+      Set %DigSpotX % . %return
+
+      GoSub MakeUserDigVarName DigYCoord %_gudlIndex %_gudlSpot
+      Set %DigSpotY % . %return
+
+      GoSub MakeUserDigVarName DigZCoord %_gudlIndex %_gudlSpot
+      Set %DigSpotZ % . %return
+
+      GoSub MakeUserDigVarName DigKCoord %_gudlIndex %_gudlSpot
+      Set %DigSpotKind % . %return
+
+      GoSub MakeUserDigVarName DigTCoord %_gudlIndex %_gudlSpot
+      Set %DigSpotTile % . %return
+
+      GoSub MakeUserDigVarName DigCCoord %_gudlIndex %_gudlSpot
+      Set %DigSpotCol % . %return
+
+      Set %return InCoords
+      Return
+   }
+
+   GoSub MakeUserDigVarName DigX %_gudlIndex %_gudlSpot
+   if % . %return <> N/A
+   {
+      Set %DigSpotX % . %return
+
+      GoSub MakeUserDigVarName DigY %_gudlIndex %_gudlSpot
+      Set %DigSpotY % . %return
+      Set %return InClick
+      Return
+   }
+
+   Set %DigSpotX #CharPosX
+   Set %DigSpotY #CharPosY
+   Set %DigSpotZ #CharPosZ
+   Set %DigSpotKind 2
+   Set %DigSpotTile 0
+   Set %return InCoords
+Return
+
+;*****************************************
+;****** Timing Recording (for script optimization)
+;*****************************************
+Sub RecordTiming
+   If ! %LogTimeUsage
+      Return
+   Set %_rtStart %1
+   Set %_rtOp %2
+   Set %_rtTimeUsed #sCnt2 - %_rtStart
+
+   Set *1 #Date , #spc , #Time , #spc , %_rtOp , #spc , %_rtStart , #spc , #sCnt2 , #spc , %_rtTimeUsed
+   Execute Save.js MiningTimes.txt 1
+Return
+
+Sub RecordTimingComment
+   If ! %LogTimeUsage
+      Return
+   Set %_rtcComment %1
+
+   Set *1 #Date , #spc , #Time , #spc , %_rtcComment
+   Execute Save.js MiningTimes.txt 1
+Return
+
+Sub RecordMiningResults
+   If ! %LogMiningResults
+      return
+
+   GoSub UpdateMiningResults
+   if %MinedIronOre <> 0 || %MinedColorOre <> 0
+   {
+      If %LogMiningResults
+      {
+         Set %_rmrRunebookID ( %_Runebook . %iRuneBook )
+         Set %_rmrLeft #Date , #spc , #Time , #spc , " , #CharPosX , #spc , #CharPosY , #spc , %iSpot , " , #spc , %_rmrRunebookID , #spc , %iRune
+         Set *1 %_rmrLeft , #spc , %MinedIronOre , #spc , %MinedColorOre , #spc , %MinedOreColor
+         Execute Save.js MiningSpots.txt 1
+      }
+   }
+   GoSub SetStartOre #true
+Return
+
+Sub UpdateMiningResults
+   If ! %LogMiningResults
+      return
+
+   _umrOreLoop:
+      FindItem %LargeOreType C_ , %BackpackId
+      If #FindKind <> -1
+      {
+         Set %_umrStartValue %StartOre . #FindCol
+         If %_umrStartValue < #FindStack
+         {
+            If #FindCol = 0
+               Set %MinedIronOre %MinedIronOre + ( #FindStack - %_umrStartValue )
+            If #FindCol <> 0
+            {
+               Set %MinedOreColor %ColRGBNames . #FindCol
+               Set %MinedColorOre %MinedColorOre + ( #FindStack - %_umrStartValue )
+            }
+         }
+         IgnoreItem #FindId
+         Goto _umrOreLoop
+      }
+   IgnoreItem Reset
+   GoSub SetStartOre #false
+Return
+
+Sub SetStartOre
+   If ! %LogMiningResults
+      return
+
+   Set %_ssoReset %1
+   If %0 <> 1
+      Display OK Invalid use of SetStartOre (Spewy wrote a bug)
+
+   GoSub SetVarByColor StartOre %Iron 0
+   GoSub SetVarByColor StartOre %Dull 0
+   GoSub SetVarByColor StartOre %Shadow 0
+   GoSub SetVarByColor StartOre %Copper 0
+   GoSub SetVarByColor StartOre %Bronze 0
+   GoSub SetVarByColor StartOre %Gold 0
+   GoSub SetVarByColor StartOre %Agapite 0
+   GoSub SetVarByColor StartOre %Verite 0
+   GoSub SetVarByColor StartOre %Valorite 0
+
+   _ssoOreLoop:
+      FindItem %LargeOreType C_ , %BackpackId
+      If #FindKind <> -1
+      {
+         Set %StartOre . #FindCol #FindStack
+         IgnoreItem #FindId
+         Goto _ssoOreLoop
+      }
+   IgnoreItem Reset
+   If %_ssoReset
+   {
+      Set %MinedIronOre 0
+      Set %MinedColorOre 0
+      Set %MinedOreColor Iron
+   }
+Return
+
+Sub SetVarByColor
+   Set %_svbcVarPrefix %1
+   Set %_svbcOreColor %2
+   Set %_svbcValue %3
+
+   Set %_svbcIndex ( %Colors . %_svbcOreColor )
+   Set %_svbcVarName %_svbcVarPrefix , %_svbcIndex
+   Set % . %_svbcVarName %_svbcValue
+Return
+
+Sub ClearDigLocations
+   Set %UsingExtFiles #false
+   Set %NumRuneBooks 0
+Return
+
+Sub RunExternalDefinitions
+   If ! %UsingExtFiles
+      Return
+
+   Set %_redExtFileCount 0
+   For %_redIndex 1 %NumRuneBooks
+   {
+      If ( %MineFor && ( %_Color . %_redIndex ) ) <> 0
+      {
+         Set %_redExtFileCalled #false
+         Set %_redCurFile %_ExtFile  . %_redIndex
+         If %_redExtFileCount > 0
+         {
+            For %_redExtIndex 1 %_redExtFileCount
+            {
+               If %_redExtFiles . %_redExtIndex = %_redCurFile
+               {
+                  Set %_redExtFileCalled #true
+                  Set %_redExtIndex %_redExtFileCount + 1
+               }
+            }
+         }
+         If ! %_redExtFileCalled
+         {
+            Call %_redCurFile
+            Set %_redExtFileCount %_redExtFileCount + 1
+            Set %_redExtFiles . %_redExtFileCount %_redCurFile
+         }
+      }
+   }
+Return
+
+Sub ShouldProspect
+   Set %return #false
+   If ( %UseProspector && ( %_Color . %iRuneBook ) ) <> 0
+      Set %return #true
+Return
+
+Sub MakeUserDigVarName
+   set %_mudvnVarName %1 , %2
+   set %_mudvnVarName %_mudvnVarName , S
+   Set %return %_mudvnVarName , %3
+Return
+
+;*****************************************
+;****** GUIDED SETUP
+;*****************************************
+Sub InteractiveDefaults
+   LinesPerCycle %lpsFast
+   GoSub SetVariableDefaults
+   GoSub RetrieveInteractiveValues
+   LinesPerCycle %lpsNormal
+   If %return = Success
+   {
+      Display YesNoCancel Would you like to use the settings you specified earlier?$$
+                        +(Didn't use the Interactive setup? Press [Cancel] and set UseInteractiveSetup to false)
+      If #DispRes = Cancel
+         Halt
+      If #DispRes = Yes
+         Return
+   }
+   If %return <> Success
+   {
+      Display OKCancel You will need to be near the bank or house secure, with$
+         +your pack animal with a backpack inside it (if you want to use one)$
+         +along with tinker tools and some ingots.$$Are you ready to continue?
+      If #DispRes = Cancel
+         Halt
+   }
+
+   event Macro 9 7
+   wait 5
+   _idCharBackpack:
+      Set #NEXTCPOSX 650
+      Set #NEXTCPOSY 335
+      Set %idOldContId #ContId
+      GoSub UseObjectEvent 8 7
+      Gosub waitForSysVar ContId <> %idOldContId 60
+      If ! %return || #ContId = N/A
+         goto _idCharBackpack
+   Set %BackpackId #ContId
+
+   _idOptionsRestart:
+   GoSub CreateMainSetupMenu
+   Set #MenuButton N/A
+   _idOptionsLoop:
+      If #MenuButton = N/A
+         goto _idOptionsLoop
+
+      ; Update the values coming from edit controls (They can be lost if we go into other dialogs)
+      menu GetNum MaxWeight 0
+      Set %MaxWeight #MenuRes
+
+      Set %NumBaseRunes 0
+      For %_idOptionsLoopIndex 1 4
+      {
+         Set %BaseRune . %_idOptionsLoopIndex 0
+         Set %_idOptionsTemp RuneIndex , %_idOptionsLoopIndex
+         menu GetNum %_idOptionsTemp 0
+         if #MenuRes >= 1 && #MenuRes <= 16
+         {
+            Set %NumBaseRunes %NumBaseRunes + 1
+            Set %BaseRune . %NumBaseRunes #MenuRes
+         }
+      }
+      if %NumBaseRunes = 0
+      {
+         Set %NumBaseRunes 1
+         Set %BaseRune1 1
+      }
+
+      If #MenuButton = RegYes || #MenuButton = RegNo 2
+         Set %RegSuit ( #MenuButton = RegYes )
+         GoSub CreateYesNoButtons Reg 5 %RegSuit
+      If #MenuButton = PackYes || #MenuButton = PackNo
+      {
+         Set %UsePackAnimal ( #MenuButton = PackYes )
+         GoSub HandlePackButtons %UsePackAnimal
+         GoSub CreateYesNoButtons Pack 55 %UsePackAnimal
+      }
+      If #MenuButton = BankYes || #MenuButton = BankNo 2
+         Set %BankDrop ( #MenuButton = BankYes )
+         GoSub CreateYesNoButtons Bank 80 %BankDrop
+      If #MenuButton = HideFYes || #MenuButton = HideFNo 2
+         Set %HideMineInFel ( #MenuButton = HideFYes )
+         GoSub CreateYesNoButtons HideF 230 %HideMineInFel
+      If #MenuButton = HideEYes || #MenuButton = HideENo 2
+         Set %HideMineElsewhere ( #MenuButton = HideEYes )
+         GoSub CreateYesNoButtons HideE 255 %HideMineElsewhere
+      If #MenuButton = HideMYes || #MenuButton = HideMNo 2
+         Set %HideWhileManaWait ( #MenuButton = HideMYes )
+         GoSub CreateYesNoButtons HideM 280 %HideWhileManaWait
+      If #MenuButton = HidePYes || #MenuButton = HidePNo 2
+         Set %HideOnPackUnload ( #MenuButton = HidePYes )
+         GoSub CreateYesNoButtons HideP 305 %HideOnPackUnload
+      If #MenuButton = HideBYes || #MenuButton = HideBNo 2
+         Set %HideOnBaseUnload ( #MenuButton = HideBYes )
+         GoSub CreateYesNoButtons HideB 330 %HideOnBaseUnload
+
+      If #MenuButton = DumpYes || #MenuButton = DumpNo 2
+         Set %DumpIron ( #MenuButton = DumpYes )
+         GoSub CreateYesNoButtons Dump 130 %DumpIron
+      If #MenuButton = StatusYes || #MenuButton = StatusNo 2
+         Set %ShowStatus ( #MenuButton = StatusYes )
+         GoSub CreateYesNoButtons Status 155 %ShowStatus
+      If #MenuButton = TwoShovelsYes || #MenuButton = TwoShovelsNo 2
+         Set %MakeTwoShovels ( #MenuButton = TwoShovelsYes )
+         GoSub CreateYesNoButtons TwoShovels 180 %MakeTwoShovels
+      If #MenuButton = TinkerYes || #MenuButton = TinkerNo 2
+         Set %UseTinkering ( #MenuButton = TinkerYes )
+         GoSub CreateYesNoButtons Tinker 105 %UseTinkering
+      If #MenuButton = GateYes || #MenuButton = GateNo 2
+         Set %CastGate ( #MenuButton = GateYes )
+         GoSub CreateYesNoButtons Gate 30 %CastGate
+      If #MenuButton = NextRuneYes || #MenuButton = NextRuneNo 2
+         Set %NextRuneOnBaseUnload ( #MenuButton = NextRuneYes )
+         GoSub CreateYesNoButtons NextRune 205 %NextRuneOnBaseUnload
+      If #MenuButton = ColIngotYes || #MenuButton = ColIngotNo 2
+         Set %UseAnyColourIngot ( #MenuButton = ColIngotYes )
+         GoSub CreateYesNoButtons ColIngot 355 %UseAnyColourIngot
+      If #MenuButton = TravelMethodYes || #MenuButton = TravelMethodNo 2
+         Set %TravelMethod ( #MenuButton = TravelMethodYes )
+         GoSub CreateYesNoButtons TravelMethod 380 %TravelMethod
+
+
+      If #MenuButton = HouseRunebook
+      {
+         Menu Hide
+         _idHouseRuneBook:
+            Display OKCancel DOUBLE CLICK$$RUNEBOOK with BANK/HOUSE rune in your character's MAIN BACKPACK
+            If #DispRes = Cancel
+               Goto _idOptionsCancelRestore
+            Set #lObjectID null
+            GoSub waitForSysVar lObjectID <> null 60
+            If ! %return
+               goto _idHouseRuneBook
+         Set %BaseRunebook #lObjectID
+         Menu Show
+         Set #MenuButton N/A
+      }
+      If #MenuButton = PackSetupBT
+      {
+         Menu Hide
+         FindItem %PackAnimals
+         if #FindKind = -1
+         {
+            Display OkCancel Stand next to your pack animal (Or dismount beetle)
+            If #DispRes = Cancel
+               Goto _idOptionsCancelRestore
+         }
+         _idPackAnimal:
+            FindItem %PackAnimals
+            if #FindKind = -1
+            {
+               If %_idPackAnimalTimeOut > #scnt
+               {
+                  Display OkCancel Stand next to your pack animal (Or dismount beetle)
+                  If #DispRes = Cancel
+                     Goto _idOptionsCancelRestore
+                  Set %_idPackAnimalTimeOut #scnt + 3
+               }
+               goto _idPackAnimal
+            }
+         Set %PackAnimalId #FindID
+         Set %UsingBeetle ( #FindType = %BeetleType )
+         _idPackAnimalBag:
+            If #ContSize = 230_204
+            {
+               Event Macro 31 0 ; Close Everything
+          wait 2s
+            }
+            Display OkCancel OPEN the PACK ANIMAL container (Leave container open)
+            If #DispRes = Cancel
+               Goto _idOptionsCancelRestore
+            GoSub waitForSysVar2 ContID <> #ContID ContSize = 230_204 60
+            If ! %return
+               goto _idPackAnimalBag
+         Set %PackAnimalBagId #ContId
+
+         ;FindItem %BagTypes C_ , %PackAnimalBagId
+         ;If #FindKind <> -1
+            ;Set %PackAnimalDropId #FindId
+         ;If #FindKind = -1
+         ;{
+          ;  _idPackAnimalOreBag:
+          ;     Display OKCancel PLACE A BAG in the pack animal and DOUBLE CLICK it (Ore Bag)
+          ;     If #DispRes = Cancel
+          ;        Goto _idOptionsCancelRestore
+          ;     Set #lObjectID null
+          ;     GoSub waitForSysVar lObjectID <> null 100
+          ;     If ! %return
+          ;        goto _idPackAnimalOreBag
+          ;  Set %PackAnimalDropId #lObjectId
+         ;}
+         Menu Show
+         Set #MenuButton N/A
+      }
+      If #MenuButton = EscapeSetupBT
+      {
+         GoSub EscapeSetup
+         GoSub CreateMainSetupMenu
+         Menu Show
+         Set #MenuButton N/A
+      }
+      If #MenuButton = SecureBT
+      {
+         Menu Hide
+         If ! %BankDrop
+         {
+            _idSecureContainer:
+               Display OKCancel DOUBLE CLICK$$House Secure Container (Leave container open)
+               If #DispRes = Cancel
+                  Goto _idOptionsCancelRestore
+               Set #lObjectID null
+               GoSub waitForSysVar lObjectID <> null 60
+               If ! %return
+                  goto _idSecureContainer
+            Set %SecureId #lObjectId
+         }
+         If %BankDrop
+         {
+            _idSecureContainer:
+               Display OKCancel Open your BANK BOX (Leave container open)
+               If #DispRes = Cancel
+                  Goto _idOptionsCancelRestore
+               GoSub waitForSysVar ContSize = 180_240
+               If ! %return
+                  goto _idSecureContainer
+            Set %SecureId #ContID
+         }
+         _idBankOreBag:
+            Display OKCancel DOUBLE CLICK$$BAG INSIDE Bank/House Secure
+            If #DispRes = Cancel
+               Goto _idOptionsCancelRestore
+            Set #lObjectID null
+            GoSub waitForSysVar lObjectID <> null 60
+            If ! %return
+               goto _idBankOreBag
+         Set %OreBagId #lObjectID
+         Menu Show
+         Set #MenuButton N/A
+      }
+      If #MenuButton = RunebookSetupBT
+      {
+         GoSub RuneBookSetup
+         GoSub CreateMainSetupMenu
+         Menu Show
+         Set #MenuButton N/A
+      }
+      If #MenuButton = Okay
+      {
+         Menu Hide
+         Set %_idCanClose #true
+         If %numRuneBooks = 0 2
+            Display OK You must define at least one mining runebook before proceeding
+            Set %_idCanClose #false
+         If %BaseRunebook = null 2
+            Display OK You must define the house runebook before proceeding
+            Set %_idCanClose #false
+         If %SecureId = null 2
+            Display OK You must set the Bank/House Secure identifier
+            Set %_idCanClose #false
+         If %OreBagId = null 2
+            Display OK You must define the backpack in the Bank/House Secure to unload ore in
+            Set %_idCanClose #false
+         If %BaseRune1 < 1 || %BaseRune1 > 16 2
+            Display OK The house rune index must be between 1 and 16
+            Set %_idCanClose #false
+         If %MaxWeight < 100 || %MaxWeight > 550 2
+            Display OK The character max weight value must be between 100 and 450
+            Set %_idCanClose #false
+         If %UseTinkering
+            Set %MinShovels 2
+         Else
+            Set %MinShovels 5
+         if ! %_idCanClose
+         {
+            Set #MenuButton N/A
+            Goto _idOptionsLoop
+         }
+         Goto _idBreakOptionsLoop
+      }
+      If #MenuButton = Cancel || #MenuButton = Closed
+      {
+         Menu Hide
+         Halt
+      }
+      _idOptionsCancelRestore:
+      Menu Show
+      Set #MenuButton N/A
+   Goto _idOptionsLoop
+   _idBreakOptionsLoop:
+   _idDone:
+   GoSub StoreInteractiveValues
+Return
+
+Sub SetVariableDefaults
+   Set %RegSuit #false
+   Set %UsePackAnimal #true
+   Set %BankDrop #false
+   Set %HideMineInFel #true
+   Set %HideMineElsewhere #false
+   Set %HideWhileManaWait #false
+   Set %HideOnPackUnload #false
+   Set %HideOnBaseUnload #false
+   Set %BaseRunebook null
+   Set %OreBagId null
+   Set %SecureId null
+   Set %MaxWeight 360
+   Set %ShowStatus #true
+   Set %BackpackId null
+   Set %UseProspector %NoColor
+   Set %MineFor %AllColors
+   Set %BringUpMenuForFilters #true
+   Set %NumBaseRunes 1
+   Set %MinShovels 2
+   Set %UseTinkering #true
+   Set %OldTinkerWay #false
+   Set %DumpIron #true
+   Set %NextRuneOnBaseUnload #true
+   Set %PauseAfterEscape #true
+   Set %TrackGPValue #true
+   Set %UseAnyColourIngot #false
+   Set %TravelMethod 0
+
+   GoSub SetVarByColor LgOreValue %Iron 16
+   GoSub SetVarByColor LgOreValue %Dull 80
+   GoSub SetVarByColor LgOreValue %Shadow 100
+   GoSub SetVarByColor LgOreValue %Copper 120
+   GoSub SetVarByColor LgOreValue %Bronze 140
+   GoSub SetVarByColor LgOreValue %Gold 180
+   GoSub SetVarByColor LgOreValue %Agapite 160
+   GoSub SetVarByColor LgOreValue %Verite 180
+   GoSub SetVarByColor LgOreValue %Valorite 200 ; 100gp per ingot * 2 (because large ore gives 2 ingots)
+
+   Set %StandLocationX 0
+
+   Set %GiveUpTime 20
+   Set %MineUseTime 13
+   Set %UseTime 23
+
+   Set %RedEscape #true
+   Set %RedCheckNPC #false
+   Set %TrackPackAnimal #true
+   Set %EscapeOnMonsterSighting #true
+   Set %NoThreatMonster GD_JE
+   Set %EscapeOnDamage #true
+   Set %EscapeRecallTarget XXXXXXX
+   Set %MinutesBeforeReturn 20
+   Set %CureWithMagery #true
+   Set %GrHealAfterEscape #true
+   Set %WaitForMana #true
+   Set %MountBeforeRecall #true
+   Set %HighThreatMonster N/A
+   Set %DamageThreshold 10
+
+   Set %UOATinkerToolKey N/A
+   Set %UOAShovelKey N/A
+   Set %UOAEscapeKey N/A
+Return
+
+Sub CreateMainSetupMenu
+   Set %_cmsm2ndColLoc     305
+   Set %_cmsm2ndColTextLoc 355
+   menu Hide
+   menu Clear
+   menu Window Size 530 445
+   menu Window Title RuneBook Mining by Spewy - Interactive Setup
+   menu Window Color BtnFace
+   menu Text RegST 90   7 Using Lower Reagent Suit
+   menu Text GateST 90  32 Cast Gate instead of recall (Siege)
+   menu Text PackST 90  57 Use Bonded Pack Animal
+   menu Text DropST 90  82 Drop off ore at bank
+   menu Text TinkerST 90 107 Use tinkering (Instead picks up shovels)
+   menu Text DumpST 90 132 Try to discard large iron ore
+   menu Text StatusST 90 157 Show status window
+   menu Text TwoShovelsST 90 182 Make two shovels at a time
+   menu Text NextRuneST 90 207 Goto next rune after bank/home unload
+   menu Text HideFST 90 232 Hide when mining in Fel
+   menu Text HideEST 90 257 Hide when mining elsewhere
+   menu Text HideMST 90 282 Hide when waiting for mana
+   menu Text HidePST 90 307 Hide when unloading to pack animal
+   menu Text HideBST 90 332 Hide when unloading at house/bank
+   menu Text ColIngotST 90 357 Use any ingots in secure/bank (even Valorite)
+   menu Text TravelMethodST 90 382 Magery(Yes) or SacredJourney(No)
+
+   Set %_cmsmUseProspector ( %UseProspector = %AllColors )
+   GoSub CreateYesNoButtons Reg 5 %RegSuit
+   GoSub CreateYesNoButtons Gate 30 %CastGate
+   GoSub CreateYesNoButtons Pack 55 %UsePackAnimal
+   GoSub CreateYesNoButtons Bank 80 %BankDrop
+   GoSub CreateYesNoButtons Tinker 105 %UseTinkering
+   GoSub CreateYesNoButtons Dump 130 %DumpIron
+   GoSub CreateYesNoButtons Status 155 %ShowStatus
+   GoSub CreateYesNoButtons TwoShovels 180 %MakeTwoShovels
+   GoSub CreateYesNoButtons NextRune 205 %NextRuneOnBaseUnload
+   GoSub CreateYesNoButtons HideF 230 %HideMineInFel
+   GoSub CreateYesNoButtons HideE 255 %HideMineElsewhere
+   GoSub CreateYesNoButtons HideM 280 %HideWhileManaWait
+   GoSub CreateYesNoButtons HideP 305 %HideOnPackUnload
+   GoSub CreateYesNoButtons HideB 330 %HideOnBaseUnload
+   GoSub CreateYesNoButtons ColIngot 355 %UseAnyColourIngot
+   GoSub CreateYesNoButtons TravelMethod 380 %TravelMethod
+
+   menu Button HouseRunebook %_cmsm2ndColLoc  0  45 25 Set
+   Menu Text BankST %_cmsm2ndColTextLoc 5 House or Bank Runebook
+
+   menu Font Style B
+   Menu Text RIndexST  %_cmsm2ndColLoc 30 Base Rune Indices (1=first 16=last)
+   menu Font Style
+   Menu Edit RuneIndex1 305 50 45 %BaseRune1
+   Menu Edit RuneIndex2 355 50 45 %BaseRune2
+   Menu Edit RuneIndex3 405 50 45 %BaseRune3
+   Menu Edit RuneIndex4 455 50 45 %BaseRune4
+
+   Menu Edit MaxWeight %_cmsm2ndColLoc 80 45 %MaxWeight
+   Menu Text RIndexST  %_cmsm2ndColTextLoc 85 Max weight before unloading
+
+   Menu Button SecureBT %_cmsm2ndColTextLoc 120  120 25 Secure Setup
+   Menu Button RunebookSetupBT %_cmsm2ndColTextLoc 150 120 25 Runebook Setup
+   Menu Button EscapeSetupBT %_cmsm2ndColTextLoc 180 120 25 Escape Setup
+
+   If %UsePackAnimal
+      GoSub HandlePackButtons %UsePackAnimal
+
+   menu Button Okay   150 415 100 25 OK
+   menu Button Cancel 260 415 100 25 Cancel
+   menu Show
+Return
+
+Sub CreateYesNoButtons
+   Set %_cynbVarName %1
+   Set %_cynbY %2
+   Set %_cynbYes %3
+   Set %_cynbNo ( ! %3 )
+
+   Menu Delete %_cynbVarName , Yes
+   Menu Delete %_cynbVarName , No
+   GoSub MenuBoldNoBold %_cynbYes
+   menu Button %_cynbVarName , Yes    5  %_cynbY  40 20 Yes
+   GoSub MenuBoldNoBold %_cynbNo
+   menu Button %_cynbVarName , No    48  %_cynbY  40 20 No
+   menu Font Style
+Return
+
+Sub HandlePackButtons
+   if %1
+      Menu Button PackSetupBT %_cmsm2ndColTextLoc 210 120 25 Packy Setup
+   Else
+      Menu Delete PackSetupBT
+Return
+
+Sub EscapeSetup
+   GoSub CreateEscapeSetupMenu
+   Wait 5
+   Set #MenuButton N/A
+   _esEscapeLoop:
+      If #MenuButton = N/A
+         Goto _esEscapeLoop
+      If #MenuButton = Closed || #MenuButton = Okay 2
+         Menu Hide
+         Return
+      If #MenuButton = RedYes || #MenuButton = RedNo 2
+         Set %RedEscape ( #MenuButton = RedYes )
+         GoSub CreateYesNoButtons Red 5 %RedEscape
+      If #MenuButton = PackYes || #MenuButton = PackNo 2
+         Set %TrackPackAnimal ( #MenuButton = PackYes )
+         GoSub CreateYesNoButtons Pack 35 %TrackPackAnimal
+      If #MenuButton = MonsterYes || #MenuButton = MonsterNo 2
+         Set %EscapeOnMonsterSighting ( #MenuButton = MonsterYes )
+         GoSub CreateYesNoButtons Monster 65 %EscapeOnMonsterSighting
+      If #MenuButton = DamageYes || #MenuButton = DamageNo 2
+         Set %EscapeOnDamage ( #MenuButton = DamageYes )
+         GoSub CreateYesNoButtons Damage 95 %EscapeOnDamage
+      If #MenuButton = CureYes || #MenuButton = CureNo 2
+         Set %CureWithMagery ( #MenuButton = CureYes )
+         GoSub CreateYesNoButtons Cure 125 %CureWithMagery
+      If #MenuButton = HealYes || #MenuButton = HealNo 2
+         Set %GrHealAfterEscape ( #MenuButton = HealYes )
+         GoSub CreateYesNoButtons Heal 155 %GrHealAfterEscape
+      If #MenuButton = ManaYes || #MenuButton = ManaNo 2
+         Set %WaitForMana ( #MenuButton = ManaYes )
+         GoSub CreateYesNoButtons Mana 185 %WaitForMana
+      If #MenuButton = MountYes || #MenuButton = MountNo 2
+         Set %MountBeforeRecall ( #MenuButton = MountYes )
+         GoSub CreateYesNoButtons Mount 215 %MountBeforeRecall
+      If #MenuButton = PauseYes || #MenuButton = PauseNo 2
+         Set %PauseAfterEscape ( #MenuButton = PauseYes )
+         GoSub CreateYesNoButtons Pause 245 %PauseAfterEscape
+      If #MenuButton = EscapeTargetBT
+      {
+         Menu Hide
+         Set #LTargetId null
+         Set #TargCurs 1
+         GoSub waitForSysVar LTargetId <> null 60
+         If %return
+            Set %EscapeRecallTarget #LTargetId
+         Menu Show
+      }
+      Set #MenuButton N/A
+   Goto _esEscapeLoop
+Return
+
+Sub CreateEscapeSetupMenu
+   LinesPerCycle %lpsFast
+   menu Hide
+   menu Clear
+   menu Window Size 530 310
+   menu Window Title RuneBook Mining by spewy] - Escape Setup
+   menu Window Color BtnFace
+   menu Text RedST 90 7 Escape if Red is seen (in Felluca)
+   menu Text PackST 90 37 Escape if beetle leaves you
+   menu Text MonsterST 90 67 Escape when monster targets character
+   menu Text DamageST 90 97 Escape when damaged
+   menu Text CureST 90 127 Cast Cure after escape (if needed)
+   menu Text HealST 90 157 Cast Greater Heal after escape (if needed)
+   menu Text ManaST 90 187 Wait for double recall mana
+   menu Text MountST 90 217 Mount beetle before recall
+   menu Text MountST 90 247 Pause after Escape
+   GoSub CreateYesNoButtons Red 5 %RedEscape
+   GoSub CreateYesNoButtons Pack 35 %TrackPackAnimal
+   GoSub CreateYesNoButtons Monster 65 %EscapeOnMonsterSighting
+   GoSub CreateYesNoButtons Damage 95 %EscapeOnDamage
+   GoSub CreateYesNoButtons Cure 125 %CureWithMagery
+   GoSub CreateYesNoButtons Heal 155 %GrHealAfterEscape
+   GoSub CreateYesNoButtons Mana 185 %WaitForMana
+   GoSub CreateYesNoButtons Mount 215 %MountBeforeRecall
+   GoSub CreateYesNoButtons Pause 245 %PauseAfterEscape
+
+   Menu Button EscapeTargetBT 355 5 120 25 Escape Target
+
+;   Set %MinutesBeforeReturn 20
+;   Set %EscapeRecallTarget XXXXXXX
+
+   menu Button Okay 215 275 100 25 Close
+   menu Show
+   LinesPerCycle %lpsNormal
+Return
+
+Sub RuneBookSetup
+   _rbsMainLoop:
+      GoSub CreateRunebookSetupMenu
+      Wait 10
+      Set #MenuButton N/A
+      _rbsMenuLoop:
+         If #MenuButton = N/A
+            goto _rbsMenuLoop
+         If #MenuButton = Closed || #MenuButton = Okay
+         {
+            GoSub RetrieveMenuRunebookValues
+            Menu Hide
+            Return
+         }
+         If #MenuButton = Define
+         {
+            Menu Hide
+            GoSub RetrieveMenuRunebookValues
+            Set #lObjectID null
+            Display OK Double Click$$Mining Runebook
+            GoSub waitForSysVar lObjectID <> null 60
+            If ! %return
+               goto _rbsMainLoop
+            GoSub AddRunebook #lObjectId 16
+            goto _rbsMainLoop
+         }
+         If Delet in #MenuButton
+         {
+            Str Len #MenuButton
+            Set %_rbsIndex #StrRes - 6
+            Str Right #MenuButton %_rbsIndex
+            Set %_rbsIndex #StrRes
+            GoSub RetrieveMenuRunebookValues
+            If %_rbsIndex < %NumRuneBooks
+            {
+               For %_rbsBookShift %_rbsIndex %NumRuneBooks
+               {
+                  Set %_rbsBookShiftNext %_rbsBookShift + 1
+                  Set %_RuneBook . %_rbsBookShift %_RuneBook . %_rbsBookShiftNext
+                  Set %_MaxRunes . %_rbsBookShift %_MaxRunes . %_rbsBookShiftNext
+                  Set %_Color . %_rbsBookShift %_Color . %_rbsBookShiftNext
+                  Set %_ExtFile . %_rbsBookShift %_ExtFile . %_rbsBookShiftNext
+               }
+            }
+            Set %NumRuneBooks %NumRuneBooks - 1
+            Goto _rbsMainLoop
+         }
+         Str Len #MenuButton
+         Set %_rbsIndex #StrRes - 3
+         Str Right #MenuButton %_rbsIndex
+         Set %_rbsIndex #StrRes
+         If DC in #MenuButton
+            Set %_Color . %_rbsIndex %Dull
+         If Sh in #MenuButton
+            Set %_Color . %_rbsIndex %Shadow
+         If Co in #MenuButton
+            Set %_Color . %_rbsIndex %Copper
+         If Br in #MenuButton
+            Set %_Color . %_rbsIndex %Bronze
+         If Go in #MenuButton
+            Set %_Color . %_rbsIndex %Gold
+         If Ag in #MenuButton
+            Set %_Color . %_rbsIndex %Agapite
+         If Ve in #MenuButton
+            Set %_Color . %_rbsIndex %Verite
+         If Va in #MenuButton
+            Set %_Color . %_rbsIndex %Valorite
+         If Un in #MenuButton
+            Set %_Color . %_rbsIndex %UnknownColor
+         GoSub DeleteRunebookButtons %_rbsIndex
+         Set %_rbsButtY 30 * %_rbsIndex
+         Set %_rbsCurColor %_Color . %_rbsIndex
+         GoSub CreateRunebookButtons %_rbsIndex 93 %_rbsButtY %_rbsCurColor #false
+         Set #MenuButton N/A
+      goto _rbsMenuLoop
+Return
+
+Sub RetrieveMenuRunebookValues
+   For %_rrvIndex 1 %NumRuneBooks
+   {
+      Set %_rmrvVarName Count_ , %_rrvIndex
+      Menu Get %_rmrvVarName
+      Set %_MaxRunes . %_rrvIndex #MenuRes
+
+      Set %_rmrvVarName FName_ , %_rrvIndex
+      Menu Get %_rmrvVarName
+      Set %_ExtFile . %_rrvIndex #MenuRes
+   }
+Return
+
+Sub CreateRunebookSetupMenu
+   LinesPerCycle %lpsFast
+   menu Hide
+   menu Clear
+   Set %_crsmMenuHieght 90 + ( %numRunebooks * 30 )
+   menu Window Size 520 %_crsmMenuHieght
+   menu Window Title RuneBook Mining by Spewy - RuneBooks Setup
+   menu Window Color BtnFace
+   Set %_crsmY 30
+   Menu Font Style U
+   Menu Text RunesCountST 50 8 N.Runes
+   Menu Text ColorST 150 8 Runebook , #spc , Color
+   Menu Text FNameST 330 8 External , #spc , File
+   Menu Text FNameST 455 8 Book , #spc , ID
+   Menu Font Style
+   Set %_crsmRBCount %numRuneBooks + 1
+;   If %_crsmRBCount > 9
+;      Set %_crsmRBCount 9
+   For %_crsmIndex 1 %_crsmRBCount
+   {
+      If %_crsmIndex > %numRuneBooks
+         menu Button Define 5 %_crsmY 45 23 Define
+      If %_crsmIndex <= %numRuneBooks
+      {
+         Set %_crsmFilename %_ExtFile  . %_crsmIndex
+         If %_crsmFilename = N/A
+         deletevar _crsmFilename
+         Set %_crsmColor %_Color . %_crsmIndex
+         Set %_crsmYText %_crsmY + 2
+
+         Menu Button Delet_ , %_crsmIndex 5 %_crsmY 45 23 Del
+         Menu Edit   Count_ , %_crsmIndex 53 %_crsmY 35 %_MaxRunes . %_crsmIndex
+         Menu Edit   FName_ , %_crsmIndex 323 %_crsmY 125 %_crsmFilename
+         GoSub CreateRunebookButtons %_crsmIndex 93 %_crsmY %_crsmColor #false
+         Menu Text Ident_ , %_crsmIndex 451 %_crsmYText %_RuneBook . %_crsmIndex
+      }
+      Set %_crsmY %_crsmY + 30
+   }
+   Set %_crsmMenuHieght %_crsmMenuHieght - 35
+   menu Button Okay 215 %_crsmMenuHieght 100 25 Close
+   menu Show
+   LinesPerCycle %lpsNormal
+Return
+
+Sub CreateRunebookButtons
+   Set %_crbIndex %1
+   Set %_crbXStart %2
+   Set %_crbY %3
+   Set %_crbValue %4
+   Set %_crbCreateAll %5
+
+   Set %_crbIsBold ( ( %_crbValue && %Dull ) = %Dull )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button DC_ , %_crbIndex %_crbXStart %_crbY 25 20 DC
+   Set %_crbXStart %_crbXStart + 25
+
+   Set %_crbIsBold ( ( %_crbValue && %Shadow ) = %Shadow )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button Sh_ , %_crbIndex %_crbXStart %_crbY 25 20 Sh
+   Set %_crbXStart %_crbXStart + 25
+
+   Set %_crbIsBold ( ( %_crbValue && %Copper ) = %Copper )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button Co_ , %_crbIndex %_crbXStart %_crbY 25 20 Co
+   Set %_crbXStart %_crbXStart + 25
+
+   Set %_crbIsBold ( ( %_crbValue && %Bronze ) = %Bronze )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button Br_ , %_crbIndex %_crbXStart %_crbY 25 20 Br
+   Set %_crbXStart %_crbXStart + 25
+
+   Set %_crbIsBold ( ( %_crbValue && %Gold ) = %Gold )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button Go_ , %_crbIndex %_crbXStart %_crbY 25 20 Go
+   Set %_crbXStart %_crbXStart + 25
+
+   Set %_crbIsBold ( ( %_crbValue && %Agapite ) = %Agapite )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button Ag_ , %_crbIndex %_crbXStart %_crbY 25 20 Ag
+   Set %_crbXStart %_crbXStart + 25
+
+   Set %_crbIsBold ( ( %_crbValue && %Verite ) = %Verite )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button Ve_ , %_crbIndex %_crbXStart %_crbY 25 20 Ve
+   Set %_crbXStart %_crbXStart + 25
+
+   Set %_crbIsBold ( ( %_crbValue && %Valorite ) = %Valorite )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button Va_ , %_crbIndex %_crbXStart %_crbY 25 20 Va
+   Set %_crbXStart %_crbXStart + 25
+
+   Set %_crbIsBold ( ( %_crbValue && %UnknownColor ) = %UnknownColor )
+   GoSub MenuBoldNoBold %_crbIsBold
+   menu Button Un_ , %_crbIndex %_crbXStart %_crbY 25 20 ??
+
+   menu Font Style
+   If %_crbCreateAll
+   {
+      Set %_crbXStart %_crbXStart + 35
+      menu Button AL_ , %_crbIndex %_crbXStart %_crbY 25 20 All
+
+      Set %_crbXStart %_crbXStart + 25
+      menu Button NO_ , %_crbIndex %_crbXStart %_crbY 35 20 None
+   }
+Return
+
+Sub MenuBoldNoBold
+   Set %_mbnbBold %1
+   If %_mbnbBold
+      menu Font Style b
+   Else
+      menu Font Style
+Return
+
+Sub DeleteRunebookButtons
+   Set %_drbIndex %1
+   menu Delete DC_ , %_drbIndex
+   menu Delete Sh_ , %_drbIndex
+   menu Delete Co_ , %_drbIndex
+   menu Delete Br_ , %_drbIndex
+   menu Delete Go_ , %_drbIndex
+   menu Delete Ag_ , %_drbIndex
+   menu Delete Ve_ , %_drbIndex
+   menu Delete Va_ , %_drbIndex
+   menu Delete Un_ , %_drbIndex
+   menu Delete AL_ , %_drbIndex
+   menu Delete NO_ , %_drbIndex
+Return
+
+Sub StoreInteractiveValues
+   Set *130 7 ; Version Number
+   Set *126 %ShowStatus
+   Set *127 %DumpIron
+   Set *128 %HideMineInFel
+   Set *129 %MaxWeight
+   Set *131 %RegSuit
+   Set *132 %UseProspector
+   Set *133 %UsePackAnimal
+   Set *134 %UseTinkering
+   Set *135 %PackAnimalId
+   Set *136 %PackAnimalBagId
+   Set *137 %PackAnimalDropId
+   Set *138 %BankDrop
+   Set *139 %SecureId
+   Set *140 %SecureId
+   Set *141 %OreBagId
+   Set *142 %BackpackId
+   Set *143 %BaseRunebook
+   Set *144 %BaseRune1
+   Set *145 %BaseRune2
+   Set *146 %RedEscape
+   Set *147 %TrackPackAnimal
+   Set *148 %EscapeOnMonsterSighting
+   Set *149 %NoThreatMonster
+   Set *150 %EscapeOnDamage
+   Set *151 %EscapeRecallTarget
+   Set *152 %MinutesBeforeReturn
+   Set *153 %CureWithMagery
+   Set *154 %GrHealAfterEscape
+   Set *155 %WaitForMana
+   Set *156 %MountBeforeRecall
+   Set *157 %CastGate
+   Set *158 %PauseAfterEscape
+   Set *159 %MakeTwoShovels
+   Set *160 %NextRuneOnBaseUnload
+   Set *161 %HideMineElsewhere
+   Set *162 %HideWhileManaWait
+   Set *163 %HideOnPackUnload
+   Set *164 %HideOnBaseUnload
+   Set *165 %UseAnyColourIngot
+   Set *tg201 %TravelMethod
+   Set *166 %BaseRune3
+   Set *167 %BaseRune4
+   Set *168 %NumBaseRunes
+
+   Set *200 %numRuneBooks
+   for %_sivIndex 1 %numRuneBooks
+   {
+      Set %_sivBase 201 + ( ( %_sivIndex - 1 ) * 4 )
+      Set * . %_sivBase ( %_RuneBook . %_sivIndex )
+      Set %_sivBase %_sivBase + 1
+      Set * . %_sivBase ( %_MaxRunes . %_sivIndex )
+      Set %_sivBase %_sivBase + 1
+      Set * . %_sivBase ( %_Color . %_sivIndex )
+      Set %_sivBase %_sivBase + 1
+      Set * . %_sivBase ( %_ExtFile . %_sivIndex )
+   }
+Return
+
+Sub RetrieveInteractiveValues
+   Set %_rivVersion *130
+   if %_rivVersion <> 1 && %_rivVersion <> 2 && %_rivVersion <> 3 && %_rivVersion <> 4 && %_rivVersion <> 5 && %_rivVersion <> 6 && %_rivVersion <> 7
+   {
+      Set %return Error
+      return
+   }
+   if %_rivVersion > 1
+   {
+      Set %ShowStatus *126
+      Set %DumpIron *127
+      Set %HideMineInFel *128
+      if %_rivVersion < 5
+      {
+         Set %HideMineElsewhere %HideMineInFel
+         Set %HideWhileManaWait %HideMineInFel
+         Set %HideOnPackUnload %HideMineInFel
+         Set %HideOnBaseUnload %HideMineInFel
+      }
+      Set %MaxWeight  *129
+   }
+   Set %RegSuit    *131
+   Set %UseProspector *132
+   Set %UsePackAnimal *133
+   If %_rivVersion >= 3
+      Set %UseTinkering *134
+   Set %PackAnimalId *135
+   Set %PackAnimalBagId *136
+   Set %PackAnimalDropId *137
+   Set %BankDrop *138
+   Set %SecureId *139
+   Set %SecureId *140
+   Set %OreBagId *141
+   Set %BackpackId *142
+   Set %BaseRunebook *143
+   Set %BaseRune1 *144
+   Set %BaseRune2 *144
+   If %_rivVersion < 3
+   {
+      Set %_rivFirstIndex 145
+      Set %_rivNumVars 2
+   }
+   If %_rivVersion >= 3
+   {
+      Set %BaseRune2 *145
+      Set %RedEscape *146
+      Set %TrackPackAnimal *147
+      Set %EscapeOnMonsterSighting *148
+      Set %NoThreatMonster *149
+      Set %EscapeOnDamage *150
+      Set %EscapeRecallTarget *151
+      Set %MinutesBeforeReturn *152
+      Set %CureWithMagery *153
+      Set %GrHealAfterEscape *154
+      Set %WaitForMana *155
+      Set %MountBeforeRecall *156
+      Set %CastGate *157
+      Set %PauseAfterEscape *158
+
+      Set %_rivFirstIndex 200
+      Set %_rivNumVars 4
+   }
+   if %_rivVersion >= 4
+      Set %MakeTwoShovels *159
+   if %_rivVersion >= 5
+   {
+      Set %NextRuneOnBaseUnload *160
+      Set %HideMineElsewhere *161
+      Set %HideWhileManaWait *162
+      Set %HideOnPackUnload *163
+      Set %HideOnBaseUnload *164
+      if %_rivVersion >= 6
+      {
+         Set %UseAnyColourIngot *165
+         Set %TravelMethod *tg201
+         Set %BaseRune3 *166
+         Set %BaseRune4 *167
+      }
+      if %_rivVersion >= 7
+         Set %NumBaseRunes *168
+   }
+   if %_rivVersion < 7
+   {
+      Set %NumBaseRunes 0
+      If %BaseRune1 > 0 && %BaseRune1 < 17
+         Set %NumBaseRunes %NumBaseRunes + 1
+      If %BaseRune2 > 0 && %BaseRune2 < 17
+      {
+         Set %NumBaseRunes %NumBaseRunes + 1
+         Set %BaseRune .  %NumBaseRunes %BaseRune2
+      }
+      If %BaseRune3 > 0 && %BaseRune3 < 17
+      {
+         Set %NumBaseRunes %NumBaseRunes + 1
+         Set %BaseRune .  %NumBaseRunes %BaseRune3
+      }
+      If %BaseRune4 > 0 && %BaseRune4 < 17
+      {
+         Set %NumBaseRunes %NumBaseRunes + 1
+         Set %BaseRune .  %NumBaseRunes %BaseRune4
+      }
+   }
+
+   Set %_rivNumBooks * . %_rivFirstIndex
+   for %_rivIndex 1 %_rivNumBooks
+   {
+      Set %_rivBase %_rivFirstIndex + 1 + ( ( %_rivIndex - 1 ) * %_rivNumVars )
+      Set %_rivID * . %_rivBase
+      Set %_rivBase %_rivBase + 1
+      Set %_rivMaxRunes * . %_rivBase
+      If %_rivVersion < 3
+         GoSub AddRuneBook %_rivID %_rivMaxRunes
+      If %_rivVersion >= 3
+      {
+         Set %_rivBase %_rivBase + 1
+         Set %_rivColor * . %_rivBase
+         Set %_rivBase %_rivBase + 1
+         Set %_rivExtFile * . %_rivBase
+         GoSub AddRuneBook %_rivID %_rivMaxRunes %_rivColor %_rivExtFile
+      }
+   }
+   If %UseTinkering
+      Set %MinShovels 2
+   Else
+      Set %MinShovels 5
+   Set %return Success
+Return
+
+;*****************************************
+;******   Mining Location Recorder
+;*****************************************
+
+Sub RuneBookLocSetup
+   Set %rblsRunebookIndex %1
+   Set %rblsRuneIndex 0
+   Set %rblsRecalled #false
+
+   Set %glblAnyDirty #false
+   for %rblsIndex 1 %NumRunebooks
+   {
+      Set %glblDirty . %rblsIndex #false
+   }
+
+   _rblsMainLoop:
+      LinesPerCycle %lpsFast
+      if %rblsRecalled
+         GoSub CreateRunebookLocMenu %rblsRunebookIndex %rblsRuneIndex
+      if ! %rblsRecalled
+         GoSub CreateRunebookLocMenu %rblsRunebookIndex 0
+      Wait 10
+      Set #MenuButton N/A
+      _rblsMenuLoop:
+         Wait 1
+         Menu Get RunebookCombo
+         if %rblsRunebookIndex <> #MenuRes
+         {
+            Set %rblsRunebookIndex #MenuRes
+            Set %rblsRuneIndex 1
+            Set %rblsRecalled #false
+            GoSub UpdateRunes %rblsRunebookIndex #false 20
+            GoSub UpdateVeins %rblsRunebookIndex 0 #false
+            Goto _rblsMenuLoop
+         }
+         Menu Get RuneCombo
+         if %rblsRuneIndex <> #MenuRes
+         {
+            LinesPerCycle %lpsFast
+            Set %rblsRuneIndex #MenuRes
+            Set %rblsRecalled #false
+            GoSub UpdateVeins %rblsRunebookIndex 0 #false
+            Goto _rblsMenuLoop
+         }
+         If #MenuButton = N/A
+            goto _rblsMenuLoop
+         If #MenuButton = Recall || #MenuButton = RuneSet
+         {
+            If #MenuButton = Recall
+               GoSub Travel %_RuneBook . %rblsRunebookIndex %rblsRuneIndex %TravelMethod #false
+            Set %rblsRecalled #true
+            GoSub UpdateRunes %rblsRunebookIndex #false %rblsRuneIndex
+            GoSub UpdateVeins %rblsRunebookIndex %rblsRuneIndex #false
+            GoSub RunebookLocSetDirty %rblsRunebookIndex
+            Set #MenuButton N/A
+            Goto _rblsMenuLoop
+         }
+         if VeinDel  in #MenuButton
+         {
+            Str Right #MenuButton 1
+            Set %rblsButtonIndex #StrRes
+            GoSub RemoveVein  %rblsRunebookIndex %rblsRuneIndex %rblsButtonIndex
+            GoSub UpdateRunes %rblsRunebookIndex #false %rblsRuneIndex  %rblsRuneIndex
+            GoSub UpdateVeins %rblsRunebookIndex %rblsRuneIndex #true
+            GoSub RunebookLocSetDirty %rblsRunebookIndex
+            Set #MenuButton N/A
+            Goto _rblsMenuLoop
+         }
+         if VeinDef in #MenuButton
+         {
+            Str Right #MenuButton 1
+            Set %rblsButtonIndex #StrRes
+            GoSub DefineDigSpot %_sudcIndex %_sudcSpot %_sudcX %_sudcY %_sudcZ %_sudcK %_sudcT %_sudcColor
+            GoSub UpdateRunes %rblsRunebookIndex #false  %rblsRuneIndex
+            GoSub UpdateVeins %rblsRunebookIndex %rblsRuneIndex #true
+            GoSub RunebookLocSetDirty %rblsRunebookIndex
+            Set #MenuButton N/A
+            Goto _rblsMenuLoop
+         }
+         if VeinNew in #MenuButton
+         {
+            GoSub SetUserDigCoord %rblsRunebookIndex %rblsRuneIndex  #lTargetX #lTargetY #lTargetZ #lTargetKind #lTargetTile
+            GoSub UpdateRunes %rblsRunebookIndex #false  %rblsRuneIndex
+            GoSub UpdateVeins %rblsRunebookIndex %rblsRuneIndex #true
+            GoSub RunebookLocSetDirty %rblsRunebookIndex
+            Set #MenuButton N/A
+            Goto _rblsMenuLoop
+         }
+         if #MenuButton = Save
+         {
+            if %glblAnyDirty
+               Display YesNo Your changes will be permanent.$$Do you wish to proceed?
+            Set #MenuButton N/A
+            If #DispRes = Yes || ! %glblAnyDirty
+            {
+               if %glblAnyDirty
+               {
+                  GoSub WriteAllRuneBooks
+                  if %UseInteractiveSetup
+                     GoSub StoreInteractiveValues
+                  if ! %UseInteractiveSetup
+                     Display OK Filenames are 'Mine_ + Runebook Id.euo'. eg. Mine_ABCDEFG.euo$$You must modify the 'GoSub AddRuneBook' lines to include the external filenames.$The script will now stop for you to make these changes.
+               }
+            }
+            Set %glblAnyDirty #false
+            for %rblsIndex 1 %NumRunebooks
+            {
+               Set %glblDirty . %rblsIndex #false
+            }
+            menu delete Cancel
+            menu Button Cancel 245 207 80 25 Close
+         }
+         if #MenuButton = Cancel
+         {
+            if %glblAnyDirty
+               Display YesNo By cancelling you will loose any changes you have made.$$Do you wish to proceed?
+            Set #MenuButton N/A
+            If ! %glblAnyDirty || #DispRes = Yes
+            {
+               Menu Hide
+               Halt
+            }
+         }
+         If #MenuButton = Closed
+         {
+               Menu Hide
+               Halt
+         }
+      goto _rblsMenuLoop
+Return
+
+Sub RunebookLocSetDirty
+   Set %rlsdIndex %1
+   if %glblAnyDirty
+   {
+      menu delete Cancel
+      menu Button Cancel 245 207 80 25 Cancel
+   }
+   Set %glblAnyDirty #true
+   Set %glblDirty . %rlsdIndex #true
+Return
+
+Sub CreateRunebookLocMenu
+   LinesPerCycle %lpsFast
+   Set %crlmRunebookIndex %1
+   Set %crlmCurrentRune %2
+
+   Set %crlmRuneCount %_MaxRunes . %crlmRunebookIndex
+   menu Hide
+   menu Clear
+
+   Set %crlmMenuHeight 240
+   menu Window Size 330 %crlmMenuHeight
+   menu Window Title RuneBook Mining by Spewy - Mining Location Setup
+   menu Window Color BtnFace
+   Set %crlmY 80
+
+   Menu Shape Break 1 70 328 1 3 7 7
+
+   Menu Text RunebookST 5 10 Runebook
+   Menu Combo Create RunebookCombo 65 8 260
+   For %crlmBookIndex 1 %NumRunebooks
+   {
+      Set %crlmColor %_Color . %crlmBookIndex
+      Set %crlmCurColor %ColNames . %crlmColor
+      Set %crlmRunebookDescr %crlmCurColor , #spc , - , #spc , %_Runebook . %crlmBookIndex
+      Menu Combo Add RunebookCombo %crlmRunebookDescr
+   }
+   Menu Combo Select RunebookCombo %crlmRunebookIndex
+
+   Menu Text RunebookST 5 40 Rune
+   GoSub UpdateRunes %crlmRunebookIndex #true 20
+   Menu Combo Select RuneCombo %crlmCurrentRune
+   Menu Button RuneSet 215 37 55 25 Set
+   Menu Button Recall 270 37 55 25 Recall
+
+   GoSub UpdateVeins %crlmRunebookIndex %crlmCurrentRune  #true
+
+   Menu Shape Break 1 200 328 1 3 7 7
+   menu Button Save 160 207 80 25 Save
+   menu Button Cancel 245 207 80 25 Close
+   menu Show
+   LinesPerCycle %lpsNormal
+Return
+
+Sub UpdateRunes
+   Set %urRunebookIndex %1
+   Set %urCreate %2
+   Set %urSelectIndex %3
+
+   if %urCreate
+   {
+      Menu Delete RuneCombo
+      Menu Combo Create RuneCombo 65 38 150
+   }
+   Else
+      Menu Combo Clear RuneCombo
+   Set %urRuneCount %_MaxRunes . %urRunebookIndex
+   For %urRuneIndex 1 %urRuneCount
+   {
+      Set %urIndex ( ( %urRunebookIndex - 1 ) * 16 ) + %urRuneIndex
+      Set %urTemp %nDigSpots . %urIndex
+      Set %urCurRuneDescr %urRuneIndex , #spc , - , #spc , %urTemp , #spc , Veins
+      Menu Combo Add RuneCombo %urCurRuneDescr
+   }
+   if %urSelectIndex <> 20
+      Menu Combo Select RuneCombo %urSelectIndex
+Return
+
+Sub UpdateVeins
+   Set %uvRuneBookIndex %1
+   Set %uvCurrentRune %2
+   Set %uvForce %3
+
+   if ! %uvForce && %uvLastBook = %uvRuneBookIndex && %uvLastRune = %uvCurrentRune
+      Return
+
+   Set %uvLastBook %uvRuneBookIndex
+   Set %uvLastRune %uvCurrentRune
+   For %uvVeinIndex 1 4
+   {
+      Menu Delete VeinLoc . %uvVeinIndex
+      Menu Delete VeinDef . %uvVeinIndex
+      Menu Delete VeinDel . %uvVeinIndex
+      Menu Delete VeinInfo . %uvVeinIndex
+   }
+   Menu Delete VeinNew
+   Set %uvY 80
+   If %uvCurrentRune = 0
+   {
+      Menu Text VeinInfo1 5 %uvY [Recall] to the selected rune or [Set] if already there
+   }
+   Else
+   {
+      Set %uvIndex ( ( %uvRunebookIndex - 1 ) * 16 ) + %uvCurrentRune
+      Set %uvNumViens %nDigSpots  . %uvIndex
+      For %uvVeinIndex 1 4
+      {
+         If %uvVeinIndex <= ( %uvNumViens + 1 )
+         {
+            Menu Text VeinLoc . %uvVeinIndex 5 %uvY Vein , #spc , %uvVeinIndex
+            Set %uvYButton %uvY - 5
+            If %uvVeinIndex = ( ( %nDigSpots . %uvIndex ) + 1 )
+               Menu Button VeinNew 50 %uvYButton 125 25 Use Last Mined
+            Else
+            {
+               Menu Button VeinDel  . %uvVeinIndex 50 %uvYButton 60 25 Remove
+               Menu Button VeinDef  . %uvVeinIndex 115 %uvYButton 60 25 Redefine
+               GoSub GetUserDigLocation %uvRunebookIndex  %uvCurrentRune %uvVeinIndex
+               Set %uvTemp %DigSpotX , #spc , %DigSpotY , #spc , %DigSpotZ  , #spc , %DigSpotKind  , #spc , %DigSpotTile
+               Menu Text VeinInfo . %uvVeinIndex 180 %uvY %uvTemp
+            }
+            Set %uvY %uvY + 30
+         }
+      }
+   }
+Return
+
+Sub WriteAllRuneBooks
+   If %numRuneBooks < 1
+      Return
+   LinesPerCycle %lpsFast
+   for %warbIndex 1 %numRuneBooks
+   {
+      if %glblDirty . %warbIndex
+         GoSub WriteRuneBookLocations %warbIndex
+   }
+Return
+
+Sub WriteRuneBookLocations
+   Set %wrblRunebookIndex %1
+
+   Set %wrblRunebookID %_RuneBook . %wrblRunebookIndex
+   Set %wrblRuneCount %_MaxRunes . %wrblRunebookIndex
+   Set %wrblFilename Mine_ ,    %wrblRunebookID , .euo
+   Set %_ExtFile . %wrblRunebookIndex %wrblFilename
+
+   Set *2 Call , #spc , RuneFunctions.euo , #spc , FindRunebook , #spc , %wrblRunebookID
+   Set *3 Set , #spc , % , sdlbook , #spc , % , return
+   Set *4 If , #spc , % , sdlBook , #spc , > , #spc , 0
+   Set *5 {
+
+   Set %wrblCurVar 6
+   For %wrblRuneIndex 1 %wrblRuneCount
+   {
+      Set %wrblIndex ( ( %wrblRunebookIndex - 1 ) * 16 ) + %wrblRuneIndex
+      Set %wrblNumVeins %nDigSpots  . %wrblIndex
+      if %wrblNumVeins > 0
+      {
+         For %wrblVeinIndex 1 %wrblNumVeins
+         {
+             GoSub GetUserDigLocation %wrblRunebookIndex %wrblRuneIndex %wrblVeinIndex
+      Set %wrblTemp % , sdlBook , #spc , %wrblRuneIndex , #spc , %DigSpotX , #spc , %DigSpotY , #spc , %DigSpotZ , #spc , %DigSpotKind , #spc , %DigSpotTile
+             Set * . %wrblCurVar #spc ,  #spc ,  #spc , Call , #spc , RuneFunctions.euo , #spc , SetUserDigCoord , #spc , %wrblTemp
+             Set %wrblCurVar %wrblCurVar + 1
+         }
+      }
+   }
+
+   Set * . %wrblCurVar }
+   Set *1 0
+   Execute WScript SpewyFileSupport.js %wrblFilename 1 2 %wrblCurVar
+   _wrblWaitForWrite:
+      if *1 = 0
+         goto _wrblWaitForWrite
+   If *1 = 2
+      Display OK ERROR2: Could not create File
+   If *1 = 3
+      Display OK ERROR3: Could not create FileSystemObject
+   If *1 = 4
+      Display OK ERROR4: Number of parameters
+Return
+
+;*****************************************
+;******   Check Initialization
+;*****************************************
+Sub CheckInit
+   Set %return N/A
+   if %UsingExtFiles
+   {
+      Call RuneFunctions.euo CompatibilityVersion
+      If %Return <> 1
+      {
+         Display OK Please check that RuneFunctions.euo is in same folder as this script, and unzip the archive again. If you find it there, open it up and make sure it doesn't look corupt.
+         Display OK Report , #spc , the , #spc , following , #spc , to , #spc , Spewy: , #spc , X , %Return , X , #spc , Y , %rfTesting , Y , #spc , Z , %rf2Testing , Z
+         Halt
+      }
+   }
+   If %UsePackAnimal
+   {
+      Set %LookedOnce 0
+      _gFindPackAnimal:
+         FindItem %PackAnimalId
+         If #FindKind <> -1
+         {
+            Set %UsingBeetle ( #FindType = %BeetleType )
+            Set %IsMounted ( #findBagID = #CharID )
+         }
+         If #FindKind = -1
+         {
+            if %LookedOnce = 0
+            {
+               GoSub DismountBeetle
+               event Macro 9 1
+               Set %LookedOnce 1
+               goto _gFindPackAnimal
+            }
+
+            Display YesNo Cannot find your Pack Animal. Continue without it?
+            If #DispRes = No
+               Halt
+            Set %UsePackAnimal #false
+         }
+   }
+
+   GoSub OpenAnyContainer Backpack %BackpackId 650 335 5
+   If #Weight = N/A
+   {
+      Set #NextCPosX 470
+      Set #NextCPosY 370
+      Event Macro 8 2
+   }
+   Wait 2s
+
+   FindItem %BaseRunebook C_ , %BackpackId
+   if #FindKind = -1
+   {
+      Display OK Bank/House Runebook not found in main backpack (BaseRunebook)
+      Halt
+   }
+
+   If %EscapeRecallTarget <> XXXXXXX
+   {
+      FindItem %BaseRunebook C_ , %BackpackId
+      if #FindKind = -1
+      {
+         Display OK Cannot find your EscapeRecallTarget, set it back to XXXXXXX to use bank/house runebook
+         Halt
+      }
+   }
+
+   Set %_ciRuneBookCount 0
+   For %_ciIndex 1 %NumRunebooks
+   {
+      If ( %MineFor && ( %_Color . %_ciIndex ) ) <> 0
+      {
+         Set %_ciRuneBookCount %_ciRuneBookCount + 1
+         FindItem %_RuneBook . %_ciIndex C_ , %BackpackId
+         if #FindKind = -1
+         {
+            Display OK Could not find mining runebook , #smc , %_RuneBook . %_ciIndex
+            Halt
+         }
+         GoSub GetRunebookName %_ciIndex
+      }
+   }
+
+   If %_ciRuneBookCount = 0
+   {
+      Display OK No mining runebooks are defined.$$Have you set MineFor variable to a incorrect color?
+      Halt
+   }
+   for %_ciIndex 1 %NumBaseRunes
+   {
+      If ( %BaseRune . %_ciIndex < 1 ) || ( %BaseRune . %_ciIndex > 16 )
+      {
+         Display OK Bank/House , #spc , Rune , #spc , index , #spc , %_ciIndex , #spc , not , #spc , properly , #spc , set , #spc , (BaseRune , %_ciIndex , )
+         Halt
+      }
+   }
+
+   If ! %UseTinkering && %MinShovels < 1
+   {
+      Display OK You have chosen not to tinker but you haven't set %MinShovels to a positive number
+      Halt
+   }
+
+   If ! %RegSuit
+   {
+      If ! %BankDrop
+      {
+         FindItem %SecureId G_2
+         if #FindKind <> -1
+         {
+            GoSub CheckEnoughRegs
+            if ! %return
+            {
+               GoSub OpenAnyContainer PaperDoll #CharID 534 1 5
+               GoSub OpenAnyContainer Container %SecureId 27 49 5
+               GoSub PickupReagent %MandrakeRoot Mandrake %SecureId
+               GoSub PickupReagent %Bloodmoss Bloodmoss %SecureId
+               GoSub PickupReagent %BlackPearl Black , #spc , Pearl %SecureId
+            }
+         }
+      }
+      GoSub CheckEnoughRegs
+      if ! %return
+      {
+         Display OK I'm not going to let you proceed without 20 of each reg at the top of your backpack$(I don't want you stranded out there)
+         Halt
+      }
+   }
+Return
+
+Sub GetRunebookName
+   Set %_grnIndex %1
+   GoSub EventProperty %_RuneBook . %_grnIndex
+   Set %_BookName . %_grnIndex _
+
+   Str Len #Property
+   Set %_grnLength #StrRes
+   Str Pos #Property Stone$
+   Set %_grnStart #StrRes + 6
+   if #StrRes = 0
+   {
+       Str Pos #Property Blessed$
+       Set %_grnStart #StrRes + 8
+   }
+   If #StrRes > 0
+   {
+      Set %_grnEnd %_grnLength - %_grnStart
+      If %_grnStart < %_grnLength
+      {
+         Set %_grnEnd %_grnLength - %_grnStart
+         Str Mid #Property %_grnStart %_grnEnd
+         Set %_BookName . %_grnIndex #StrRes
+      }
+   }
+Return
+
+Sub CheckEnoughRegs
+   Set %return #true
+   FindItem %MandrakeRoot C_ , %BackpackId
+   If #findkind = -1 || #findstack < 20
+      Set %return #false
+   FindItem %Bloodmoss C_ , %BackpackId
+   If #findkind = -1 || #findstack < 20
+      Set %return #false
+   FindItem %BlackPearl C_ , %BackpackId
+   If #findkind = -1 || #findstack < 20
+      Set %return #false
+Return
+
+;***************************************** 
+;******  STATUS WINDOW 
+;***************************************** 
+Sub CreateStatusWindow
+   If ! %ShowStatus
+      Return
+;   menu Hide 
+   menu Clear
+   menu Window Title Runebook Mining by Spewy
+   menu Window Color White
+   menu Window Size 260 280
+   menu Font Transparent #true
+
+   menu Shape StatusBg 3 2 50 52 4 7 1 Black 7 White
+   menu Shape ButtonBg 0 56 265 38 3 7 1 Navy 7 Navy
+
+   GoSub CreateStatusButtons
+   gosub createcounter
+   menu Show
+Return
+
+Sub CreateStatusButtons
+   menu Delete NextRune
+   menu Delete Escape
+   menu Delete PauseBut
+
+   menu Font Name Times New Roman
+   menu Font Size 10
+   menu Font Style b
+   menu Button PauseBut 6  62 125 25 Pause
+   ;menu Button NextRune  134  62 125 25 Next Rune 
+   menu Button Escape 131  62 125 25 Escape
+Return
+
+sub createcounter
+   menu Font Name Times New Roman
+   menu Font Size 8
+  menu Font Style
+  menu Text EUOLabel1 8 100 Iron :
+  menu Text EUOLabel2 8 116 Dull Copper :
+  menu Text EUOLabel3 8 132 Shadow :
+  menu Text EUOLabel4 8 148 Copper :
+  menu Text EUOLabel5 8 164 Bronze :
+  menu Text EUOLabel6 8 180 Gold :
+  menu Text EUOLabel7 8 196 Agapite :
+  menu Text EUOLabel8 8 212 Verite :
+  menu Text EUOLabel9 8 228 Valorite :
+  menu Text EUOLabel27 131 100 Blue Diamonds :
+  menu Text EUOLabel28 131 116 Ecru Citrines :
+  menu Text EUOLabel29 131 132 Fire Rubies :
+  menu Text EUOLabel30 131 148 Perfect Emeralds :
+  menu Text EUOLabel31 131 164 Dark Sapphire :
+  menu Text EUOLabel32 131 180 Turquoise :
+  menu Text 0 90 100 %curore . 0
+  menu Text 2419 90 116 %curore . 2419
+  menu Text 2406 90 132 %curore . 2406
+  menu Text 2413 90 148 %curore . 2413
+  menu Text 2418 90 164 %curore . 2418
+  menu Text 2213 90 180 %curore . 2213
+  menu Text 2425 90 196 %curore . 2425
+  menu Text 2207 90 212 %curore . 2207
+  menu Text 2219 90 228 %curore . 2219
+  menu Text GXS 225 100 %curjewel . GXS
+  menu Text TWS 225 116 %curjewel . TWS
+  menu Text VWS 225 132 %curjewel . VWS
+  menu Text UWS 225 148 %curjewel . UWS
+  menu Text AXS 225 164 %curjewel . AXS
+  menu Text ZWS 225 180 %curjewel . ZWS
+
+  menu Font Size 12
+  menu font style b
+  menu text euolabel42 90 250 %overallcount Mined
+
+Return
+
+sub jewelupdate
+set %newid #findid
+set %newcnt #FINDSTACK
+menu Font Name Times New Roman
+menu Font Size 8
+menu Font Style
+menu Font Color WindowText
+if %oldjewel . #findtype => %newcnt
+{
+  if %oldjewelid . #findtype <> #findid
+  {
+      set %curjewel . #findtype %curjewel . #findtype + %newcnt
+      set %oldjewel . #findtype %newcnt
+      set %oldjewelid . #findtype #findid
+      menu delete #findtype
+      menu text #findtype 225 %onscr . #findtype %curjewel . #findtype
+      return
+  }
+return
+}
+set %nowcnt %newcnt - %oldjewel . #findtype
+set %curjewel . #findtype %curjewel . #findtype + %nowcnt
+set %oldjewel . #findtype %newcnt
+set %oldjewelid . #findtype #findid
+menu delete #findtype
+menu text #findtype 225 %onscr . #findtype %curjewel . #findtype
+return
+
+sub oreupdate
+set %newid #findid
+set %newcnt #FINDSTACK
+menu Font Name Times New Roman
+menu Font Size 8
+menu Font Style
+menu Font Color WindowText
+if %oldore . #findcol => %newcnt
+{
+  if %oldoreid . #findcol <> #findid
+  {
+      set %curore . #findcol %curore . #findcol + %newcnt
+      set %oldore . #findcol %newcnt
+      set %oldoreid . #findcol #findid
+      SET %overallcount %overallcount + %newcnt
+    menu delete #findcol
+      menu text #findcol 90 %onscr . #findcol %curore . #findcol
+      menu font size 12
+    menu font style b
+    menu delete euolabel42
+    menu text euolabel42 90 250 %overallcount Mined
+    return
+  }
+return
+}
+set %nowcnt %newcnt - %oldore . #findcol
+set %curore . #findcol %curore . #findcol + %nowcnt
+set %oldore . #findcol %newcnt
+set %oldoreid . #findcol #findid
+set %overallcount %overallcount + %nowcnt
+menu delete #findcol
+menu text #findcol 90 %onscr . #findcol %curore . #findcol
+menu font size 12
+menu font style b
+menu delete euolabel42
+menu text euolabel42 90 250 %overallcount Mined
+return
+
+Sub HandlePauseButton
+   menu Delete NextRune
+   menu Delete Escape
+   menu Delete PauseBut
+
+   menu Font Name Times New Roman
+   menu Font Size 10
+   menu Font Style b
+   menu Button PauseBut 6   62 253 25 UnPause
+   Set %_hpbLastMessage %_uswLastMessage
+   GoSub UpdateStatusWindow Pause
+
+   Set #MenuButton N/A
+   _hpbLoop:
+      If #MenuButton = N/A
+      {
+         wait 1
+         Goto _hpbLoop
+      }
+   If #MenuButton = Cancel || #MenuButton = Closed
+   {
+      menu Hide
+      Halt
+   }
+   Set #MenuButton N/A
+   menu Delete PauseBut
+   GoSub CreateStatusButtons
+   GoSub UpdateStatusWindow %_hpbLastMessage
+Return
+
+Sub UpdateStatusWindow
+
+  counterupdate:
+  finditem DWJ_TWS_ZWS_AXS_UWS_VWS_GXS C_ , #backpackid
+  if #findkind = -1
+  {
+    ignoreitem reset
+    goto updatestatuswindowmain
+  }
+  if #findtype = DWJ
+  {
+    gosub oreupdate
+  }
+  if #findtype <> DWJ
+  {
+    gosub jewelupdate
+  }
+  ignoreitem #findid
+  goto counterupdate
+
+updatestatuswindowmain:
+
+  If ! %ShowStatus
+      Return
+
+   menu Font Name Times New Roman
+   menu Font Size 8
+   menu Font Style
+   menu Font Color Black
+   menu Font BGColor White
+  
+
+   Set %_uswCurLocation ( %iRuneBook * 160 ) + ( %iRune * 10 ) + %iSpot
+   if %_uswCurLocation <> %_uswLastLocation
+   {
+      menu Delete Location
+      If %iSpot > 1
+      {
+         If %_BookName . %_grnIndex = _
+            Set %_uswText book: , #spc , %iRuneBook , #spc , rune: , #spc , %iRune , #spc , spot: , #spc , %iSpot
+         Else
+            Set %_uswText book: , #spc , %iRuneBook , #spc , ( , %_BookName . %iRuneBook , ) , #spc , rune: , #spc , %iRune , #spc , spot: , #spc , %iSpot
+      }
+      If %iSpot < 2
+      {
+         If %_BookName . %_grnIndex = _
+            Set %_uswText book: , #spc , %iRuneBook , #spc , rune: , #spc , %iRune
+         Else
+            Set %_uswText book: , #spc , %iRuneBook , #spc , ( , %_BookName . %iRuneBook , ) , #spc , rune: , #spc , %iRune
+      }
+      Str Lower %_uswText
+      menu Text Location 60 26 #StrRes
+   }
+   Set %_uswMessage %1
+   If %_uswMessage <> %_uswLastMessage
+   {
+      If %_uswMessage <> FindShovel
+         menu Delete ActionLabel
+      menu Delete Status
+
+      menu Font Name Times New Roman
+      menu Font Size 14
+      menu Font Style
+      menu Font Color Black
+      menu Font BGColor White
+      If %_uswMessage = FindShovel
+         menu Text Status 60  5 Finding mining tool
+      If %_uswMessage = MakeShovel 4
+         menu Text Status 60  5 Making shovels
+         menu Font Size 36
+         menu Font Name Webdings
+         menu Text ActionLabel 3 4 @
+      If %_uswMessage = Prospecting 4
+         menu Text Status 60  5 Prospecting
+         menu Font Size 36
+         menu Font Name Wingdings
+         menu Text ActionLabel 6 4 ¥
+      If %_uswMessage = Digging 4
+         menu Text Status 60  5 Mining
+         menu Font Name Wingdings
+         menu Font Size 36
+         menu Text ActionLabel 6 3 ¥
+      If %_uswMessage = UnloadingToBase 4
+         menu Text Status 60  5 Dropping off ore
+         menu Font Name Webdings
+         menu Font Size 32
+         menu Text ActionLabel 6 4 H
+      If %_uswMessage = MoveToPosition 4
+         menu Text Status 60  5 Moving into position
+         menu Font Name Webdings
+         menu Font Size 36
+         menu Text ActionLabel 6 4 H
+      If %_uswMessage = UnloadToPack 4
+         menu Text Status 60  5 Unloading to pack animal
+         menu Font Name Webdings
+         menu Font Size 36
+         menu Text ActionLabel 5 4
+      If %_uswMessage = Recall 4
+         menu Text Status 60  5 Recalling
+         menu Font Name Wingdings
+         menu Font Size 36
+         menu Text ActionLabel 7 3 O
+      If %_uswMessage = RecallBookError 4
+         menu Text Status 60  5 Retrying to open runebook
+         menu Font Name Wingdings
+         menu Font Size 36
+         menu Text ActionLabel 6 4 O
+      If %_uswMessage = OpenRetry 4
+         menu Text Status 60  5 Retrying container
+         menu Font Name Webdings
+         menu Font Size 36
+         menu Text ActionLabel 4 5 q
+      If %_uswMessage = WaitMana 4
+         menu Text Status 60  5 Waiting for mana
+         menu Font Name Wingdings
+         menu Font Size 36
+         menu Text ActionLabel 6 4 6
+      If %_uswMessage = Pause 4
+         menu Text Status 60  5 Paused
+         menu Font Name Wingdings
+         menu Font Size 36
+         menu Text ActionLabel 14 4 6
+      If %_uswMessage = Escape 5
+         Str Lower %escapeReason
+         menu Text Status 60  5 Escape: , #spc , #StrRes
+         menu Font Name Wingdings
+         menu Font Size 36
+         menu Text ActionLabel 11 2 N
+
+      Set %_uswLastMessage %_uswMessage
+   }
+Return
+
+
+Sub MineForMenu
+   If ! %BringUpMenuForFilters
+      Return
+
+   menu Hide
+   menu Clear
+   menu Window Color White
+   menu Window Size 365 130
+   menu Font Transparent #true
+   menu Window Title Runebook Mining by Spewy
+   menu Window Color BtnFace
+
+   menu Font Style B
+   menu Text MineForST   5   7 Mine for:
+   menu Text ProspST  5  37 Prospect:
+   menu Font Style
+
+   GoSub CreateRunebookButtons Mine  62  5 %MineFor #true
+   GoSub CreateRunebookButtons Prosp 62 35 %UseProspector #true
+   menu Button MineLoc 62 60 225 25 Setup Mining Locations
+   Menu Shape Break 1  95 363 1 3 7 7
+   menu Button Okay      195 100 80 25 OK
+   menu Button Cancel 280 100 80 25 Cancel
+   menu Show
+
+   Set #MenuButton N/A
+   _mfmLoop:
+      Wait 1
+      If #MenuButton = N/A
+         Goto _mfmLoop
+      If #MenuButton = Cancel || #MenuButton = Closed
+      {
+         menu Hide
+         Halt
+      }
+      If #MenuButton = Okay
+      {
+         menu Hide
+         Return
+      }
+      If #MenuButton = MineLoc
+      {
+         if ! ( EXEC in #Opts )
+         {
+            Display OK You need to Allow Execute (in EasyUO Options), to be able to save rune locations
+            Set #MenuButton N/A
+            goto _mfmLoop
+         }
+         GoSub RuneBookLocSetup 1
+         Menu Hide
+         Halt
+      }
+      If Mine in #MenuButton
+         Set %_mfmVarName MineFor
+      If Prosp in #MenuButton
+         Set %_mfmVarName UseProspector
+      If DC in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %Dull
+      If Sh in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %Shadow
+      If Co in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %Copper
+      If Br in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %Bronze
+      If Go in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %Gold
+      If Ag in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %Agapite
+      If Ve in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %Verite
+      If Va in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %Valorite
+      If Un in #MenuButton
+         GoSub ToggleMiningColor %_mfmVarName %UnknownColor
+      If Al in #MenuButton
+         Set % . %_mfmVarName %AllColors
+      If NO in #MenuButton
+         Set % . %_mfmVarName %NoColor
+      if %_mfmVarName = MineFor
+      {
+         GoSub DeleteRunebookButtons Mine
+         GoSub CreateRunebookButtons Mine  60  7 %MineFor #true
+      }
+      if %_mfmVarName = UseProspector
+      {
+         GoSub DeleteRunebookButtons Prosp
+         GoSub CreateRunebookButtons Prosp 60 37 %UseProspector #true
+      }
+      Set #MenuButton N/A
+   Goto _mfmLoop
+Return
+
+Sub ToggleMiningColor
+   Set %_tmcVarName %1
+   Set %_tmcBitValue %2
+   Set %_tmcValue % . %_tmcVarName
+
+   If ( %_tmcValue && %_tmcBitValue ) = 0
+      Set %_tmcValue %_tmcValue + %_tmcBitValue
+   Else
+      Set %_tmcValue %_tmcValue - %_tmcBitValue
+   Set % . %_tmcVarName %_tmcValue
+Return
+
+;*****************************************
+;******  SUPPORT FUNCTIONS
+;*****************************************
+Sub DragAnyItem
+   nameSpace Push
+   nameSpace Local #sysTime , #random
+
+   Set !ItemType %1
+   Set !ItemColour %2
+   Set !ItemContainerID %3
+   Set !ItemCount %4
+   Set !DestinationID %5
+   Set !TrackGPValue %6
+
+   Set !DraggedSome #false
+   Set !Return N/A
+
+   GoSub CheckEscapeStatus
+   If %CheckEscapeStatus
+      Goto dai_ExitLoop
+
+   GoSub DealWithStuckItems
+   If ! #Result
+      Goto dai_ExitLoop
+
+   Set %LastDragDestinationID !DestinationID
+   dai_Loop:
+      msg $
+      FindItem !ItemType C_ , !ItemContainerID
+      If !ItemColour <> #true && #FindKind <> -1 && #FindCol <> !ItemColour
+      {
+         IgnoreItem #FindId
+         goto dai_Loop
+      }
+      If %_daiItemType = %DiggingTools
+      {
+         GoSub IsUsableMiningTool
+         If ! #Result
+         {
+            IgnoreItem #FindId
+            goto dai_Loop
+         }
+      }
+      If #FindKind = -1
+         Goto dai_ExitLoop
+      dai_Drag:
+        Set !DragTimeout #sCnt + 5
+        GoSub UseObjectWait #false %UseTime
+        Wait 5
+        If !ItemCount = ALL
+           Exevent Drag #findid #findstack
+        Wait 5
+        dai_WaitForDrag:
+            If #sCnt > !DragTimeout
+                goto dai_Drag
+            Wait 5
+
+          If !ItemCount <> ALL
+              Exevent Drag #findid !itemcount
+          Wait 5
+          msg $
+
+      Wait 5
+
+      If #FindType = %LargeOreType
+      {
+        if ( %DumpIron ) && ( #FindCol = 0 )
+         {
+            FindItem #FindType G_2
+            If #FindKind <> -1
+            {
+               Wait 10
+               GoSub clickScreenXYZ #FindX #FindY #FindZ
+               Wait 10
+            }
+         }
+      }
+
+      Set !DropAttempt 0
+      dai_Drop:
+         Wait 5
+         Set !DropAttempt !DropAttempt + 1
+         if !DropAttempt > 2
+         {
+            FindItem * C_ , %BackpackID
+            If #FindKind = -1
+            {
+               GoSub OpenAnyContainer Backpack %BackpackId 650 335 5
+               FindItem * C_ , %BackpackID
+            }
+            If #FindKind <> -1
+               Click #FindX #FindY F
+            Set !Return DestinationMissing
+            Goto dai_ExitLoop
+         }
+         if !DestinationID = %BackpackId
+         {
+            FindItem %BackpackID C_ , #CharId
+            Exevent Dropc #Charid
+            ExEvent DropC #backpackid
+         }
+         if !DestinationID <> %BackpackId
+         {
+            FindItem !DestinationID
+            If #FindKind = -1
+               Goto dai_Drop
+            Exevent Dropc !DestinationID
+         }
+         ;GoSub waitForSysVar lLiftedKind = 0 60
+         ;If ! %return
+            ;Goto dai_Drop
+      Wait 1s
+      scanjournal 1
+      If That_container_cannot_hold in #journal || hold_more_items in #journal
+      {
+         Set !return ContainerFull
+         Goto dai_ExitLoop
+      }
+      Set !DraggedSome #true
+      If !ItemCount = ALL
+          goto dai_Loop
+
+   dai_ExitLoop:
+   IgnoreItem Reset
+   If !Return <> N/A
+      Set %Return !Return
+   If !Return = N/A && !DraggedSome
+      Set %Return Success
+   If !Return = N/A && !DraggedSome = #false
+      Set %Return NoneFound
+
+   nameSpace Clear
+   nameSpace Pop
+Return
+
+Sub DealWithStuckItems
+   ; The following code tries to get rid of items that failed to be dropped
+   ; from the last drag operation. I'm guessing its lag that causes this situation
+   Set !FailedDragClearAttempt 0
+   Set !FailedDropClearAttempt 0
+   dwsi_DragBusyRetry:
+      if #ContName = drag_gump || #ContName = stack_gump
+      {
+         If !FailedDragClearAttempt = 0
+            Click #CursorX #CursorY R
+         If !FailedDragClearAttempt = 1
+         {
+            Click #CursorX #CursorY
+            Key Enter
+         }
+         If !FailedDragClearAttempt = 2
+         {
+            Set !OkButtonX #CursorX + 87
+            Set !OkButtonY #CursorY + 50
+            Click !OkButtonY !OkButtonY
+         }
+         If !FailedDragClearAttempt >= 3
+         {
+            Set %Return AlreadyDragging
+            Return #false
+         }
+         Set !FailedDragClearAttempt !FailedDragClearAttempt + 1
+         goto dwsi_DragBusyRetry
+      }
+      if #lLiftedKind = 1
+      {
+         If !FailedDropClearAttempt >= 2
+         {
+            Set %Return AlreadyDragging
+            Return #false
+         }
+         If !FailedDropClearAttempt = 0 && %LastDragDestinationID = %PackAnimalDropId
+         {
+            FindItem %PackAnimalId
+            If #FindDist > 1
+               Set !FailedDropClearAttempt 1
+         }
+         If !FailedDropClearAttempt = 1 || ( !FailedDropClearAttempt = 0 && %LastDragDestinationID = %BackpackId )
+         {
+            GoSub OpenAnyContainer PaperDoll #CharID 534 1 5
+            FindItem %BackPackId C_ , #CharId
+            If %Return = Success && #FindKind <> -1
+            {
+               Set #FindMod 140_220
+               Click #FindX #FindY F
+            }
+            Set !FailedDropClearAttempt 2
+            goto dwsi_DragBusyRetry
+         }
+         If !FailedDropClearAttempt = 0
+         {
+            FindItem %LastDragDestinationID
+            If #FindKind <> -1
+            {
+               Set #FindMod 24_10
+               Click #FindX #FindY F
+            }
+            goto dwsi_DragBusyRetry
+         }
+      }
+Return #true
+
+Sub OpenAnyContainer
+   Set %_oacContType %1
+   Set %_oacContID %2
+   Set %_oacContPosX %3
+   Set %_oacContPosY %4
+   Set %_oacMaxRetries %5
+
+   Set %_oacLastMessage N/A
+
+   Set #NextCPosX %_oacContPosX
+   Set #NextCPosY %_oacContPosY
+
+   Set %_oacNTries 0
+   _oacMain:
+      Set %_oacNTries %_oacNTries + 1
+      If %_oacNTries > %_oacMaxRetries
+      {
+         Set %_oacErrMsg %_oacContType , #spc , %_oacContID
+         Display OK Could not open container: , %_oacErrMsg
+         Set %return Failed
+         Return
+      }
+      If %_oacContType = Bank
+      {
+         msg Bank $
+         GoSub waitForSysVar Contsize = 180_240 60
+         If ! %Return
+            goto _oacMain
+      }
+      If %_oacContType = Backpack
+      {
+         GoSub UseObjectEvent 9 7
+         Wait 5
+         Set %idOldContId #ContId
+         _idCharBackpack:
+            GoSub UseObjectEvent 8 7
+            if %BackpackId = null
+            {
+               GoSub waitForSysVar ContId <> %idOldContId 60
+               If ! %return
+                  goto _idCharBackpack
+               Set %BackpackId #ContId
+            }
+         Set %_oacContID %BackpackId
+      }
+      If %_oacContType = PaperDoll
+         GoSub UseObjectEvent 8 1
+      If %_oacContType = Container
+         GoSub UseObject %_oacContID #false #false
+
+      Set %_oacTimeOut #sCnt + 6
+      _oacWaitForContainer:
+         If %_oacContID <> N/A && #ContID <> %_oacContID
+         {
+            If %_oacTimeOut < #sCnt 3
+                Set %_oacLastMessage %_uswLastMessage
+                GoSub UpdateStatusWindow OpenRetry
+                goto _oacMain
+            goto _oacWaitForContainer
+         }
+   if %_oacLastMessage <> N/A
+      GoSub UpdateStatusWindow %_oacLastMessage
+   Wait 5
+   ContPos %_oacContPosX %_oacContPosY
+   Wait 5
+   Set %return Success
+Return
+
+Sub PathFind
+   If %0 <> 4
+      Display OK Invalid use of UseObject (Spewy wrote a bug)
+   Set %_pfX %1
+   Set %_pfY %2
+   Set %_pfZ %3
+   Set %_pfTimeout #sCnt + %4
+
+   Set %Return #false
+   deleteJournal
+   scanJournal 2 ; flush #journal
+   event PathFind %_pfX %_pfY %_pfZ
+_pfScanAgain:
+   scanJournal 1
+   if pathfinding in #journal
+      goto _pfPathFind
+   if can't_get_there in #journal || #sCnt > %_pfTimeout
+      return
+   goto _pfScanAgain
+_pfPathFind:
+    If ( #charPosX <> %_pfX || #charPosY <> %_pfY ) && #sCnt <= %_pfTimeout
+      Goto _pfPathFind
+
+    Set %Return ( #CharPosX = %_pfX && #CharPosY = %_pfY )
+    If ! %Return
+       Event PathFind #CharPosX #CharPosY #CharPosZ
+return
+
+Sub UseObjectWait
+   Set %_uowNoBlock %1
+   Set %_uowUseTime %2
+
+   Set %_uowSleep ( %_uowLastUse + %_uowUseTime - #scnt2 ) * 2
+   if %_uowSleep > 0 && %_uowNoBlock
+   {
+      Set %return Blocked
+      Return
+   }
+   if %_uowSleep > 0
+      Wait %_uowSleep
+
+   Set %_uowLastUse #sCnt2
+   Set %return N/A
+Return
+
+Sub UseObject
+   Set %_uoObject %1
+   Set %_uoNoBlock %2
+   Set %_uoShovelUse %3
+   If %0 <> 3
+      Display OK Invalid use of UseObject (Spewy wrote a bug)
+
+   If %_uoShovelUse
+      Set %_uoUseTime %MineUseTime
+   Else
+      Set %_uoUseTime %UseTime
+
+   GoSub CheckForConnDeath
+   GoSub UseObjectWait %_uoNoBlock %_uoUseTime
+   if %return = Blocked
+      Return
+   If ! %_uoShovelUse
+      deletejournal
+   Set #lObjectId %_uoObject
+   Event Macro 17 0
+Return
+
+Sub UseObjectEvent
+   Set %_uoe1 %1
+   Set %_uoe2 %2
+
+   GoSub UseObjectWait #true %UseTime
+   Event Macro %_uoe1 %_uoe2
+Return
+
+; Thanks to the contributors of the Standard Subs / Project Alexandria
+;==========================================================
+; Name: clickScreenXYZ
+; Author: ScriptFellow
+; Parameters: %1 = world x-coordinate
+;             %2 = world y-coordinate
+;             %3 = world z-coordinate
+;             %4 = x displacement (to be added to the screen coordinate)
+;             %5 = y displacement (to be added to the screen coordinate)
+; Purpose: Clicks on the screen given by world coordinates (with displacement)
+;          initialize the following variables:
+;          %_cursorX, %_cursorY
+; Return: %outsideScreen (#true or #false )
+;----------------------------------------------------------
+sub clickScreenXYZ
+   set %1 ( %1 - #charPosX ) * 22
+   set %2 ( #charPosY - %2 ) * 22
+   set %3 ( %3 - #charPosZ ) * 4
+   if %0 < 4 || %4 = N/A
+      set %4 0
+   if %0 < 5 || %5 = N/A
+      set %5 0
+   set %_cursorX #cliLeft + #cliXRes / 2 + %1 + %2 + %4
+   set %_cursorY #cliTop + #cliYRes / 2 + %1 - %2 - %3 + %5
+   set %outsideScreen #true
+   if %_cursorX > #cliLeft &&
+      + %_cursorY > #cliTop &&
+      + %_cursorX < ( #cliLeft + #cliXRes ) &&
+      + %_cursorY < ( #cliTop + #cliYRes )
+   {
+      set %outsideScreen #false
+      click %_cursorX %_cursorY F
+   }
+Return
+
+;==========================================================
+; Name: waitForSysVar
+; Author: Smertrios
+; Parameters: %1 = name of the system variable without the preceeding '#'
+;             %2 = some operator like <, >, =, in, notIn
+;             %3 = a value to compare with EasyUO system variable %1
+;             %4 = timeout value equal to %4 * .1 seconds
+;             %5 = name of return value ('return' by default)
+; Purpose: compares a system variable to a value; returning when the
+;          comparison evaluates as true
+; Return: @%5 (#true or #false if timedout)
+;----------------------------------------------------------
+sub waitForSysVar
+   if %0 < 4 || %4 = N/A
+      set %4 %_defaultWaitForTimeout
+   if %0 < 5
+      set %5 return
+   set %4 #sCnt2 + %4
+_waitForSysVar:
+   set % . %5 # . %1 %2 %3
+   if ! % . %5 && #sCnt2 < %4
+   {
+      Wait 1
+      goto _waitForSysVar
+   }
+return
+
+sub waitForSysVar2
+   if %0 < 7 || %7 = N/A
+      set %7 %_defaultWaitForTimeout
+   if %0 < 8
+      set %8 return
+   set %7 #sCnt2 + %7
+_waitForSysVar2:
+   set % . %8 ( # . %1 %2 %3 ) && ( # . %4 %5 %6 )
+   if ! % . %8 && #sCnt2 < %7
+   {
+      Wait 1
+      goto _waitForSysVar2
+   }
+return
+
+Sub InitializeRuneBookMiningBySpewy
+   INITEVENTS
+
+   Set %lpsFast 1000
+   Set %lpsNormal 20
+   GoSub ClearDigLocations ; Do not change/remove this line
+   GoSub InitializeContKinds
+Return
+
+Sub InitializeContKinds
+   LinesPerCycle %lpsFast
+
+   Set %ShovelType WWF_TWF ; Shovel, Sturdy Shovel 
+   Set %PickAxe QPF_NPF
+   Set %DiggingTools WWF_TWF_QPF_NPF
+   Set %SturdyColour 2419
+   Set %OreTypes DWJ_TVJ_GWJ_EWJ_TWS_ZWS_AXS_UWS_VWS_GXS_NVF_EVF_UVF_VVF_GVF_HVF_RVF_BVF_ZVF
+   Set %LargeOreType DWJ
+   Set %TinyOreType TVJ
+   Set %BagTypes ZJF_CKF_LKF
+   Set %PackAnimals ZGB_BO_WN
+   Set %BeetleType ZGB
+   Set %TinkerType JTL_GTL_KTL
+   Set %ProspType GBG
+   Set %IngotType ENK
+   Set %GraniteType BVI
+   Set %MandrakeRoot MZF
+   Set %BloodMoss JUF
+   Set %BlackPearl KUF
+   Set %GateType JEF_OTF
+   Set %RecallScrollType WTL
+   Set %GateScrollType YUL
+
+   Set %NoColor      0
+   Set %Iron         1
+   Set %Dull         2
+   Set %Shadow       4
+   Set %Copper       8
+   Set %Bronze       16
+   Set %Gold         32
+   Set %Agapite      64
+   Set %Verite       128
+   Set %Valorite     256
+   Set %UnknownColor 512
+   Set %AllColors    1024 - 1
+
+   Set %Colors . %Iron     0
+   Set %Colors . %Dull     2419
+   Set %Colors . %Shadow   2406
+   Set %Colors . %Copper   2413
+   Set %Colors . %Bronze   2418
+   Set %Colors . %Gold     2213
+   Set %Colors . %Agapite  2425
+   Set %Colors . %Verite   2207
+   Set %Colors . %Valorite 2219
+
+   Set %ColNames . 0 None
+   Set %ColNames . 1 Iron
+   Set %ColNames . 2 Dull
+   Set %ColNames . 4 Shadow
+   Set %ColNames . 8 Copper
+   Set %ColNames . 16 Bronze
+   Set %ColNames . 32 Gold
+   Set %ColNames . 64 Agapite
+   Set %ColNames . 128 Verite
+   Set %ColNames . 256 Valorite
+   Set %ColNames . 512 Unknown
+
+   Set %ColRGBNames0    Iron
+   Set %ColRGBNames2419 Dull Copper
+   Set %ColRGBNames2406 Shadow
+   Set %ColRGBNames2413 Copper
+   Set %ColRGBNames2418 Bronze
+   Set %ColRGBNames2213 Gold
+   Set %ColRGBNames2425 Agapite
+   Set %ColRGBNames2207 Verite
+   Set %ColRGBNames2219 Valorite
+
+   ; For Standard Subs 
+   Set %_defaultWaitForTimeout 50
+   Set %_contKindInitialized #true
+
+set %curore . 0 0
+set %curore . 2419 0
+set %curore . 2406 0
+set %curore . 2413 0
+set %curore . 2418 0
+set %curore . 2213 0
+set %curore . 2425 0
+set %curore . 2207 0
+set %curore . 2219 0
+
+set %oldore . 0 0
+set %oldore . 2419 0
+set %oldore . 2406 0
+set %oldore . 2413 0
+set %oldore . 2418 0
+set %oldore . 2213 0
+set %oldore . 2425 0
+set %oldore . 2207 0
+set %oldore . 2219 0
+
+set %oldoreid . 0 0
+set %oldoreid . 2419 0
+set %oldoreid . 2406 0
+set %oldoreid . 2413 0
+set %oldoreid . 2418 0
+set %oldoreid . 2213 0
+set %oldoreid . 2425 0
+set %oldoreid . 2207 0
+set %oldoreid . 2219 0
+
+set %curjewel . GXS 0
+set %curjewel . TWS 0
+set %curjewel . VWS 0
+set %curjewel . UWS 0
+set %curjewel . AXS 0
+set %curjewel . ZWS 0
+
+set %oldjewel . GXS 0
+set %oldjewel . TWS 0
+set %oldjewel . VWS 0
+set %oldjewel . UWS 0
+set %oldjewel . AXS 0
+set %oldjewel . ZWS 0
+
+set %oldjewelid . GXS 0
+set %oldjewelid . TWS 0
+set %oldjewelid . VWS 0
+set %oldjewelid . UWS 0
+set %oldjewelid . AXS 0
+set %oldjewelid . ZWS 0
+
+set %overallcountore 0
+set %overallcountjewel 0
+
+set %onscr . 0 100
+set %onscr . 2419 116
+set %onscr . 2406 132
+set %onscr . 2413 148
+set %onscr . 2418 164
+set %onscr . 2213 180
+set %onscr . 2425 196
+set %onscr . 2207 212
+set %onscr . 2219 228
+set %onscr . GXS 100
+set %onscr . TWS 116
+set %onscr . VWS 132
+set %onscr . UWS 148
+set %onscr . AXS 164
+set %onscr . ZWS 180
+
+LinesPerCycle %lpsNormal
+Return
+
+
+; You can customize this sub to (for example) play a audio file
+Sub CheckForConnDeath
+   if #ContName = waiting_gump && #ContSize = 203_121
+      halt
+   If yes in #CharGhost
+      halt
+Return
+
+Sub GetUserAttention
+   Sound
+   If %1 = Emergency
+   {
+      Sound
+      Sound
+   }
+Return

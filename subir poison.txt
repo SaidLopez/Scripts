@@ -1,0 +1,411 @@
+;============================================
+; Script Name: XIIxOveR's Poisoning Trainer
+; Author: XIIxOveR
+; Version: 3.0 Beta
+; Date Modified: 10/01/2011
+; Purpose: Trains Poisoning
+;============================================
+; Instructions:
+;    1) Secure container in a house or bankbox (bankbox must be open when starting script)
+;    2) A lot of correct levels of Poison, G-Heal, and G-Cure potions in the secure
+;    3) Dagger, fishsteak, or apple in Backpack
+;    4) Press start and follow prompts
+;
+; Notes
+;    1) For most effective use of time and resources make sure to at least NPC train the skill
+;    2) At this time the script only supports potions for healing and curing just to keep things simple
+;    3) Currently this script uses the following skill chart:
+;          00.0 - 44.9   Lesser Poison
+;          45.0 - 69.9   Normal Poison
+;          70.0 - 98.9   Greater Poison
+;          99.0 - GM     Deadly Poison
+;
+;===========================================================================
+; Set these variables only if you know what you are doing
+;
+set %ToPoisonTypes QQD_HND_WSF ;daggers, fishsteaks, apples
+set %PoisonPotTypes AVF
+set %HealPotTypes UUF
+set %CurePotTypes NUF
+set %PotTypes %PoisonPotTypes , _ , %HealPotTypes , _ , %CurePotTypes
+set %sWait 5
+set %mWait 10
+set %PoisWait 180
+set %HidiWait 11s
+;===========================================================================
+; Start XIIxOveR's Poisoning Trainer
+gosub Setup
+
+;Mainloop
+repeat
+   while %ToHide = yes && H notin #CHARSTATUS
+      {
+      gosub XIIxUseSkill Hidi
+      wait %HidiWait
+      }
+
+   gosub XIIxSkillCheck Pois %CurrentSkill #TRUE %StartSkill
+   set %CurrentSkill #RESULT
+
+   gosub MaterialCheck
+   gosub PoisonItem
+   set %TempSCNT2 #SCNT2
+   gosub CureAndHeal
+   set %TempWait ( %PoisWait - ( ( #SCNT2 - %TempSCNT2 ) * 2 ) )
+   wait %TempWait
+
+   if #menubutton = Pause
+      gosub Pause
+until #FALSE
+; End Mainloop
+
+;#######################
+; Sub Setup
+;#######################
+sub Setup
+   gosub XIIxSkillCheck Pois 1200 #FALSE ;send max skill so RoT isn't triggered
+   set %StartSkill #RESULT
+   set %CurrentSkill %StartSkill
+
+   chooseskill Hidi
+   finditem #charid
+   if #skill >= 200 || #findtype notin AV_XU_OCB_NCB ;Human JOAT = 20 Hiding
+      {
+      display yesno Hide while training?
+      if #dispRes = yes
+         set %ToHide yes
+      if #dispRes = no
+         set %ToHide no
+      }
+
+   display ok Target your secure container
+   set #targcurs 1
+   while #targcurs = 1
+      wait %sWait
+   set %Secure #ltargetid
+   nextcpos 10 10
+   set #lobjectid %Secure
+   event macro 17
+   wait %mWait
+
+   repeat
+      finditem %ToPoisonTypes C_ , #backpackid
+      if #findkind = -1
+         {
+         Display You don't seem to have anything to poison in your backpack. Script pausing while you get something!
+         Gosub Pause
+         }
+   until #findkind <> -1
+
+   repeat
+      finditem %PotTypes C_ , #backpackid
+      if #findkind <> -1
+         gosub XIIxMoveStuff #findid #backpackid #findstack %Secure
+   until #findkind = -1
+
+   gosub Display_M_Skill
+   gosub MaterialCheck
+return
+
+;#######################
+; Sub MaterialCheck
+;#######################
+sub MaterialCheck
+   repeat
+      finditem %CurePotTypes C_ , %Secure
+      if #findkind = -1
+         {
+         display You have no Cure Potions in your secure. Script pausing while you get some!
+         Gosub Pause
+         }
+   until #findkind <> -1
+   set %CurePots #findid
+
+   repeat
+      finditem %HealPotTypes C_ , %Secure
+      if #findkind = -1
+         {
+         display You have no Heal Potions in your secure. Script pausing while you get some!
+         Gosub Pause
+         }
+   until #findkind <> -1
+   set %HealPots #findid
+
+   repeat
+      set %Poison #FALSE
+      finditem %PoisonPotTypes C_ , %Secure
+      if #findkind <> -1
+         {
+         for #findindex 1 #findcnt
+            {
+            event property #findid
+            if ( %CurrentSkill >= 0 && %CurrentSkill < 450 ) && Lesser in #property
+               set %Poison #findid
+            if ( %CurrentSkill > 449 && %CurrentSkill < 700 ) && ( Lesser notin #property && Greater notin #property && Deadly notin #property )
+               set %Poison #findid
+            if ( %CurrentSkill > 699 && %CurrentSkill < 990 ) && Greater in #property
+               set %Poison #findid
+            if ( %CurrentSkill > 899 && %CurrentSkill < 1001 ) && Deadly in #property
+               set %Poison #findid
+            if %CurrentSkill >= 1000
+               {
+               Display You are GM Poisoning, congrats! Script halting. Hit XIIx with some rep!
+               Halt
+               }
+            }
+         if %Poison = #FALSE
+            {
+            Display You have poison potions in your secure but not the right type. Check the skill chart, restock the correct potion type, and resume. Script Pausing!
+            gosub Pause
+            }
+         }
+      else
+         {
+         Display You have no poison potions in your secure. Put the correct level of poison potions in your secure and resume. Script Pausing!
+         GoSub Pause
+         }
+   until %Poison <> #FALSE
+return
+
+;#######################
+; Sub CureAndHeal
+;#######################
+sub CureAndHeal
+   while C in #charStatus
+      {
+      findItem %CurePotTypes C_ , %Secure
+      if #findKind = -1
+         {
+         Display You are out of Cure potions, this could be bad for you! Script halting.
+         halt
+         }
+      else
+         {
+         set #lobjectID #FINDID
+         event macro 17 0
+         wait %mWait
+         }
+      }
+
+   repeat
+      if #HITS < #MAXHITS
+         {
+         set %HPs #MAXHITS * .6
+         while #HITS <= %HPs && C notin #charstatus
+            {
+            findItem %HealPotTypes C_ , %Secure
+            if #findKind = -1
+               {
+               Display You are out of Heal potions! Script halting.
+               halt
+               }
+            else
+               {
+               set #lobjectID #FINDID
+               event macro 17 0
+               wait %mWait
+               }
+            }
+         }
+   until #HITS = #MAXHITS
+   if #menubutton = Pause
+      gosub Pause
+return
+
+;#######################
+; Sub PoisonItem
+;#######################
+Sub PoisonItem
+   finditem %Poison C_ , %Secure
+
+   gosub XIIxUseSkill Pois
+   set #ltargetid #findid
+   set #ltargetkind 1
+   event macro 22 0
+   wait %mWait
+
+   finditem %ToPoisonTypes C_ , #backpackid
+   set #ltargetid #findid
+   set #ltargetkind 1
+   event macro 22 0
+   wait %mWait
+return
+
+;####################
+;SUB XIIxSkillCheck
+;####################
+; Checks skill, updates menu, and engages RoT Timer if applicable
+; %1 Required = Skill to check
+; %2 Required = Skill last time visited sub, used to determine if RoT (!LastSkill)
+; %3 Required = #TRUE/#FALSE to update menu
+; %4 Required if %3 is #TRUE = Starting skill level, used to update Menu (!StartSkill)
+; Returns Skill Level
+sub XIIxSkillCheck
+   Namespace Push
+   NameSpace Local nsXIIxSkillCheck
+   set !SkillName %1
+   set !LastSkill %2
+   set !ToMenu %3
+   set !StartSkill %4
+   set !RoTShards Seige_Perilous_Mugen_
+
+   chooseskill !SkillName
+   set !CurrentSkill #skill
+
+   if !ToMenu = #TRUE
+      {
+      set !GainedSkill !CurrentSkill - !StartSkill
+      gosub XIIxWhole2Dec !CurrentSkill
+      Menu set M_Skill_Current #RESULT
+      gosub XIIxWhole2Dec !GainedSkill
+      Menu set M_Skill_Gained #RESULT
+      }
+
+   if #Shard in !RoTShards && !CurrentSkill >= 700 && !CurrentSkill > !LastSkill
+      gosub XIIxRoTimer !CurrentSkill
+
+   set #RESULT !CurrentSkill
+   namespace clear
+   namespace Pop
+return #RESULT
+
+;####################
+;SUB XIIxRoTimer
+;####################
+; %1 Skill Level
+Sub XIIxRoTimer
+   Namespace Push
+   Namespace Local nsXIIxRoTimer
+   set !Skill %1
+
+   If !Skill > 699 && !Skill < 800
+      Set !Timer #SCNT + 300
+   If !Skill > 799 && !Skill < 900
+      Set !Timer #SCNT + 480
+   If !Skill > 899 && !Skill < 1000
+      Set !Timer #SCNT + 720
+   If !Skill > 999 && !Skill < 1200
+      Set !Timer #SCNT + 900
+
+   Repeat
+      wait 1220
+      Set #LobjectID #BackpackID
+      Event Macro 17 0
+   Until #SCNT >= !Timer
+   namespace clear
+   Namespace Pop
+Return
+
+;#######################
+;SUB XIIxUseSkill
+;#######################
+sub XIIxUseSkill
+   namespace push
+   namespace local XIIxSkill
+   if %1 = Pois
+      {
+      event macro 13 30
+      target
+      }
+   if %1 = Hidi
+      event macro 13 21
+   namespace clear
+   namespace pop
+Return
+
+;#######################
+;SUB XIIxMoveStuff
+;#######################
+; %1 ItemType or ID to move
+; %2 Container to move from
+; %3 Number of items to move
+; %4 Container to move to
+; Returns #FALSE if item to move is not found or #TRUE if successful
+sub XIIxMoveStuff
+   Namespace Push
+   Namespace Local nsXIIxMoveStuff
+   set !Item2Move %1
+   set !SourceContainer %2
+   set !Amount2Move %3
+   set !TargetContainer %4
+   set !sWait 10
+
+   finditem !Item2Move C_ , !SourceContainer
+   if #findkind = -1
+      {
+      namespace clear
+      NameSpace Pop
+      Return #FALSE
+      }
+   if #findstack < !Amount2Move
+      set !Amount2Move #findstack
+   exevent drag #findid !Amount2Move
+   wait !sWait
+   exevent dropc !TargetContainer
+   wait !sWait
+   namespace clear
+   Namespace Pop
+return #TRUE
+
+;#######################
+;SUB XIIxWhole2Dec
+;#######################
+; %1 Whole number value to convert to Decimal form
+; Returns Decimal value
+sub XIIxWhole2Dec
+   Namespace Push
+   Namespace Local nsXIIxWhole2Dec
+   set !Int %1 / 10
+   set !Dec %1 % 10
+   set #RESULT !Int , #dot , !Dec
+   namespace clear
+   Namespace Pop
+return #RESULT
+
+;#######################
+;SUB Pause
+;#######################
+Sub Pause
+   menu delete Pause
+   menu Font BGColor BtnFace
+   menu Font Color BtnText
+   menu button resume 58 38 59 25 Resume
+   set #menubutton N/A
+   while #menubutton <> Resume
+      wait 1
+   menu delete resume
+   menu Font BGColor BtnFace
+   menu Font Color BtnText
+   menu Button Pause 58 38 59 25 Pause
+Return
+
+;#######################
+;SUB DISPLAY_M_SKILL
+;#######################
+sub Display_M_Skill
+	menu Clear
+	menu Window Title XIIxPois - #CHARNAME - #SHARD
+	menu Window Color Black
+	menu Window Size 175 70
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color Silver
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+	menu Text EUOLabel1 102 8 Gained:
+	menu Text EUOLabel2 1 8 Current Skill:
+	menu Font Color White
+	menu Edit M_Skill_Gained 140 4 33
+  menu set M_Skill_Gained 0.0
+	menu Edit M_Skill_Current 62 4 33
+  menu set M_Skill_Current %CurrentSkill
+	menu Font Color BtnText
+	menu Font BGColor BtnFace
+	menu Button Pause 58 38 59 25 Pause
+	menu Show 450 10
+return
+

@@ -1,0 +1,12 @@
+set %basurilla XKH_TWF_QPF_KKH_GBG_
+finditem BKF G_5
+if #findcnt <> 1
+  goto vamosalabasura
+finditem %basurilla C_ , #backpackid
+for #findindex 1 #findcnt
+{
+  Exevent Drag #findid 1
+  wait 10
+  Exevent Dropc NLIYNMD
+  wait 10
+}

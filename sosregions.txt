@@ -1,0 +1,19 @@
+sub defineSOSRegion  
+set %_sosregion_cnt %_sosregion_cnt + 1  
+set %_sosregion_x1_ . %1 %2  
+set %_sosregion_y1_ . %1 %3  
+set %_sosregion_x2_ . %1 %4  
+set %_sosregion_y2_ . %1 %5  
+set %_sosregion_col_ . %1 %6  
+return  
+set %_sosregion_cnt 0  
+gosub defineSOSRegion 1 449 596 4275 4066 black  
+gosub defineSOSRegion 2 3557 53 3792 940 red  
+gosub defineSOSRegion 3 3922 1747 4798 2859 lime  
+gosub defineSOSRegion 4 2332 2546 3245 3095 yellow  
+gosub defineSOSRegion 5 3346 1540 4683 3522 blue  
+gosub defineSOSRegion 6 1606 3712 2034 4059 fuchsia  
+gosub defineSOSRegion 7 2657 3800 4022 3957 aqua  
+gosub defineSOSRegion 8 2 130 91 1524 white  
+gosub defineSOSRegion 9 2 1577 683 2019 gray  
+gosub defineSOSRegion 10 1 2084 308 3989 green 

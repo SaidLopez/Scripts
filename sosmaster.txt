@@ -1,0 +1,1570 @@
+;================================== 
+; Script Name: SOS Master (alpha)
+; Author: Kal In Ex 
+; Version: 2.1
+; Client Tested with: 5.0.1a
+; EUO version tested with: 1.5.60
+; Shard OSI / FS: OSI 
+; Revision Date: September 18, 2005
+; Public Release: November 25, 2004
+; Purpose: useful script for SOS
+; Copyright: 2004, 2005 Kal In Ex
+;================================== 
+
+; SCRIPT SETUP
+set %shardType OSI ; can be OSI, POL, RunUO
+set %curpath C:\Users\Said\Desktop\Easyuo
+; END SETUP
+
+set #lpc 100
+set %_SOSData _
+set %_delay4actions 0
+gosub showsosmastermenu
+menu set status drawing world map
+call %curpath , worldmap.txt
+call %curpath , sosregions.txt
+if %_SOSRegion_Cnt = n/a
+	gosub createSOSRegionsFile
+call %curpath , sosdata.txt
+;call %curpath , _test_pin_file.txt
+gosub redrawSOSOnMap
+gosub redrawSOSRegions
+menu set status ready!
+gosub setTypeInfoFor , %shardType
+gosub MainMenu
+halt
+
+sub MainMenu
+MainMenu:
+menu Font Transparent #true
+menu Font Align Right
+menu Font Name MS Sans Serif
+menu Font Size 8
+menu Font Style
+menu Font Color WindowText
+menu Font Align Left
+menu Text Menu_Label 328 8 Main Menu
+;menu Text EUOLabel1 416 8 Script Setup
+menu Button loadSOSInfo 328 24 83 25 Load SOS Info
+menu Button clearSOSInfo 328 52 83 25 Clear SOS Info
+menu Button makeMapFile 328 80 83 25 Make .map File
+menu Button MoveSOSTo 328 108 83 25 Move SOS To..
+menu Button DragMarkedSOS 328 136 83 25 Drag Marked
+menu Button deleteMarked 328 164 83 25 Delete Marked
+menu Button SailToMarked 328 192 83 25 Sail To Marked
+;menu Check SetTypeInfoForOSI 416 24 97 17 #false OSI Shard
+;menu Check SetTypeInfoForPOL 416 40 97 17 #false POL Shard
+;menu Set SetTypeInfo , %shardType #true
+gosub WaitForMenuEvent
+menu Delete Menu_Label
+;menu Delete EUOLabel1
+menu Delete loadSOSInfo
+menu Delete clearSOSInfo
+menu Delete makeMapFile
+menu Delete MoveSOSTo
+menu Delete DragMarkedSOS
+menu Delete deleteMarked
+menu Delete SailToMarked
+;menu Delete SetTypeInfoForOSI
+;menu Delete SetTypeInfoForPOL
+if #menubutton = loadSOSInfo
+	gosub loadSOSInfo
+if #menubutton = clearSOSInfo
+	gosub clearSOSInfo
+if #menubutton = makeMapFile
+	gosub makeMapFile
+if #menubutton = MoveSOSTo
+	gosub MoveSOSTo
+if #menubutton = DragMarkedSOS
+	gosub DragMarkedSOS
+if #menubutton = deleteMarked
+	gosub deleteMarked
+if #menubutton = SailToMarked
+	gosub SailToMarked
+;if #menubutton = SetTypeInfoForOSI
+;	gosub SetTypeInfoForOSI
+;if #menubutton = SetTypeInfoForPOL
+;	gosub SetTypeInfoForOSI
+if #menubutton <> closed
+	goto MainMenu
+return
+
+sub setTypeInfoForRunUO
+set %shardType RunUO
+set %mibType HTD
+set %sosType RVH
+set %holdNorthType UVX
+set %holdWestType ZUX
+set %holdEastType ZNX
+set %holdSouthType LWX
+set %holdType %holdNorthType , _ , %holdWestType , _ , %holdEastType , _ , %holdSouthType
+return
+
+sub setTypeInfoForOSI
+set %shardType OSI
+set %mibType HTD
+set %sosType UVH
+set %holdNorthType UVX
+set %holdWestType ZUX
+set %holdEastType ZNX
+set %holdSouthType LWX
+set %holdType %holdNorthType , _ , %holdWestType , _ , %holdEastType , _ , %holdSouthType
+return
+
+sub setTypeInfoForPOL
+set %shardType POL
+set %mibType RVH
+set %sosType HTD
+set %holdNorthType ZNX
+set %holdWestType UVX
+set %holdEastType LWX
+set %holdSouthType ZUX
+set %holdType %holdNorthType , _ , %holdWestType , _ , %holdEastType , _ , %holdSouthType
+return
+
+sub LoadSOSInfo
+
+; BUST OPEN MIBS
+
+finditem %mibType c
+if #findkind <> -1
+   {
+   menu hide
+   display yesno Would you like the script to open MIBs?
+   menu show
+   set #menubutton n/a
+   if #dispres = yes
+   {
+   for !mibIndex #findcnt 1
+   {
+   set #findindex !mibIndex
+   if #findcol = 0
+   {
+   set #lobjectid #findid
+   event macro 17 0
+   wait 20
+   }
+   }
+   }
+   if #targcurs = 1
+   key esc
+   }
+
+finditem %sosType c
+if #findkind = -1
+	{
+	menu set status no sos found to load!
+	return
+	}
+
+menu Font Transparent #true
+menu Font Align Right
+menu Font Name MS Sans Serif
+menu Font Size 8
+menu Font Style
+menu Font Color WindowText
+menu Font Align Left
+menu Text EUOLabel1 328 8 The script is "scanning" coordinates
+menu Text EUOLabel2 328 20 from SOS gumps using a process
+menu Text EUOLabel3 328 32 sometimes referred to as pixel color
+menu Text EUOLabel4 328 44 testing. IE: now would be a really
+menu Text EUOLabel5 328 56 bad time to minimize UO or cause
+menu Text EUOLabel6 328 68 other windows to cover up the area
+menu Text EUOLabel7 328 80 of the UO window the coordinates
+menu Text EUOLabel8 328 92 are being scanned from.
+
+; load un-listed SOS
+for %_index #findcnt 1
+	{
+	finditem %sosType %_index c
+	if #findkind <> -1 && #findid notin %_SOSData
+		{
+		gosub scanSOS #findid
+		gosub LoadSOSData %_sosworldx %_sosworldy #findid
+		}
+	}
+
+; remove SOS that can't be found
+set %_temp %_SOSData
+set %_SOSData _
+str len %_temp
+set #strres #strres / 18
+set %_REdrawFlag #false
+for %_loop #strres 1
+	{
+	str pos %_temp _
+	if #strres = 0 || #strres > 8
+		set #strres 8
+	else
+		set #strres #strres - 1
+	str mid %_temp 1 #strres
+	finditem #strres
+	if #findkind = -1
+		set %_redrawFlag #true
+	if #findkind <> -1
+		{
+		str mid %_temp 1 18
+		set %_SOSData #strres , %_SOSData
+		}
+	str del %_temp 1 18
+	set %_temp #strres
+	}
+if %_redrawFlag = #true
+	gosub redrawSOSOnMap
+gosub redrawSOSRegions
+gosub markClosestSOSLocation
+menu set status SOS Info loaded
+menu Delete Menu_BKGND
+menu Delete EUOLabel1
+menu Delete EUOLabel2
+menu Delete EUOLabel3
+menu Delete EUOLabel4
+menu Delete EUOLabel5
+menu Delete EUOLabel6
+menu Delete EUOLabel7
+menu Delete EUOLabel8
+return
+
+sub ClearSOSInfo
+set #menubutton n/a
+menu set status clearing SOS info
+set %_SOSData _
+menu delete SOSOnMap
+menu set status SOS info cleared
+return
+
+sub MakeMapFile
+makeMapFile:
+menu Font Transparent #true
+menu Font Align Right
+menu Font Name MS Sans Serif
+menu Font Size 8
+menu Font Style
+menu Font Color WindowText
+menu Font Align Left
+menu Font BGColor BtnFace
+menu Text EUOLabel1 328 8 Select the sos region number(s) to
+menu Text EUOLabel2 328 20 you want written to a UOAM .map file
+menu Text EUOLabel3 328 32 then click the "ok" button and the
+menu Text EUOLabel4 328 44 script will create your file.
+menu Button EUOButton1 332 256 43 17 ok
+menu Button EUOButton2 380 256 75 17 cancel
+menu Button EUOButton3 332 232 51 21 select all
+menu Button EUOButton4 388 232 67 21 none
+for %_ 1 %_SOSRegion_cnt
+	{
+	set %_y %_ * 12 + 56
+	menu Check SOSRegion , %_ 354 %_Y 97 17 #false SOS region # , %_
+	}
+makeMapFile2:
+gosub WaitForMenuEvent
+if #menubutton = EUOButton3
+	{
+	for %_ 1 %_SOSRegion_cnt
+		{
+		menu set SOSRegion , %_ #true
+		}
+	goto makeMapFile2
+	}
+if #menubutton = EUOButton4
+	{
+	for %_ 1 %_SOSRegion_cnt
+		{
+		menu set SOSRegion , %_ #false
+		}
+	goto makeMapFile2
+	}
+menu Delete Menu_BKGND
+menu Delete EUOLabel1
+menu Delete EUOLabel2
+menu Delete EUOLabel3
+menu Delete EUOLabel4
+menu Delete EUOLabel5
+menu Delete EUOLabel6
+menu Delete EUOLabel7
+menu Delete EUOButton1
+menu Delete EUOButton2
+menu Delete EUOButton3
+menu Delete EUOButton4
+
+set %_region _
+for %_ 1 %_SOSRegion_cnt
+	{
+	menu get SOSRegion , %_
+	if #menures = #true
+		set %_region %_region , %_ , _
+	menu Delete SOSRegion , %_
+	}
+if #menubutton = EUOButton2
+	return
+
+menu set status creating UOAM .map file
+str len %_SOSData
+if #strres = 0
+	{
+	menu set status no SOS info to create a .map file from
+	return
+	}
+gosub open 1 %curpath , uoam.map
+gosub wipe 1
+gosub write 1 3
+str len %_SOSData
+set %_temp %_SOSData
+set #strres #strres / 18
+for %_loop #strres 1
+	{
+	str mid %_temp 17 2
+	set #strres #strres + 0
+	if _ , #strres , _ in %_region
+		{
+		str pos %_temp _
+		if #strres = 0 || #strres > 8
+			str mid %_temp 1 8
+		else
+			{
+			set #strres #strres - 1
+			str mid %_temp 1 #strres
+			}
+		set %1 #strres
+		str mid %_temp 9 4
+		set %2 #strres
+		str mid %_temp 13 4
+		set %3 #strres
+		gosub write 1 +mysos: %2 %3 0 sos: %1
+		}
+	str del %_temp 1 18
+	set %_temp #strres
+	}
+gosub dump 1
+menu set status opening UOAM .map file in notepad.exe
+execute notepad.exe %curpath , uoam.map
+menu set status finished creating UOAM .map file
+return
+
+sub MoveSOSTo
+MoveSOSto:
+menu Font Transparent #true
+menu Font Align Right
+menu Font Name MS Sans Serif
+menu Font Size 8
+menu Font Style
+menu Font Color WindowText
+menu Font Align Left
+menu Font BGColor BtnFace
+menu Text EUOLabel1 328 8 Select the sos region number(s) to
+menu Text EUOLabel2 328 20 grab SOS from then click the "ok"
+menu Text EUOLabel3 328 32 button. You then need to place your
+menu Text EUOLabel4 328 44 cursor over the container you want
+menu Text EUOLabel5 328 56 to move the SOS into and press the
+menu Text EUOLabel6 328 68 spacebar. The script will move * , all*
+menu Text EUOLabel7 328 80 sos from the region(s) to a container.
+menu Button EUOButton1 332 256 43 17 ok
+menu Button EUOButton2 380 256 75 17 cancel
+menu Button EUOButton3 332 232 51 21 select all
+menu Button EUOButton4 388 232 67 21 none
+for %_ 1 %_SOSRegion_cnt
+	{
+	set %_y %_ * 12 + 88
+	menu Check SOSRegion , %_ 354 %_Y 97 17 #false SOS region # , %_
+	}
+MoveSOSTo2:
+gosub WaitForMenuEvent
+if #menubutton = EUOButton3
+	{
+	for %_ 1 %_SOSRegion_cnt
+		{
+		menu set SOSRegion , %_ #true
+		}
+	goto MoveSOSTo2
+	}
+if #menubutton = EUOButton4
+	{
+	for %_ 1 %_SOSRegion_cnt
+		{
+		menu set SOSRegion , %_ #false
+		}
+	goto MoveSOSTo2
+	}
+menu Delete Menu_BKGND
+menu Delete EUOLabel1
+menu Delete EUOLabel2
+menu Delete EUOLabel3
+menu Delete EUOLabel4
+menu Delete EUOLabel5
+menu Delete EUOLabel6
+menu Delete EUOLabel7
+menu Delete EUOButton1
+menu Delete EUOButton2
+menu Delete EUOButton3
+menu Delete EUOButton4
+set %_region _
+for %_ 1 %_SOSRegion_cnt
+	{
+	menu get SOSRegion , %_
+	if #menures = #true
+		set %_region %_region , %_ , _
+	menu Delete SOSRegion , %_
+	}
+if #menubutton = EUOButton2
+	return
+str len %_SOSData
+if #strres = 0
+	{
+	menu set status SOS cant be moved as no info is loaded
+	return
+	}
+menu set status position cursor over bag and press spacebar
+for %_ 1 1
+	{
+	wait 1
+	set %_ 0
+	onhotkey space
+		set %_ 1
+	}
+set %_xpos #cursorx
+set %_ypos #cursory
+menu set status moving SOS to container from region %sosregion
+str len %_SOSData
+set %_temp %_SOSData
+set #strres #strres / 18
+for %_loop #strres 1
+	{
+	str mid %_temp 17 2
+	set #strres #strres + 0
+	if _ , #strres , _ in %_region
+		{
+		str pos %_temp _
+		if #strres = 0 || #strres > 8
+			str mid %_temp 1 8
+		else
+			{
+			set #strres #strres - 1
+			str mid %_temp 1 #strres
+			}
+		finditem #strres
+		if #findkind <> -1
+			{
+			if #lliftedkind = 0
+				{
+				event drag #findid
+				wait 5
+				}
+			click %_xpos %_ypos p f dmc
+			wait 20
+			}
+		}
+	str del %_temp 1 18
+	set %_temp #strres
+	}
+menu set status finished moving SOS to container
+return
+
+sub waitForMenuEvent
+waitForMenuEvent:
+set #menubutton n/a
+for !_ 1 1
+	{
+	if #charposx / 16 <> %_charmapposx || #charposy / 16 <> %_charmapposy
+		{
+		gosub redrawPlayerPosition
+		gosub markClosestSOSLocation
+		}
+	if #menubutton = n/a
+		{
+		set !_ 0
+		wait 1
+		}
+	}
+if #menubutton = saveSOSData
+	{
+	gosub saveSOSData
+	goto waitForMenuEvent
+	}
+return
+
+sub sailToMarked
+menu Font Transparent #true
+menu Font Align Right
+menu Font Name MS Sans Serif
+menu Font Size 8
+menu Font Style
+menu Font Color WindowText
+menu Font Align Left
+menu Text EUOLabel1 328 8 The script is sailing to the "marked"
+menu Text EUOLabel2 328 20 SOS location shown on the map. If
+menu Text EUOLabel3 328 32 any obstacles are encountered
+menu Text EUOLabel4 328 44 the script will stop and return you
+menu Text EUOLabel5 328 56 back to the main menu... you can
+menu Text EUOLabel6 328 68 also click the "cancel" button to
+menu Text EUOLabel7 328 80 exit this sailing routine early.
+menu Button EUOButton2 380 256 75 17 cancel
+
+menu set status sailing to marked SOS
+gosub _findShipsHold
+gosub _getShipInfo
+set %1 %_closestSOSx
+set %2 %_closestSOSy - 2
+set %_xdist %1 - %_shipsX abs
+set %_ydist %2 - %_shipsY abs
+; turn the boat
+if %_xdist > %_ydist
+	{
+	if %_shipsx > %1
+		set %_destDir 7
+	if %_shipsx = %1
+		{
+		if %_shipsy > %2
+			set %_destDir 1
+		if %_shipsy = %2
+			goto sailToMarkedEnd
+		if %_shipsy < %2
+			set %_destDir 5
+		}
+	if %_shipsx < %1
+		set %_destDir 3
+	}
+if %_xdist = %_ydist
+	{
+	if %_shipsx > %1
+		set %_destDir 7
+	if %_shipsx = %1
+		goto sailToMarkedEnd
+	if %_shipsx < %1
+		set %_destDir 3
+	}
+if %_xdist < %_ydist
+	{
+	if %_shipsy > %2
+		set %_destDir 2
+	if %_shipsy = %2
+		{
+		if %_shipsx > %1
+			set %_destDir 7
+		if %_shipsx = %1
+			goto sailToMarkedEnd
+		if %_shipsx < %1
+			set %_destDir 3
+		}
+	if %_shipsy < %2
+		set %_destDir 5
+	}
+set %_ ( %_destDir - %_shipsDir + 9 ) % 8
+if %_ = 3 || %_ = 5 || %_ = 7
+	{
+	if %_ = 3
+		event macro 3 0 turn right
+	if %_ = 5
+		event macro 3 0 come about
+	if %_ = 7
+		event macro 3 0 turn left
+	wait 1s
+	set %_shipsDir %_destDir
+	}
+; set boat watches
+if %1 <= %_shipsX
+	set %_watchX <=
+if %1 > %_shipsX
+	set %_watchX >=
+if %2 <= %_shipsY
+	set %_watchY <=
+if %2 > %_shipsY
+	set %_watchY >=
+; sail the "diagonal"
+if %1 < %_shipsX && %2 < %_shipsY
+	set %_destDir 0
+if %1 = %_shipsX && %2 < %_shipsY
+	set %_destDir 1
+if %1 > %_shipsX && %2 < %_shipsY
+	set %_destDir 2
+if %1 > %_shipsX && %2 = %_shipsY
+	set %_destDir 3
+if %1 > %_shipsX && %2 > %_shipsY
+	set %_destDir 4
+if %1 = %_shipsX && %2 > %_shipsY
+	set %_destDir 5
+if %1 < %_shipsX && %2 > %_shipsY
+	set %_destDir 6
+if %1 < %_shipsX && %2 = %_shipsY
+	set %_destDir 7
+if %1 = %_shipsX && %2 = %_shipsY
+	goto sailToMarkedEnd
+if %_destDir in 0246
+	{
+	set %_ ( %_destDir - %_shipsDir + 9 ) % 8
+	if %_ = 0
+		event macro 3 0 forward left
+	if %_ = 2
+		event macro 3 0 forward right
+	set %_shipsTimer #scnt2 + 30
+	for %_ 1 1
+		{
+		if #menubutton = EUOButton2
+			goto sailToMarkedEnd
+		if #charposx / 16 <> %_charmapposx || #charposy / 16 <> %_charmapposy
+			{
+			gosub redrawPlayerPosition
+			}
+		gosub _getShipInfo
+		if %_shipsX , _ , %_shipsY <> %_shipsPos
+			{
+			set %_shipsPos %_shipsX , _ , %_shipsY
+			set %_shipsTimer #scnt2 + 30
+			}
+		if #scnt2 >= %_shipsTimer
+			{
+			event macro 3 0 stop
+			menu set status unable to reach marked SOS
+			goto sailToMarkedEnd
+			}
+		if ! ( %_shipsX %_watchX %1 || %_shipsY %_watchY %2 )
+			{
+			wait 1
+			set %_ 0
+			}
+		}
+	}
+; sail the straight
+event macro 3 0 forward
+set %_shipsTimer #scnt2 + 30
+for %_ 1 1
+	{
+	if #menubutton = EUOButton2
+		goto sailToMarkedEnd
+	if #charposx / 16 <> %_charmapposx || #charposy / 16 <> %_charmapposy
+		{
+		gosub redrawPlayerPosition
+		}
+	gosub _getShipInfo
+	if %_shipsX , _ , %_shipsY <> %_shipsPos
+		{
+		set %_shipsPos %_shipsX , _ , %_shipsY
+		set %_shipsTimer #scnt2 + 30
+		}
+	if #scnt2 >= %_shipsTimer
+		{
+		event macro 3 0 stop
+		menu set status unable to reach marked SOS
+		goto sailToMarkedEnd
+		}
+	if ! ( %_shipsX %_watchX %1 && %_shipsY %_watchY %2 )
+		{
+		wait 1
+		set %_ 0
+		}
+	}
+event macro 3 0 stop
+; turn boat west
+wait 1s
+set %_ ( 7 - %_shipsDir + 9 ) % 8
+if %_ in 357
+	{
+	if %_ = 3
+		event macro 3 0 turn right
+	if %_ = 5
+		event macro 3 0 come about
+	if %_ = 7
+		event macro 3 0 turn left
+	wait 1s
+	set %_shipsDir %_destDir
+	}
+menu set status sailed to marked SOS destination
+sailToMarkedEnd:
+menu Delete EUOLabel1
+menu Delete EUOLabel2
+menu Delete EUOLabel3
+menu Delete EUOLabel4
+menu Delete EUOLabel5
+menu Delete EUOLabel6
+menu Delete EUOLabel7
+menu Delete EUOButton2
+return
+
+sub _getShipInfo
+finditem %_shipsHold
+if #findtype = %holdNorthType
+	{
+	set %_shipsX #findx
+	set %_shipsY #findy + 4
+	set %_shipsDir 1
+	}
+if #findtype = %holdEastType
+	{
+	set %_shipsX #findx - 4
+	set %_shipsY #findy
+	set %_shipsDir 3
+	}
+if #findtype = %holdSouthType
+	{
+	set %_shipsX #findx
+	set %_shipsY #findy - 4
+	set %_shipsDir 5
+	}
+if #findtype = %holdWestType
+	{
+	set %_shipsX #findx + 4
+	set %_shipsY #findy
+	set %_shipsDir 7
+	}
+return
+
+sub _findShipsHold
+	namespace push
+	namespace local _temp
+	set !_shipsHold n/a
+	set !_holdsDist 999
+	finditem %holdType g
+	for !_ #findcnt 1
+		{
+		finditem %holdType !_ g
+		set !_xdist #findx - #charposx abs
+		set !_ydist #findy - #charposy abs
+		set !_dist !_ydist
+		if !_xdist > !_ydist
+			set !_dist !_xdist
+		if !_dist < !_holdsDist
+			{
+			if #findtype = %holdNorthType && #charposy > #findy && !_xdist < 2
+				{
+				set !_holdsDist !_dist
+				set !_shipsHold #findid
+				}
+			if #findtype = %holdEastType && #charposx < #findx && !_ydist < 2
+				{
+				set !_holdsDist !_dist
+				set !_shipsHold #findid
+				}
+			if #findtype = %holdSouthType && #charposy < #findy && !_xdist < 2
+				{
+				set !_holdsDist !_dist
+				set !_shipsHold #findid
+				}
+			if #findtype = %holdWestType && #charposx > #findx && !_ydist < 2
+				{
+				set !_holdsDist !_dist
+				set !_shipsHold #findid
+				}
+			}
+		}
+	set #result !_shipsHold
+	namespace clear
+	namespace pop
+	set %_shipsHold #result
+	return #result
+
+sub DeleteMarked
+	str len %_closestSOSID
+	str del ________ 1 #strres
+	set %1 %_closestSOSID , #strres
+	str pos %_SOSData %1
+	if #strres = 0
+		{
+		menu set status can not remove marked SOS
+		}
+	if #strres > 0
+		{
+		menu set status deleting marked SOS
+		str del %_SOSData #strres 18
+		set %_SOSData #strres
+		gosub redrawSOSOnMap
+		menu set status updating SOS marker
+		gosub markClosestSOSLocation
+		menu set status marked SOS removed
+		}
+	return
+
+sub DragMarkedSOS
+	set #menubutton n/a
+	if #lliftedkind = 1
+		{
+		menu set status something "floating" on cursor
+		return
+		}
+	finditem %_closestSOSID
+	if #findkind = -1
+		{
+		menu set status Marked SOS not found
+		}
+	else
+		{
+		menu set status Marked SOS "floating" on cursor
+		event drag #findid
+		}
+	return
+
+sub markClosestSOSLocation
+	set %_d 9999
+	set %_x 0
+	set %_y 0
+	set %_id x
+
+	str len %_SOSData
+	set %_temp %_SOSData
+	set #strres #strres / 18
+	for %_loop #strres 1
+		{
+		str mid %_temp 9 4
+		set %2 #strres + 0
+		str mid %_temp 13 4
+		set %3 #strres + 0
+
+		set %_1 %2 - #charposx abs
+		set %_2 %3 - #charposy abs
+		if %_1 > %_2
+			set %_ %_1
+		else
+			set %_ %_2
+
+		if %_ < %_d
+			{
+			str pos %_temp _
+			if #strres = 0 || #strres > 8
+				str mid %_temp 1 8
+			else
+				{
+				set #strres #strres - 1
+				str mid %_temp 1 #strres
+				}
+			set %_id #strres
+			set %_x %2
+			set %_y %3
+			set %_d %_
+			}
+		str del %_temp 1 18
+		set %_temp #strres
+		}
+
+	if %_id <> %_closestSOSID
+		{
+		set %_closestSOSx %_x
+		set %_closestSOSy %_y
+		;set %_closestSOSDist %_d
+		set %_closestSOSID %_id
+		set %_1 %_x
+		set %_2 %_y
+		menu delete SOSMarker
+		gosub drawmarker SOSMarker %_x %_y white
+		set %_x %_1
+		set %_y %_2
+;		set %1 %_x / 16 - 4
+;		set %2 %_y / 16 - 4
+;		menu delete SOSMarker
+;		menu shape SOSMarker %1 %2 10 10 2 7 1 $0000ff 2 0
+
+		set %1 20 ;%1 + 5 ; draw region # with "border"
+		set %2 10 ;%2 + 4
+		set %3 %1 + 2
+		set %4 %2 + 2
+		;set %_id ursosid
+		menu font color black
+		for %5 %1 %3
+		{
+		for %6 %2 %4
+		{
+		menu text SOSMarker %5 %6 %_id , $x %_x , $y %_y
+		}
+		}
+		set %1 %1 + 1
+		set %2 %2 + 1
+		menu font color white
+		menu text SOSMarker %1 %2 %_id , $x %_x , $y %_y
+		}
+
+	return
+
+sub drawMarker
+	set %_xpos %2 / 16
+	set %_ypos %3 / 16
+	set %_x %_xpos - 4
+	set %_y %_ypos - 4
+	menu shape %1 %_x %_y 10 10 2 7 1 %4 2 0
+	set %_x %_xpos - 6
+	menu shape %1 2 %_ypos %_x 1 3 7 1 %4 2 0
+	set %_x %_xpos + 6
+	set %_l 318 - %_x
+	menu shape %1 %_x %_ypos %_l 1 3 7 1 %4 2 0
+	set %_l %_ypos - 6
+	menu shape %1 %_xpos 2 1 %_l 3 7 1 %4 2 0
+	set %_y %_ypos + 6
+	set %_l 254 - %_y
+	menu shape %1 %_xpos %_y 1 %_l 3 7 1 %4 2 0
+	return
+
+sub scanSOS
+	namespace push
+	namespace local _temp
+	if #scnt2 < %_delay4actions
+		{
+		set !_ ( %_delay4actions - #scnt2 ) * 2
+		wait !_
+		}
+	set #lobjectid %1
+	event macro 17 0
+	for !_ 60 1
+		{
+		if #contsize <> 350_340
+			wait 1
+		if #contsize = 350_340
+			set %_ 1
+		}
+	if #contsize <> 350_340
+		{
+		namespace clear
+		namespace pop
+		return #false
+		}
+	set %_delay4actions #scnt2 + 9
+	menu set status scanning unlisted SOS ( , %_index , )
+	gosub contpos -35 -213 320 315
+	wait 7
+	gosub getsosinfo -35 -213
+	click 15 65 r f dmc
+	set %_sosCoords !sos_coords
+	set %_sosWorldX !sos_worldx
+	set %_sosWorldY !sos_worldy
+	namespace clear
+	namespace pop
+	return #true
+
+sub saveSOSData
+	set #menubutton n/a
+	menu set status saving sos info...
+	str len %_SOSData
+	if #strres = 0
+		return
+
+	gosub open 1 %curpath , sosdata.txt
+	gosub wipe 1
+
+	set %_temp set , #spc , % , _SOSData , #spc , %_SOSData
+	for %_ 1 1
+		{
+		str len %_temp
+		if #strres <= 80
+			{
+			gosub write 1 %_temp
+			set %_ 1
+			if #true 0
+			}
+		else
+			{
+			str left %_temp 80
+			gosub write 1 #strres
+			str del %_temp 1 80
+			set %_temp + , #strres
+			set %_ 0
+			}
+		}
+	gosub dump 1
+	menu set status sos info saved for next launch!
+	return
+
+sub closed
+	set #menubutton n/a
+	halt
+	return
+
+sub redrawPlayerPosition
+	set %_charmapposx #charposx / 16
+	set %_charmapposy #charposy / 16
+	set %_1 %_charmapposx - 2
+	set %_2 %_charmapposy - 2
+	menu delete playerPosition
+	menu shape playerPosition %_1 %_2 6 6 2 7 1 $000000 7 $0088ff
+	return
+
+sub loadSOSData
+	if %_SOSData = n/a
+		set %_SOSData _
+	set %4 0
+	for %_ 1 %_sosregion_cnt
+		{
+		if %_sosregion_x1_ . %_ <= %1 && %_sosregion_y1_ . %_ <= %2 && %_sosregion_x2_ . %_ >= %1 && %_sosregion_y2_ . %_ >= %2
+			set %4 %_
+		}
+	if %4 = 0
+		gosub _getClosestRegion
+	gosub _loadSOSData
+	set %1 %1 / 16 - 2
+	set %2 %2 / 16 - 2
+	menu shape SOSOnMap %1 %2 6 6 2 7 1 $000000 7 %_sosregion_col_ . %4
+	return
+
+sub _loadSOSData ; <x> <y> <id> <region>
+	str len %4
+	str del 00 1 #strres
+	set %_SOSData #strres , %4 , %_SOSData
+	str len %2
+	str del 0000 1 #strres
+	set %_SOSData #strres , %2 , %_SOSData
+	str len %1
+	str del 0000 1 #strres
+	set %_SOSData #strres , %1 , %_SOSData
+	str len %3
+	str del ________ 1 #strres
+	set %_SOSData %3 , #strres , %_SOSData
+	return
+
+sub _getClosestRegion
+menu Font Transparent #true
+menu Font Name MS Sans Serif
+menu Font Size 8
+menu Font Style
+menu Font Color WindowText
+menu Font Align Left
+menu Font Transparent #true
+menu Text Label 328 116 Location shown on map via the
+menu Text Label 328 128 crosshairs identifies a location
+menu Text Label 328 140 outside any of the defined regions.
+menu Text Label 328 152 You need to select the number for
+menu Text Label 328 164 the region this SOS location
+menu Text Label 328 176 belongs in so that the region
+menu Text Label 328 188 definition file can be updated.
+menu Font BGColor Window
+menu Combo Create LabelR 328 224 165
+menu Font BGColor BtnFace
+menu Button Label 328 248 31 17 ok
+menu Font Style b
+menu Text Label 328 208 Select region then click ok
+for !_ 1 %_sosregion_cnt
+	{
+	menu Combo Add LabelR sos region !_
+	}
+menu delete sosmarker
+
+set %_xpos %1 / 16
+set %_ypos %2 / 16
+menu shape label %_xpos 2 1 252 3 7 1 $ffffff 7 $ffffff
+menu shape label 2 %_ypos 315 1 3 7 1 $ffffff 7 $ffffff
+set %_xpos %_xpos - 3
+set %_ypos %_ypos - 3
+menu shape label %_xpos %_ypos 6 6 2 7 1 $ffffff 7 $ffffff
+for %_ 1 1
+	{
+	wait 1
+	menu get labelR
+	if #menubutton <> Label || #menures = 0
+		{
+		if #menubutton <> n/a
+			set #menubutton n/a
+		set %_ 0
+		}
+	}
+menu delete label
+
+; enlarge region so that this location is bounded by it
+
+if %1 < %_sosregion_x1_ . #menures
+	set %_sosregion_x1_ . #menures %1
+if %2 < %_sosregion_y1_ . #menures
+	set %_sosregion_y1_ . #menures %2
+if %1 > %_sosregion_x2_ . #menures
+	set %_sosregion_x2_ . #menures %1
+if %2 > %_sosregion_y2_ . #menures
+	set %_sosregion_y2_ . #menures %2
+
+set %_1 %1
+set %_2 %2
+set %_3 %3
+set %_4 #menures
+gosub redrawSOSRegions
+gosub writeSOSRegionsFile
+set %1 %_1
+set %2 %_2
+set %3 %_3
+set %4 %_4
+return
+
+sub redrawSOSOnMap
+	menu delete SOSOnMap
+	str len %_SOSData
+	if #strres = 0
+		return
+	set %_temp %_SOSData
+	set #strres #strres / 18
+	for %_loop #strres 1
+		{
+		str mid %_temp 9 4
+		set %2 #strres / 16 - 2
+		str mid %_temp 13 4
+		set %3 #strres / 16 - 2
+		str mid %_temp 17 2
+		set %4 #strres + 0
+		menu shape SOSOnMap %2 %3 6 6 2 7 1 $000000 7 %_sosregion_col_ . %4
+		str del %_temp 1 18
+		set %_temp #strres
+		}
+	return
+
+sub createSOSRegionsFile
+	menu set status creating sosregions.txt file
+	sub definesosregion
+		set %_sosregion_cnt %_sosregion_cnt + 1
+		set %_sosregion_x1_ . %1 %2
+		set %_sosregion_y1_ . %1 %3
+		set %_sosregion_x2_ . %1 %4
+		set %_sosregion_y2_ . %1 %5
+		set %_sosregion_col_ . %1 %6
+		return
+	set %_sosregion_cnt 0
+	gosub definesosregion  1 2248 1137 3420 1794 black
+	gosub definesosregion  2 3557   53 3792  940 red
+	gosub definesosregion  3 3922 1747 4798 2859 lime
+	gosub definesosregion  4 2332 2546 3245 3095 yellow
+	gosub definesosregion  5 3346 3153 4235 3522 blue
+	gosub definesosregion  6 1606 3712 2034 4059 fuchsia
+	gosub definesosregion  7 2657 3800 4022 3957 aqua
+	gosub definesosregion  8    2  130   91 1524 white
+	gosub definesosregion  9    2 1577  683 2019 gray
+	gosub definesosregion 10    1 2084  308 3989 green
+	gosub writeSOSRegionsFile
+	menu set status sosregions.txt file created
+	return
+
+sub writeSOSRegionsFile
+	gosub open 1 %curpath , sosregions.txt
+	gosub wipe 1
+	gosub write 1 sub defineSOSRegion
+	gosub write 1 	set % , _sosregion_cnt % , _sosregion_cnt + 1
+	gosub write 1 	set % , _sosregion_x1_ #dot % , 1 % , 2
+	gosub write 1 	set % , _sosregion_y1_ #dot % , 1 % , 3
+	gosub write 1 	set % , _sosregion_x2_ #dot % , 1 % , 4
+	gosub write 1 	set % , _sosregion_y2_ #dot % , 1 % , 5
+	gosub write 1 	set % , _sosregion_col_ #dot % , 1 % , 6
+	gosub write 1 	return
+	gosub write 1 set % , _sosregion_cnt 0
+	for %_region 1 %_SOSRegion_cnt
+		{
+		set %1 %_region
+		set %2 %_sosRegion_x1_ . %1
+		set %3 %_sosRegion_y1_ . %1
+		set %4 %_sosRegion_x2_ . %1
+		set %5 %_sosRegion_y2_ . %1
+		set %6 %_sosRegion_col_ . %1
+		gosub write 1 gosub defineSOSRegion %1 %2 %3 %4 %5 %6
+		}
+	gosub dump 1
+	return
+
+sub redrawSOSRegions
+	menu font align left
+	menu font style
+	menu font size 8
+	menu font color $dddddd
+	menu font name lucida console
+	menu delete SOSRegions
+	for %_ 1 %_sosregion_cnt
+		{
+		set %1 %_sosregion_x1_ . %_ / 16 - 3
+		set %2 %_sosregion_y1_ . %_ / 16 - 3
+		set %3 %_sosregion_x2_ . %_ / 16 - %1 + 6
+		set %4 %_sosregion_y2_ . %_ / 16 - %2 + 6
+		menu shape SOSRegions %1 %2 %3 %4 3 7 1 $8888ff 2 0
+		set %1 %1 + 5 ; draw region # with "border"
+		set %2 %2 + 4
+		set %3 %1 + 2
+		set %4 %2 + 2
+		menu font color black
+		for %5 %1 %3
+		{
+		for %6 %2 %4
+		{
+		menu text SOSRegions %5 %6 %_
+		}
+		}
+		set %1 %1 + 1
+		set %2 %2 + 1
+		menu font color aqua
+		menu text SOSRegions %1 %2 %_
+		}
+	return
+
+sub contpos
+	if #contposx = %1 && #contposy = %2
+		return
+	if %0 = 2
+		{
+		set %3 50
+		set %4 20
+		}
+	set %1 %1 + %3
+	set %2 %2 + %4
+	set %3 #contposx + %3
+	set %4 #contposy + %4
+	click %3 %4 g f mc
+	for !_ 1 1
+		{
+		click %1 %2 n f mc
+		wait 3
+		if #cursorx <> %1 || #cursory <> %2
+			set !_ 0
+		}
+	click %1 %2 p f mc
+	return
+
+sub getSOSInfo
+	set !xorigin %1 + 35
+	set !yorigin %2 + 240
+	set !ycheck %2 + 245
+	set !sos_coords
+	set !xpos %1 + 71
+	set !ypos %2 + 270
+	savepix !xpos !ypos 1
+	set !SOSTextColor #pixcol
+	for !getSOSInfo1 1 1
+		{
+		gosub readchar !xorigin !yorigin !SOSTextColor
+		if #result <> #spc 3
+			set !xorigin !xorigin + %1
+			set !sos_coords !sos_coords , #result
+			set !getSOSInfo1 0
+		}
+	set %1 !sos_coords
+	str pos %1 o
+	set #strres #strres - 1
+	str left %1 #strres
+	set !sos_worldy #strres * 60
+	str pos %1 o
+	str del %1 1 #strres
+	set %1 #strres
+	str pos %1 '
+	set #strres #strres - 1
+	str left %1 #strres
+	set !sos_worldy !sos_worldy + #strres
+	str pos %1 ,
+	str del %1 1 #strres
+	set %1 #strres
+	str pos %1 o
+	set #strres #strres - 1
+	str left %1 #strres
+	set !sos_worldx #strres * 60
+	str pos %1 o
+	str del %1 1 #strres
+	set %1 #strres
+	str pos %1 '
+	set #strres #strres - 1
+	str left %1 #strres
+	set !sos_worldx !sos_worldx + #strres
+	set !sos_worldy !sos_worldy , 0000000 / 52734375
+	if n in !sos_coords 3
+		set !sos_worldy 1624 - !sos_worldy
+		if !sos_worldy < 0
+			set !sos_worldy !sos_worldy + 4096
+	if s in !sos_coords 3
+		set !sos_worldy 1624 + !sos_worldy
+		if !sos_worldy >= 4096
+			set !sos_worldy !sos_worldy - 4096
+	set !sos_worldx !sos_worldx , 00000 / 421875
+	if w in !sos_coords 3
+		set !sos_worldx 1323 - !sos_worldx
+		if !sos_worldx < 0
+			set !sos_worldx !sos_worldx + 5120
+	if e in !sos_coords 3
+		set !sos_worldx 1323 + !sos_worldx
+		if !sos_worldx >= 5120
+			set !sos_worldx !sos_worldx - 5120
+	return
+
+sub readchar
+		set %3 _ , %3 , _
+		set %6 %2 + 11
+		savepix %1 %6 1
+		if _ , #pixcol , _ in %3 44
+			set %6 %2 + 8
+			savepix %1 %6 1
+			if _ , #pixcol , _ in %3 24
+				set %6 %2 + 4
+				savepix %1 %6 1
+				if _ , #pixcol , _ in %3 13
+					set %6 %2 + 9
+					savepix %1 %6 1
+					if _ , #pixcol , _ in %3 8
+						set %5 %1 + 2
+						set %6 %2 + 4
+						savepix %5 %6 1
+						if _ , #pixcol , _ in %3 2
+							set %1 7
+							return E
+						set %1 8
+						return N
+					set %1 8
+					return 5
+				set %5 %1 + 2
+				set %6 %2 + 7
+				savepix %5 %6 1
+				if _ , #pixcol , _ in %3 2
+					set %1 8
+					return 6
+				set %1 8
+				return 0
+			set %6 %2 + 10
+			savepix %1 %6 1
+			if _ , #pixcol , _ in %3 7
+				set %6 %2 + 5
+				savepix %1 %6 1
+				if _ , #pixcol , _ in %3 2
+					set %1 8
+					return 8
+				set %1 6
+				return o
+			set %6 %2 + 7
+			savepix %1 %6 1
+			if _ , #pixcol , _ in %3 2
+				set %1 8
+				return S
+			set %1 8
+			return 3
+		set %6 %2 + 4
+		savepix %1 %6 1
+		if _ , #pixcol , _ in %3 23
+			set %6 %2 + 6
+			savepix %1 %6 1
+			if _ , #pixcol , _ in %3 7
+				set %6 %2 + 8
+				savepix %1 %6 1
+				if _ , #pixcol , _ in %3 2
+					set %1 8
+					return 4
+				set %1 12
+				return W
+			set %5 %1 + 1
+			set %6 %2 + 6
+			savepix %5 %6 1
+			if _ , #pixcol , _ in %3 2
+				set %1 3
+				return '
+			set %6 %2 + 2
+			savepix %1 %6 1
+			if _ , #pixcol , _ in %3 2
+				set %1 5
+				return o ; instead of °
+			set %1 8
+			return 7
+		set %6 %2 + 5
+		savepix %1 %6 1
+		if _ , #pixcol , _ in %3 12
+			set %6 %2 + 6
+			savepix %1 %6 1
+			if _ , #pixcol , _ in %3 7
+				set %6 %2 + 8
+				savepix %1 %6 1
+				if _ , #pixcol , _ in %3 2
+					set %1 8
+					return 9
+				set %1 8
+				return 2
+			set %1 4
+			return 1
+		set %6 %2 + 12
+		savepix %1 %6 1
+		if _ , #pixcol , _ in %3 2
+			set %1 3
+			return ,
+		set %1 8
+		return #spc
+
+;================================== 
+; Script Name: filesubs.txt (import version)
+; Author: Kal In Ex
+; Version: 1.09
+; Client Tested with: 4.0.6a
+; EUO version tested with: 1.42.009d
+; Shard OSI / FS: OSI
+; Revision Date: December 23, 2004
+; Public Release: November 16, 2004
+; Global Variables Used: 
+; Purpose: writing to files in EUO
+; Copyright 2004 Kal In Ex
+;==================================
+
+; subs open, GetOSFileCmd, wipe, fwipe, write and dump
+; are all a part of filesubs.txt only use this script
+; in its entirety and do not modify it!
+
+sub open ; <identifier> <filename>
+	namespace push
+	namespace local _filebuffers
+	set !_filename %1 , _filename
+	set !_buffer %1 , _buffer
+	set !_dirop %1 , _dirop
+	set ! . !_filename %2
+	set ! . !_buffer
+	set ! . !_dirop >>
+	if !_filesub = n/a
+		{
+		gosub GetOSFileCmd _
+		if #result = command.com
+			{
+			set !_filesub _filesubsW1
+			set !_filecmd command.com
+			}
+		if #result = cmd.exe
+			{
+			set !_filesub _filesubsW2
+			set !_filecmd cmd.exe
+			}
+		}
+	namespace pop
+	return
+
+;================== 
+;** 
+;* @name GetOSFileCmd 
+;* @ver 1.0 9May04 
+;* @author Roadkill 
+;* @purpose check the OS and set @%1 to cmd.exe or command.exe if win98/2000xp 
+;* @params %1 the varname to hold the return command 
+;* @returns @%1 and #result hold cmd.exe for win2k and xp, or command.exe for 98/me 
+;* @example call rksubs.txt GetOSFileCmd filecmd 
+;* @status done 
+sub GetOSFileCmd
+	str Left #osver 1
+	set % . %1 cmd.exe
+	if #strRes = 1
+		set % . %1 command.com
+	return % . %1
+;==================
+
+sub wipe ; <identifier>
+	namespace push
+	namespace local _filebuffers
+	set !_buffer %1 , _buffer
+	set !_dirop %1 , _dirop
+	set ! . !_buffer
+	set ! . !_dirop >
+	namespace pop
+	return
+
+sub fwipe ; <identifier>
+	namespace push
+	namespace local _filebuffers
+	set !_filename %1 , _filename
+	set !_buffer %1 , _buffer
+	set ! . !_buffer
+	execute !_filecmd /c type > ! . !_filename
+	namespace pop
+	return
+
+sub write ; <identifier> <text> <text> <text...>
+	namespace push
+	namespace local _filebuffers
+	if %0 > 2
+		{
+		for !_ 3 %0
+			{
+			set %2 %2 , #spc , % . !_
+			}
+		}
+	goto !_filesub
+	namespace pop
+	return
+
+_filesubsW1:
+	str len %2
+	for !_ #strres 1
+		{
+		str mid %2 !_ 1
+		if #strres in <>
+			{
+			str ins %2 ^ !_
+			set %2 #strres
+			}
+		}
+	set !_filename %1 , _filename
+	set !_dirop %1 , _dirop
+	execute !_filecmd /c echo %2 ! . !_dirop ! . !_filename
+	set ! . !_dirop >>
+	namespace pop
+	return
+
+_filesubsW2:
+	str len %2
+	for !_ #strres 1
+		{
+		str mid %2 !_ 1
+		if #strres in &|()^<>
+			{
+			str ins %2 ^ !_
+			set %2 #strres
+			}
+		}
+	set !_filename %1 , _filename
+	set !_buffer %1 , _buffer
+	set !_dirop %1 , _dirop
+	str len ! . !_buffer
+	set !_ #strres
+	str len %2
+	if !_ + #strres >= 1900
+		{
+		execute !_filecmd /c ! . !_buffer
+		set ! . !_buffer
+		}
+	str len ! . !_buffer
+	if #strres = 0 || ! . !_dirop = >
+		set ! . !_buffer echo , #spc , %2 , #spc , ! . !_dirop , #spc , ! . !_filename
+	else
+		set ! . !_buffer ! . !_buffer , #spc , && , #spc , echo , #spc , %2 , #spc , ! . !_dirop , #spc , ! . !_filename
+	set ! . !_dirop >>
+	namespace pop
+	return
+
+sub dump ; <identifier>
+	namespace push
+	namespace local _filebuffers
+	set !_filename %1 , _filename
+	set !_buffer %1 , _buffer
+	str len ! . !_buffer
+	if #strres > 0
+		{
+		execute !_filecmd /c ! . !_buffer
+		set ! . !_buffer
+		}
+	namespace pop
+	return
+;================================== 
+; end of filesubs.txt
+;================================== 
+
+;--------- EasyUO Menu Designer Code Begin ---------
+sub showsubmenudesignarea
+	menu Clear
+	menu Window Title sub menu design area
+	menu Window Color BtnFace
+	menu Window Size 504 280
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color WindowText
+	menu Font Align Left
+	menu Text EUOLabel1 328 8 Select the sos region number(s) to
+	menu Text EUOLabel2 328 20 you want written to a UOAM .map file
+	menu Text EUOLabel3 328 32 then click the "ok" button and the
+	menu Text EUOLabel4 328 44 script will create your file.
+	menu Button EUOButton1 332 256 43 17 ok
+	menu Button EUOButton2 380 256 75 17 cancel
+	menu Button EUOButton3 332 232 51 21 select all
+	menu Button EUOButton4 388 232 67 21 none
+	menu Show
+return
+sub showsosmastermenu
+	menu Clear
+	menu Window Title Kal In Ex - MIB, SOS
+	menu Window Color BtnFace
+	menu Window Size 504 280
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Shape status_bkgnd 0 255 319 25 3 7 1 Black 7 White
+	menu Shape worldmap_bkgnd 0 0 319 255 3 7 1 Black 7 $00FF5555
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style b
+	menu Font Color WindowText
+	menu Font Align Left
+	menu Text status_label 84 260 Status:
+	menu Font Style
+	menu Text status 132 260 status
+	menu Button saveSOSData 4 260 75 17 save
+	menu Show
+return
+;--------- EasyUO Menu Designer Code End ---------

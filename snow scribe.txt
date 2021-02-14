@@ -1,0 +1,4526 @@
+;=======================================================================================================
+;=======================================================================================================
+; Script Name: Snow's Scribe Matic
+;                  Author: Snow
+;                  Version: 1.2
+;                  Client Tested with:
+;                  EUO version tested with:
+;                  Shard OSI / FS: OSI
+;                  Revision Date: 2013/12/07
+;                  Public Release: 2013/02/26 (debug)
+;                  Global Variables Used: NONE
+;                  Purpose: Trains Inscription - Have your supplies in 1 box.
+;                           Creates Mage Spells - Have your supplies in 1 box. Your drops in another box.
+;                           Creates Mystic Spells - Have your supplies in 1 box. Your drops in another box.
+;                           Creates Scroll Binders - Have your supplies in 1 box. Your drops in another box.
+;                           Creates Blank Scrolls - Must choose the amount of scrolls to make in incriments of 5. Have your supplies in 1 box. Your drops in another box.
+;                           Fills Mage Spell Books - Fills out of containers split into Circles or in 1 Box; not a mix of the two. Can make books to fill if wanted.
+;                           Fills Mystic Spell Books - Fills out of 1 Box. Can make books to fill if wanted.
+;
+;
+;==================================================================================================
+;==================================================================================================
+; Authorized Release Locations:
+; Scriptuo.com
+; easyuo.com
+;==================================================================================================
+;==================================================================================================
+;Special Thanks to:
+; C2 for Mana and other subs
+; TM for Journal Scan
+; MWinc for the craft and resource subs.
+; formerlyrara for extensive testing and use.
+; CEO for inscription skill levels
+;==================================================================================================
+;=================================================
+; SUPPLIES - Check here for Out of Supplies Info |
+;=================================================
+set %reagent1 JZF ; Ginseng
+set %reagent2 MZF ; mandrake root
+set %reagent3 WZF ; Nightshade
+set %reagent4 RZF ; spiderssilk
+set %reagent5 SZF ; Sulfurous Ash
+set %reagent6 KZF ; Garlic
+set %reagent7 JUF ; Blood Moss
+set %reagent8 KUF ; blackpearl
+set %reagent9 GUF ; bone
+set %reagent10 NZF ; Fertile Dirt
+set %reagent11 JIY ; Dragon's Blood
+set %reagent12 OZF ; daemon Bone
+set %spellscroll GKR_TJR_EKR_DKR_UJR_FKR_QXL_WTL_QTL_OTL_STL_UTL_NTL_TTL_FYL_GYL_RTL_DYL_AUL_PTL_BUL_CUL_ZTL_VXL_CYL_WXL_ZXL_AYL_YXL_EYL_JYL_PXL_NXL_BYL_XXL_HYL_IYL_KYL_KUL_QUL_MUL_SUL_EUL_YTL_GUL_IUL_XTL_PUL_JUL_HUL_VTL_RUL_FUL_DUL_GVL_CVL_OUL_WUL_AVL_UUL_YUL_IVL_HVL_FVL_XUL_VUL_LUL_NUL_TUL_ZUL
+set %scroll DPF
+set %tinker GTL_KTL_JTL
+set %ingots enk
+set %pen PBG
+set %manalock #maxmana * ( 90 / 100 )
+set %stackmoved 0
+set %stack 0
+set %currentskill 0
+set %tinkering #false
+set %pulp EUO
+set %binder TVH
+set %bark NWS
+set %spellbookid MPF
+set %mystbookid RGR_RJR
+gosub MainMenu
+gosub go
+menu get EUOComboBox2
+menu hide
+
+
+if #menures = 3 ; Making Mage Scrolls
+{
+  gosub setup
+  gosub getpen
+  repeat
+    gosub MageMenu
+    gosub start
+    gosub menuselect
+    gosub finished
+  until #clilogged = #true
+  halt
+}
+if #menures = 2 ; Train Inscription
+{
+  gosub setup
+  gosub showEUOMenu1
+  chooseskill Insc
+  set %startingskill #skill
+  menu get tinkerit
+  if #menures = #true
+    set %tinkering #true
+  menu getnum Amount
+  set %endskill #menures
+  gosub ShowEUOMenu2
+  gosub checkskill
+  set %iteration 1
+  repeat
+    gosub checkskill
+    gosub totalskill
+    if %currentskill >= %endskill
+    {
+      gosub returnitems
+      Display You have reached %currentskill in Inscription!
+      halt
+    }
+    gosub train
+  until #clilogged = #true
+  halt
+}
+if #menures = 4
+{
+  gosub setup
+  repeat
+    gosub SupplyMenu
+    gosub start
+    gosub supplyselect
+    gosub finished
+  until #clilogged = #true
+  halt
+}
+if #menures = 5 ; Fill Spell Books
+{
+  set %bookiteration 0
+  gosub bookMenu
+  gosub start
+  gosub booksetup
+  menu getnum EUOEdit2
+  set %final #menures
+  menu delete EUOLabel1
+  Menu delete EUOEdit2
+  menu Text EUOLabel1 4 4 Total Books Filled:
+  menu Edit EUOEdit2 160 4 17 0
+  repeat
+    gosub makebook
+    gosub fillbookstart
+    gosub bookdrag book %fillbook %bookboxfinished
+    set %bookiteration %bookiteration + 1
+    if %bookiteration = %final
+      set %done #true
+    menu Delete EUOEdit2
+    menu Edit EUOEdit2 160 4 17 %bookiteration
+  until #clilogged = #true || %done = #true
+  gosub returnitems
+  Display I have Made %bookiteration book(s).
+  halt
+}
+if #menures = 6 ; Making Mysticism Scrolls
+{
+  gosub setup
+  gosub getpen
+  repeat
+    gosub MystMenu
+    gosub start
+    gosub mystselect
+    gosub finished
+  until #clilogged = #true
+  halt
+}
+if #menures = 7 ; Fill Myst Books
+{
+  set %bookiteration 0
+  gosub bookMenu
+  gosub start
+  gosub booksetup
+  menu getnum EUOEdit2
+  set %final #menures
+  menu delete EUOLabel1
+  Menu delete EUOEdit2
+  menu Text EUOLabel1 4 4 Total Books Filled:
+  menu Edit EUOEdit2 160 4 17 0
+  repeat
+    gosub makemystbook
+    gosub fillmyststart
+    gosub bookdrag book %fillbook %bookboxfinished
+    set %bookiteration %bookiteration + 1
+    if %bookiteration = %final
+      set %done #true
+    menu Delete EUOEdit2
+    menu Edit EUOEdit2 160 4 17 %bookiteration
+  until #clilogged = #true || %done = #true
+  gosub returnitems
+  Display I have Made %bookiteration book(s).
+  halt
+}
+Display You didn't choose anything. I must Halt.
+halt
+
+sub supplyselect
+  menu get EUOComboBox3
+  if #menures = 2 ;Make Binder
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %pulp N/A 1 50
+    gosub getpen
+    gosub MWCraft Scribe N/A 6 2 2
+    set %stack 1
+    repeat
+      gosub MWResource %box %pulp N/A 1 50
+      gosub getpen
+      gosub MWCraft Scribe MakeLast
+      finditem %binder C_ , #backpackid
+      gosub movebinders
+      set %stack %stack + 1
+    until %stack = %times
+    gosub pausecheck
+    return
+  }
+  if #menures = 3 ;Make Blank Scroll
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %pulp N/A 1 50
+    gosub getpen
+    gosub MWCraft Scribe N/A 6 2 1
+    set %stack 1
+    finditem %scroll C_ , #backpackid
+    if #findstack >= %times
+      return
+    repeat
+      gosub MWResource %box %pulp N/A 1 50
+      gosub getpen
+      gosub MWCraft Scribe MakeLast
+      gosub weightcheck %scroll %box
+      finditem %scroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack >= %times
+    gosub pausecheck
+    return
+  }
+return
+
+sub movebinders
+  for #findindex 1 #findcnt
+  {
+    Exevent drag #findid
+    wait 10
+    Exevent dropc %box2
+    wait 20
+  }
+return
+
+
+sub train
+  if %currentskill <= 321
+  {
+    ;Poison
+    if %iteration = 1
+    {
+      ;setup
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub getpen
+      gosub MWCraft Scribe N/A 2 1 4
+    }
+    set %iteration %iteration + 1
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub getpen
+    gosub MWCraft Scribe MakeLast
+    gosub manacheck
+    gosub weightcheck %spellscroll %box2
+    if %currentskill = 322
+    {
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub getpen
+      gosub MWCraft Scribe N/A 2 2 6
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+    }
+  }
+  if %currentskill > 322 && %currentskill <= 578
+  {
+    ;Recall
+    if %iteration = 1
+    {
+      ;setup
+      gosub returnitems
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub getpen
+      gosub MWCraft Scribe N/A 2 2 6
+    }
+
+    set %iteration %iteration + 1
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub getpen
+    gosub MWCraft Scribe MakeLast
+    gosub manacheck
+    gosub weightcheck %spellscroll %box2
+
+  }
+  if %currentskill = 579
+  {
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub getpen
+    gosub MWCraft Scribe N/A 3 2 3
+    gosub manacheck
+    gosub weightcheck %spellscroll %box2
+  }
+  if %currentskill > 579 && %currentskill <= 864
+  {
+    ;Mark
+    if %iteration = 1
+    {
+      ;setup
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub getpen
+      gosub MWCraft Scribe N/A 3 2 3
+    }
+    set %iteration %iteration + 1
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub getpen
+    gosub MWCraft Scribe MakeLast
+    gosub manacheck
+    gosub weightcheck %spellscroll %box2
+  }
+  if %currentskill = 865
+  {
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub getpen
+    gosub MWCraft Scribe N/A 4 1 4
+    gosub manacheck
+    gosub weightcheck %spellscroll %box2
+  }
+  if %currentskill > 865 && %currentskill <= 958
+  {
+    ;Gate Travel
+    if %iteration = 1
+    {
+      ;setup
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub getpen
+      gosub MWCraft Scribe N/A 4 1 4
+    }
+
+    set %iteration %iteration + 1
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub getpen
+    gosub MWCraft Scribe MakeLast
+    gosub manacheck
+    gosub weightcheck %spellscroll %box2
+  }
+  if %currentskill = 959
+  {
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub getpen
+    gosub MWCraft Scribe N/A 4 2 1
+    gosub manacheck
+    gosub weightcheck %spellscroll %box2
+  }
+  if %currentskill > 959 && %currentskill < 1000
+  {
+    ;Resurrection
+    if %iteration = 1
+    {
+      ;setup
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub getpen
+      gosub MWCraft Scribe N/A 4 2 1
+    }
+    set %iteration %iteration + 1
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub getpen
+    gosub MWCraft Scribe MakeLast
+    gosub manacheck
+    gosub weightcheck %spellscroll %box2
+  }
+return
+
+
+sub checkskill
+  chooseskill Insc
+  if #skill > %currentskill
+  {
+    set %currentskill #skill
+    menu delete Skillat
+    str len %currentskill
+    str ins %currentskill #dot #strRes
+    menu Font Style
+    menu Font Color Red
+    menu Text Skillat 148 8 #strRes
+    menu delete skillgain
+    set %totalskillgained 0
+    set %totalskillgained %currentskill - %startingskill
+    str len %totalskillgained
+    str ins %totalskillgained #dot #strRes
+    menu Font Style
+    menu Font Color Red
+    menu Text skillgain 124 32 #strRes
+  }
+return
+sub totalskill
+  chooseskill Insc
+  if #skill > %currentskill
+  {
+    menu delete skillgain
+    set %totalskillgained 0
+    set %totalskillgained %currentskill - %startingskill
+    str len %totalskillgained
+    str ins %totalskillgained #dot #strRes
+    menu Font Style
+    menu Font Color Red
+    menu Text skillgain 124 32 #strRes
+  }
+return
+sub returnitems
+  Finditem %reagent1 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent2 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent3 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent4 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent5 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent6 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent7 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent8 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent9 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent10 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent11 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %reagent12 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  Finditem %1 C_ , #Backpackid ; Locates them in backpack
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  finditem %pen C_ , #backpackid
+  for #findindex 1 #findcnt
+  {
+    set %move 1
+    gosub drag
+    wait 20
+  }
+  finditem %spellscroll C_ , #backpackid
+  for #findindex 1 #findcnt
+  {
+    set %move #findstack
+    Exevent drag #findid %move
+    wait 10
+    Exevent dropc %box2
+    wait 20
+  }
+  finditem %pulp C_ , #backpackid
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+  finditem %scroll C_ , #backpackid
+  if #findstack >= 1
+  {
+    set %move #findstack
+    gosub drag
+    wait 20
+  }
+return
+
+sub drag
+  Exevent drag #findid %move
+  wait 10
+  Exevent dropc %box
+  wait 20
+return
+
+sub bookdrag
+  if %1 = book
+  {
+    Exevent drag %2
+    wait 10
+    Exevent dropc %3
+    wait 20
+  }
+  if %1 = scroll
+  {
+    exevent drag %2 %4
+    wait 10
+    exevent dropc %3
+    wait 10
+  }
+return
+
+sub getpen
+  finditem %pen C_ , #backpackid
+  if #findcnt <= 0 || #findbagid <> #backpackid
+  {
+    finditem %pen C_ , %box
+    if #findcnt <= 0
+    {
+      if %tinkering = #true
+      {
+        gosub crafttool
+      }
+      else
+      {
+        Display Out of Scribe Pens! Put more 1 in backpack and rest in bag and press Play!
+        Pause
+      }
+    }
+    exevent drag #findid
+    wait 10
+    exevent dropc #backpackid
+    wait 20
+    return
+
+  }
+return
+
+sub weightcheck
+  if #weight >= ( #maxweight - 40 )
+  {
+    finditem %1 C_ , #backpackid
+    for #findindex 1 #findcnt
+    {
+      set %move #findstack
+      Exevent drag #findid %move
+      wait 10
+      Exevent dropc %2
+      wait 20
+      set %stackmoved ( %moved + %stackmoved )
+    }
+  }
+return
+
+sub mystselect
+  menu get EUOComboBox1
+  if #menures = 2 ;Healing Stone
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent9 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent9 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 3 ;Nether Bolt
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 4 ;Enchant
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 5 ;Purge Magic
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent10 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent10 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 6 ;Eagle Strike
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent9 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent9 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 7 ;Sleep
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 8 ;Animated Weapon
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWResource %box %reagent9 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWResource %box %reagent9 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 9 ;Stone Form
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent10 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 8
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent10 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 10 ;Mass Sleep
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 10
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 11 ;Spell Trigger
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent11 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 9
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent11 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 12 ;Bombard
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent11 N/A 10 50
+    gosub MWCraft Scribe N/A 7 2 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent11 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 13 ;Cleansing Winds
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent11 N/A 10 50
+    gosub MWCraft Scribe N/A 7 2 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent11 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 14 ;Hail Storm
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWResource %box %reagent11 N/A 10 50
+    gosub MWCraft Scribe N/A 7 2 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWResource %box %reagent11 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 15 ;Spell Plague
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent11 N/A 10 50
+    gosub MWResource %box %reagent12 N/A 10 50
+    gosub MWCraft Scribe N/A 7 2 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent11 N/A 10 50
+      gosub MWResource %box %reagent12 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 16 ;Nether Cyclone
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWCraft Scribe N/A 7 2 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 17 ;Rising Colossus
+  {
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWResource %box %reagent10 N/A 10 50
+    gosub MWResource %box %reagent11 N/A 10 50
+    gosub MWResource %box %reagent12 N/A 10 50
+    gosub MWCraft Scribe N/A 7 2 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWResource %box %reagent10 N/A 10 50
+      gosub MWResource %box %reagent11 N/A 10 50
+      gosub MWResource %box %reagent12 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+
+
+return
+sub menuselect
+  menu get EUOComboBox1
+  if #menures = 2 ;clumsy
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 1 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+
+  if #menures = 3 ;Create Food
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 1 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  if #menures = 4 ; Feeble Mind
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 1 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection3x %selection3y %cat1x %cat1y #false #false %reagent1 %reagent3 N/A N/A
+  if #menures = 5 ; Heal
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 1 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection4x %selection4y %cat1x %cat1y #false #false %reagent1 %reagent6 %reagent4 N/A
+  if #menures = 6 ;Magic Arrow
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 1 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection5x %selection5y %cat1x %cat1y #false #false %reagent4 %reagent8 %reagent3 N/A
+  if #menures = 7 ;Night Sight
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 1 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection6x %selection6y %cat1x %cat1y #false #false %reagent4 %reagent5 N/A N/A
+  if #menures = 8 ;Reactive Armor
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 1 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection7x %selection7y %cat1x %cat1y #false #false %reagent6 %reagent4 %reagent5 N/A
+  if #menures = 9 ;Weaken
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 1 1 9
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection8x %selection8y %cat1x %cat1y #false #false %reagent6 %reagent3 N/A N/A
+  if #menures = 10 ;Agility
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 2 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection9x %selection9y %cat1x %cat1y #false #false %reagent7 %reagent2 N/A N/A
+  if #menures = 11 ;Cunning
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 2 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection10x %selection10y %cat1x %cat1y #false #false %reagent2 %reagent3 N/A N/A
+  if #menures = 12 ;Cure
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 2 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #true #false %reagent1 %reagent6 N/A N/A
+  if #menures = 13 ;Harm
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 2 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection2x %selection2y %cat1x %cat1y #true #false %reagent4 %reagent3 N/A N/A
+  if #menures = 14 ;Magic Trap
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 2 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection3x %selection3y %cat1x %cat1y #true #false %reagent1 %reagent3 %reagent6 N/A
+  if #menures = 15 ;Magic Untrap
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 2 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection4x %selection4y %cat1x %cat1y #true #false %reagent7 %reagent5 N/A N/A
+  if #menures = 16 ;Protection
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 2 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection5x %selection5y %cat1x %cat1y #true #false %reagent1 %reagent6 %reagent5 N/A
+  if #menures = 17 ;Strength
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 2 1 8
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection6x %selection6y %cat1x %cat1y #true #false %reagent2 %reagent3 N/A N/A
+  if #menures = 18 ;Bless
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 3 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection1x %selection1y %cat2x %cat2y #false #false %reagent6 %reagent2 N/A N/A
+  if #menures = 19 ;Fireball
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 3 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection2x %selection2y %cat2x %cat2y #false #false %reagent8 %reagent5 N/A N/A
+  if #menures = 20 ;Magic Lock
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 3 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection3x %selection3y %cat2x %cat2y #false #false %reagent7 %reagent6 %reagent5 N/A N/A
+  if #menures = 21 ;Poison
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 3 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection4x %selection4y %cat2x %cat2y #false #false %reagent3 N/A N/A N/A
+  if #menures = 22 ;Telekinesis
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 3 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection5x %selection5y %cat2x %cat2y #false #false %reagent7 %reagent2 N/A N/A
+  if #menures = 23 ;Teleport
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 3 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection6x %selection6y %cat2x %cat2y #false #false %reagent7 %reagent2 N/A N/A
+  if #menures = 24 ;Unlock
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 3 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection7x %selection7y %cat2x %cat2y #false #false %reagent7 %reagent5 N/A N/A
+  if #menures = 25 ;Wall of Stone
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 3 1 8
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection8x %selection8y %cat2x %cat2y #false #false %reagent7 %reagent6 N/A N/A
+  if #menures = 26 ;Arch Cure
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 4 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection9x %selection9y %cat2x %cat2y #false #false %reagent1 %reagent6 %reagent2 N/A N/A
+  if #menures = 27 ;Arch Protection
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 4 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection10x %selection10y %cat2x %cat2y #false #false %reagent1 %reagent6 %reagent2 %reagent5
+  if #menures = 28 ;Curse
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 4 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection1x %selection1y %cat2x %cat2y #true #false %reagent6 %reagent3 %reagent5 N/A
+  if #menures = 29 ;Firefield
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 4 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection2x %selection2y %cat2x %cat2y #true #false %reagent8 %reagent4 %reagent5 N/A
+  if #menures = 30 ;Greater Heal
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 4 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection3x %selection3y %cat2x %cat2y #true #false %reagent1 %reagent6 %reagent4 %reagent2
+  if #menures = 31 ;Lightning
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 4 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection4x %selection4y %cat2x %cat2y #true #false %reagent2 %reagent8 %reagent5 N/A
+  if #menures = 32 ;Mana Drain
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 4 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection5x %selection5y %cat2x %cat2y #true #false %reagent2 %reagent8 %reagent5 N/A
+  if #menures = 33 ;Recall
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 4 1 8
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection6x %selection6y %cat2x %cat2y #true #false %reagent7 %reagent8 %reagent2 N/A
+  if #menures = 34 ;Blade Spirits
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 5 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection1x %selection1y %cat3x %cat3y #false #false %reagent3 %reagent2 %reagent8 N/A
+  if #menures = 35 ;Dispel Fields
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 5 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection2x %selection2y %cat3x %cat3y #false #false %reagent6 %reagent8 %reagent4 %reagent5
+  if #menures = 36 ;Incogneto
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 5 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection3x %selection3y %cat3x %cat3y #false #false %reagent7 %reagent3 %reagent6 N/A
+  if #menures = 37 ;Magic Reflect
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 5 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection4x %selection4y %cat3x %cat3y #false #false %reagent6 %reagent2 %reagent4 N/A
+  if #menures = 38 ;Mind Blast
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 5 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection5x %selection5y %cat3x %cat3y #false #false %reagent6 %reagent3 %reagent4 N/A
+  if #menures = 39 ;Paralyze
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 5 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection6x %selection6y %cat3x %cat3y #false #false %reagent6 %reagent2 %reagent4 N/A
+  if #menures = 40 ;Poison FIeld
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 5 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection7x %selection7y %cat3x %cat3y #false #false %reagent8 %reagent3 %reagent4 N/A
+  if #menures = 41 ;Summon Creature
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 5 1 8
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection8x %selection8y %cat3x %cat3y #false #false %reagent7 %reagent2 %reagent4 N/A
+  if #menures = 42 ;Dispel
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 6 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection9x %selection9y %cat3x %cat3y #false #false %reagent6 %reagent2 %reagent5 N/A
+  if #menures = 43 ;Energy Bolt
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 6 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection10x %selection10y %cat3x %cat3y #false #false %reagent8 %reagent3 N/A N/A
+  if #menures = 44 ;Explosion
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 6 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection1x %selection1y %cat3x %cat3y #true #false %reagent8 %reagent2 %reagent5 N/A
+  if #menures = 45 ;Invisibility
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 6 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection2x %selection2y %cat3x %cat3y #true #false %reagent7 %reagent3 N/A N/A
+  if #menures = 46 ;Mark
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 6 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection3x %selection3y %cat3x %cat3y #true #false %reagent7 %reagent8 %reagent2 N/A
+  if #menures = 47 ;Mass Curse
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 6 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection4x %selection4y %cat3x %cat3y #true #false %reagent6 %reagent3 %reagent2 %reagent5
+  if #menures = 48 ;Paralyze Field
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 6 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection5x %selection5y %cat3x %cat3y #true #false %reagent1 %reagent8 %reagent4 N/A
+  if #menures = 49 ;Reveal
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 6 1 8
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection6x %selection6y %cat3x %cat3y #true #false %reagent7 %reagent5 N/A N/A
+  if #menures = 50 ;Chain Lightening
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection1x %selection1y %cat4x %cat4y #false #false %reagent7 %reagent8 %reagent2 %reagent5
+  if #menures = 51 ;Energy Field
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection2x %selection2y %cat4x %cat4y #false #false %reagent5 %reagent8 %reagent2 %reagent4
+  if #menures = 52 ;Flamestrike
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection3x %selection3y %cat4x %cat4y #false #false %reagent4 %reagent5 N/A N/A
+  if #menures = 53 ;Gate Travel
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection4x %selection4y %cat4x %cat4y #false #false %reagent8 %reagent2 %reagent5 N/A
+  if #menures = 54 ;Mana Vampire
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection5x %selection5y %cat4x %cat4y #false #false %reagent7 %reagent8 %reagent2 %reagent4
+  if #menures = 55 ;Mass Dispel
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection6x %selection6y %cat4x %cat4y #false #false %reagent6 %reagent8 %reagent2 %reagent5
+  if #menures = 56 ;Meteor Swarm
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection7x %selection7y %cat4x %cat4y #false #false %reagent7 %reagent2 %reagent4 %reagent5
+  if #menures = 57 ;Polymorph
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 7 1 8
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection8x %selection8y %cat4x %cat4y #false #false %reagent7 %reagent2 %reagent4 N/A
+  if #menures = 58 ;Earthquake
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 8 1 1
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection9x %selection9y %cat4x %cat4y #false #false %reagent7 %reagent1 %reagent2 %reagent5
+  if #menures = 59 ;Energy Vortex
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 8 1 2
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection10x %selection10y %cat4x %cat4y #false #false %reagent7 %reagent3 %reagent2 %reagent8
+  if #menures = 60 ;Resurrection
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 8 1 3
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection1x %selection1y %cat4x %cat4y #true #false %reagent1 %reagent6 %reagent8 N/A
+  if #menures = 61 ;Air Elemental
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 8 1 4
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection2x %selection2y %cat4x %cat4y #true #false %reagent7 %reagent2 %reagent4 N/A
+  if #menures = 62 ;Summon Demon
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 8 1 5
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection3x %selection3y %cat4x %cat4y #true #false %reagent7 %reagent2 %reagent4 %reagent5
+  if #menures = 63 ;Earth Elemental
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 8 1 6
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection4x %selection4y %cat4x %cat4y #true #false %reagent7 %reagent5 %reagent4 N/A
+  if #menures = 64 ;Fire Elemental
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 8 1 7
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection5x %selection5y %cat4x %cat4y #true #false %reagent7 %reagent2 %reagent4 %reagent5
+  if #menures = 65 ;Water Elemental
+  {
+    ;gosub selectscroll %selection1x %selection1y %cat1x %cat1y #false #false %reagent7 %reagent3 N/A N/A
+    ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+    menu getnum amount
+    set %times #menures
+    gosub MWResource %box %scroll N/A 10 50
+    gosub MWResource %box %reagent1 N/A 10 50
+    gosub MWResource %box %reagent2 N/A 10 50
+    gosub MWResource %box %reagent3 N/A 10 50
+    gosub MWResource %box %reagent4 N/A 10 50
+    gosub MWResource %box %reagent5 N/A 10 50
+    gosub MWResource %box %reagent6 N/A 10 50
+    gosub MWResource %box %reagent7 N/A 10 50
+    gosub MWResource %box %reagent8 N/A 10 50
+    gosub MWCraft Scribe N/A 8 1 8
+    repeat
+      gosub getpen
+      gosub MWResource %box %scroll N/A 10 50
+      gosub MWResource %box %reagent1 N/A 10 50
+      gosub MWResource %box %reagent2 N/A 10 50
+      gosub MWResource %box %reagent3 N/A 10 50
+      gosub MWResource %box %reagent4 N/A 10 50
+      gosub MWResource %box %reagent5 N/A 10 50
+      gosub MWResource %box %reagent6 N/A 10 50
+      gosub MWResource %box %reagent7 N/A 10 50
+      gosub MWResource %box %reagent8 N/A 10 50
+      gosub MWCraft Scribe MakeLast
+      gosub manacheck
+      gosub weightcheck %spellscroll %box2
+      finditem %spellscroll C_ , #backpackid
+      set %stack ( #findstack + %stackmoved )
+    until %stack = %times
+    gosub pausecheck
+
+  }
+  ;gosub selectscroll %selection6x %selection6y %cat4x %cat4y #true #false %reagent7 %reagent2 %reagent4 N/A
+  set %stackmoved 0
+  set %stack 0
+return
+
+sub start
+  repeat
+    wait 1
+  until #menubutton = Start
+  set #menubutton = N/A
+return
+
+sub go
+  repeat
+    wait 1
+  until #menubutton = GO
+  set #menubutton = N/A
+return
+
+sub pausecheck
+  if #menubutton = Pause
+  {
+    repeat
+      wait 1
+    until #menubutton = Start
+  }
+return
+
+sub crafttool
+  finditem %tinker C_ , #backpackid
+  if #findcnt < 2
+  {
+    gosub MWResource %box ENK 0 10 50
+    for 1 1 4
+    {
+      gosub MWCraft Tinker N/A 2 1 4
+    }
+  }
+  for 1 1 4
+  {
+    gosub MWCraft Tinker N/A 2 3 3
+  }
+return
+sub manacheck
+  if #mana < 50
+  {
+    gosub TM_AdvJournalSync med
+    repeat
+      event macro 13 46   ;med
+      wait 1s
+      gosub TM_AdvJournalScan med NONE you_enter_a_meditative_trance you_are_at_peace
+      wait 10s
+    until #result = #true
+    if #maxmana >= 50
+    {
+      while #mana < #maxmana - 8
+        wait 0
+    }
+    if #maxmana < 50
+    {
+      while #mana < #maxmana
+        wait 0
+    }
+  }
+return
+
+sub booksetup
+  Display Choose your Box with your Pens, Scrolls, etc... are in.
+  set #targcurs 1
+  while #targcurs = 1
+    wait 1
+  set %box #ltargetID
+  set #lobjectid %box
+  event macro 17 0
+  wait 1s
+  menu get EUOCheckBox1
+  if #menures = #true
+    set %makebooks #true
+  else
+    set %makebooks #false
+  if %makebooks = #false
+  {
+    Display Choose your Box with your Books in them
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %bookbox #ltargetID
+    set #lobjectid %bookbox
+    event macro 17 0
+    wait 1s
+  }
+  Display Choose your Box to put finished books in.
+  set #targcurs 1
+  while #targcurs = 1
+    wait 1
+  set %bookboxfinished #ltargetID
+  set #lobjectid %bookboxfinished
+  event macro 17 0
+  wait 1s
+  Display yesno Do you have your scrolls set up in circles?
+  If #dispRes = yes
+  {
+    set %incircles #true
+    Display Choose your Box your first circle are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %box1 #ltargetID
+    set #lobjectid %box1
+    event macro 17 0
+    wait 1s
+    Display Choose your Box your Second circle are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %box2 #ltargetID
+    set #lobjectid %box2
+    event macro 17 0
+    wait 1s
+    Display Choose your Box your Third circle are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %box3 #ltargetID
+    set #lobjectid %box3
+    event macro 17 0
+    wait 1s
+    Display Choose your Box your Fourth circle are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %box4 #ltargetID
+    set #lobjectid %box4
+    event macro 17 0
+    wait 1s
+    Display Choose your Box your Fifth circle are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %box5 #ltargetID
+    set #lobjectid %box5
+    event macro 17 0
+    wait 1s
+    Display Choose your Box your Sixth circle are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %box6 #ltargetID
+    set #lobjectid %box6
+    event macro 17 0
+    wait 1s
+    Display Choose your Box your Seventh circle are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %box7 #ltargetID
+    set #lobjectid %box7
+    event macro 17 0
+    wait 1s
+    Display Choose your Box your Eighth circle are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %box8 #ltargetID
+    set #lobjectid %box8
+    event macro 17 0
+    wait 1s
+  }
+  else
+  {
+    set %incircles #false
+    Display Choose your Box your scrolls are in.
+    set #targcurs 1
+    while #targcurs = 1
+      wait 1
+    set %scrollbox #ltargetID
+    set #lobjectid %scrollbox
+    event macro 17 0
+    wait 1s
+  }
+return
+sub setup
+  Display Choose your Box with Scrolls, Scribe Pen, Ingots, etc.
+  set #targcurs 1
+  while #targcurs = 1
+    wait 1
+  set %box #ltargetID
+  set #lobjectid %box
+  event macro 17 0
+  wait 1s
+  Display Choose your Box you want your Scrolls/Binders put into.
+  set #targcurs 1
+  while #targcurs = 1
+    wait 1
+  set %box2 #ltargetID
+  set #lobjectid %box2
+  event macro 17 0
+  wait 1s
+return
+
+sub makebook
+  if %makebook = #true
+  {
+    gosub MWResource %box %scroll N/A 10 10
+    gosub getpen
+    gosub MWCraft Scribe N/A 10 1 7
+  }
+  else
+  {
+    finditem %spellbookid C_ , %bookbox
+    if #findcnt > 0
+    {
+      gosub bookdrag book #findid #backpackid
+      set %fillbook #findid
+    }
+    else
+    {
+      Display you have no books in your bag.  Either select to make books or put books in your bag.
+      halt
+    }
+  }
+return
+sub makemystbook
+  if %makebook = #true
+  {
+    gosub MWResource %box %scroll N/A 10 10
+    gosub getpen
+    gosub MWCraft Scribe N/A 10 2 1
+  }
+  else
+  {
+    finditem %mystbookid C_ , %bookbox
+    if #findcnt > 0
+    {
+      gosub bookdrag book #findid #backpackid
+      set %fillbook #findid
+    }
+    else
+    {
+      Display you have no books in your bag.  Either select to make books or put books in your bag.
+      halt
+    }
+  }
+return
+
+sub fillmyststart
+  gosub fillbook TJR %scrollbox Healing_Stone
+  gosub fillbook UJR %scrollbox Nether_Bolt
+  gosub fillbook DKR %scrollbox Enchant
+  gosub fillbook EKR %scrollbox Purge_Magic
+  gosub fillbook FKR %scrollbox Eagle Strike
+  gosub fillbook GKR %scrollbox Sleep
+  gosub fillbook AKR %scrollbox Animated_Weapon
+  gosub fillbook ZJR %scrollbox Stone Form
+  gosub fillbook BKR %scrollbox Mass_Sleep
+  gosub fillbook CKR %scrollbox Spell Trigger
+  gosub fillbook LKR %scrollbox Bombard
+  gosub fillbook MKR %scrollbox Cleansing_Winds
+  gosub fillbook NKR %scrollbox Hail_Storm
+  gosub fillbook GKR %scrollbox Spell_Plague
+  gosub fillbook IKR %scrollbox Nether_Cyclone
+  gosub fillbook HKR %scrollbox Rising_Colossus
+return
+
+sub fillbookstart
+  if %incircles = #true
+  {
+    gosub fillbook QXL %box1 Clumsy
+    gosub fillbook PXL %box1 Create_Food
+    gosub fillbook AYL %box1 Feeblemind
+    gosub fillbook ZXL %box1 Heal
+    gosub fillbook CYL %box1 Arrow
+    gosub fillbook NXL %box1 Reactive_Armor
+    gosub fillbook BYL %box1 Night_Sight
+    gosub fillbook WXL %box1 Weaken
+    gosub fillbook VXL %box2 Agility
+    gosub fillbook YXL %box2 Cunning
+    gosub fillbook XXL %box2 Cure
+    gosub fillbook IYL %box2 Harm
+    gosub fillbook HYL %box2 Magic_Trap
+    gosub fillbook KYL %box2 Magic_Untrap
+    gosub fillbook JYL %box2 Protection
+    gosub fillbook EYL %box2 Strength
+    gosub fillbook DYL %box3 Bless
+    gosub fillbook GYL %box3 Fireball
+    gosub fillbook FYL %box3 Magic_Lock
+    gosub fillbook STL %box3 Poison
+    gosub fillbook RTL %box3 Telekinesis
+    gosub fillbook UTL %box3 Teleport
+    gosub fillbook TTL %box3 Unlock
+    gosub fillbook OTL %box3 Wall_of_Stone
+    gosub fillbook NTL %box4 Arch_Cure
+    gosub fillbook QTL %box4 Arch_Protection
+    gosub fillbook PTL %box4 Curse
+    gosub fillbook AUL %box4 Fire_Field
+    gosub fillbook ZTL %box4 Greater_Heal
+    gosub fillbook CUL %box4 Lightning
+    gosub fillbook BUL %box4 Mana_Drain
+    gosub fillbook WTL %box4 Recall
+    gosub fillbook VTL %box5 Blade_Spirits
+    gosub fillbook YTL %box5 Dispel_Field
+    gosub fillbook XTL %box5 Incognito
+    gosub fillbook IUL %box5 Magic_Reflection
+    gosub fillbook HUL %box5 Mind_Blast
+    gosub fillbook KUL %box5 Paralyze
+    gosub fillbook JUL %box5 Poison_Field
+    gosub fillbook EUL %box5 Summon_Creature
+    gosub fillbook DUL %box6 Dispel
+    gosub fillbook GUL %box6 Energy_Bolt
+    gosub fillbook FUL %box6 Explosion
+    gosub fillbook QUL %box6 Invisibility
+    gosub fillbook PUL %box6 Mark
+    gosub fillbook SUL %box6 Mass_Curse
+    gosub fillbook RUL %box6 Paralyze Field
+    gosub fillbook MUL %box6 Reveal
+    gosub fillbook LUL %box7 Chain_Lightning
+    gosub fillbook OUL %box7 Energy_Field
+    gosub fillbook NUL %box7 Flamestrike
+    gosub fillbook YUL %box7 Gate_Travel
+    gosub fillbook XUL %box7 Mana_Vampire
+    gosub fillbook AVL %box7 Mass_Dispel
+    gosub fillbook UUL %box7 Polymorph
+    gosub fillbook ZUL %box7 Meteor_Swarm
+    gosub fillbook TUL %box8 Earthquake
+    gosub fillbook WUL %box8 Energy_Vortex
+    gosub fillbook VUL %box8 Resurrection
+    gosub fillbook GVL %box8 Air_Elemental
+    gosub fillbook FVL %box8 Summon_Daemon
+    gosub fillbook IVL %box8 Earth_Elemental
+    gosub fillbook HVL %box8 Fire_Elemental
+    gosub fillbook CVL %box8 Water_Elemental
+  }
+  if %incircles = #false
+  {
+    gosub fillbook QXL %scrollbox Clumsy
+    gosub fillbook PXL %scrollbox Create_Food
+    gosub fillbook AYL %scrollbox Feeblemind
+    gosub fillbook ZXL %scrollbox Heal
+    gosub fillbook CYL %scrollbox Arrow
+    gosub fillbook NXL %scrollbox Reactive_Armor
+    gosub fillbook BYL %scrollbox Night_Sight
+    gosub fillbook WXL %scrollbox Weaken
+    gosub fillbook VXL %scrollbox Agility
+    gosub fillbook YXL %scrollbox Cunning
+    gosub fillbook XXL %scrollbox Cure
+    gosub fillbook IYL %scrollbox Harm
+    gosub fillbook HYL %scrollbox Magic_Trap
+    gosub fillbook KYL %scrollbox Magic_Untrap
+    gosub fillbook JYL %scrollbox Protection
+    gosub fillbook EYL %scrollbox Strength
+    gosub fillbook DYL %scrollbox Bless
+    gosub fillbook GYL %scrollbox Fireball
+    gosub fillbook FYL %scrollbox Magic_Lock
+    gosub fillbook STL %scrollbox Poison
+    gosub fillbook RTL %scrollbox Telekinesis
+    gosub fillbook UTL %scrollbox Teleport
+    gosub fillbook TTL %scrollbox Unlock
+    gosub fillbook OTL %scrollbox Wall_of_Stone
+    gosub fillbook NTL %scrollbox Arch_Cure
+    gosub fillbook QTL %scrollbox Arch_Protection
+    gosub fillbook PTL %scrollbox Curse
+    gosub fillbook AUL %scrollbox Fire_Field
+    gosub fillbook ZTL %scrollbox Greater_Heal
+    gosub fillbook CUL %scrollbox Lightning
+    gosub fillbook BUL %scrollbox Mana_Drain
+    gosub fillbook WTL %scrollbox Recall
+    gosub fillbook VTL %scrollbox Blade_Spirits
+    gosub fillbook YTL %scrollbox Dispel_Field
+    gosub fillbook XTL %scrollbox Incognito
+    gosub fillbook IUL %scrollbox Magic_Reflection
+    gosub fillbook HUL %scrollbox Mind_Blast
+    gosub fillbook KUL %scrollbox Paralyze
+    gosub fillbook JUL %scrollbox Poison_Field
+    gosub fillbook EUL %scrollbox Summon_Creature
+    gosub fillbook DUL %scrollbox Dispel
+    gosub fillbook GUL %scrollbox Energy_Bolt
+    gosub fillbook FUL %scrollbox Explosion
+    gosub fillbook QUL %scrollbox Invisibility
+    gosub fillbook PUL %scrollbox Mark
+    gosub fillbook SUL %scrollbox Mass_Curse
+    gosub fillbook RUL %scrollbox Paralyze Field
+    gosub fillbook MUL %scrollbox Reveal
+    gosub fillbook LUL %scrollbox Chain_Lightning
+    gosub fillbook OUL %scrollbox Energy_Field
+    gosub fillbook NUL %scrollbox Flamestrike
+    gosub fillbook YUL %scrollbox Gate_Travel
+    gosub fillbook XUL %scrollbox Mana_Vampire
+    gosub fillbook AVL %scrollbox Mass_Dispel
+    gosub fillbook UUL %scrollbox Polymorph
+    gosub fillbook ZUL %scrollbox Meteor_Swarm
+    gosub fillbook TUL %scrollbox Earthquake
+    gosub fillbook WUL %scrollbox Energy_Vortex
+    gosub fillbook VUL %scrollbox Resurrection
+    gosub fillbook GVL %scrollbox Air_Elemental
+    gosub fillbook FVL %scrollbox Summon_Daemon
+    gosub fillbook IVL %scrollbox Earth_Elemental
+    gosub fillbook HVL %scrollbox Fire_Elemental
+    gosub fillbook CVL %scrollbox Water_Elemental
+  }
+return
+
+sub fillbook
+  ; %1 = FindType
+  ; %2 = CircleBox
+  ; %3 = Status
+  menu Edit EUOEdit1 4 40 289 Filling , #spc , book , #spc , with , #spc , %3
+  menu get EUOCheckBox2
+  if #menures = #true
+  {
+    set #menures #false
+    finditem %1 C_ , %2
+    if #findcnt  <= 0
+    {
+      display You are Out of %3 get some more.
+      halt
+    }
+    exevent drag #findid 1
+    wait 10
+    exevent dropc %fillbook
+    wait 10
+  }
+
+  If #menures = #false
+  {
+    finditem %1 C_ , %2
+    if #findcnt  <= 0
+    {
+      display You are Out of %3 get some more.
+      halt
+    }
+    exevent drag #findid 1
+    wait 10
+    exevent dropc %fillbook
+    wait 10
+  }
+return
+
+
+sub finished
+  Display Yesno You have completed all scrolls. Do you want to do again?
+  if #dispres = no
+  {
+    gosub returnitems
+    Display You are done!
+    menu hide MageMenu
+    halt
+  }
+  else
+  {
+    gosub returnitems
+    return
+  }
+return
+
+;-------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
+; %1 - Journal Name
+; %2 - #LPC setting (optional)
+; Brings !_jindex up to the most recent #journal entry
+sub TM_AdvJournalSync
+  namespace push
+  namespace local TM_AdvJS_ , %1
+  set !_jindex #jindex + 1
+  if %0 > 1
+    set !lpc_set %2
+  namespace pop
+  set !TM_FunctionCalled #TRUE
+return
+;-------------------------------------------------------------------------------
+; %1 - Journal Name
+; %2 - NONE, ADVANCE , ( _VALID ) - advances jindex pointer, anything else
+; %3, %4, %5, etc strings to match
+; returns #TRUE for match, #FALSE for no match
+;  Will not advance !_jindex pointer to allow for scanning journal history for more than one search.
+;  Also searches for : , #SPC in journal entry to be sure someone isn't spamming the text
+;  About %2 arguments:
+;    NONE: defaults to basic journal scan (no SPAM checking, no #jindex pointer copy advancing)
+;    ADVANCE: no spam checking, advances #jindex copy
+;    VALID: invokes SPAM filtering, no advance of #jindex copy
+;    VALID_ADVANCE, VALIDADVANCE, ADVANCE_VALID, etc.: invokes SPAM filtering, advances of #jindex copy
+;------------------------------Journal tool---------------------
+;=================================================================
+; Script Name: TrailMyx's Advanced Journal Scanner
+; Author: TrailMyx
+; Version: 1.0
+; Shard OSI / FS: OSI / FS?
+; Revision Date: 10/20/2007
+; Purpose:
+;   Use these subs to quickly find text in your #journal entries.  These subs
+; use #jindex for flawless journal scanning and is much more reliable than using
+; standard indexing of #journal and #SYSMSG.
+;
+;   Now it is possible to manage separate journals based on unrelated text.  It's now possible
+; to monitor spellcasting, bandaging, stealing, or anything else without a TM_AdvJournalSync
+; potentially removing text needed for another UO funciton.
+;
+;   New is the ability to either gosub or call these functions without the need to change the
+; header!  When calling, a limit of 10 arguments is allowed, but more can be added by editing the
+; call interface section.
+;
+;  Examples:
+;     gosub TM_AdvJournalSync speech 100 ; sync "speech" journal space, set #LPC to 100 from default of 1000
+;     gosub TM_AdvJournalScan speech VALID Find_this_text and_find_this_too ; will not advance copy of #jindex
+;     gosub TM_AdvJournalScan heal VALID_ADVANCE you_heal_what that_patient_is_not ; advances pointer after scan
+;     gosub TM_AdvJournalScan spellcast NONE fizzle ; no spam checking and doesn't advance #jindex copy automatically
+;
+;  Subs included:
+;     TM_AdvJournalSync - Must call this in initialzation
+;     TM_AdvJournalScan - see header for details....
+;
+;  Release history:
+;    v1.0 - Initial release.
+;
+;  Requirements:
+;    Nothing special
+;
+;  Credit:
+;    If you use these subs, please leave credit for me somewhere in your script header.
+;      __  __  __  __  __  __  __
+; |  ||  |/  `|  ||  \[__ [__)(__
+; |__||__|\__.|__||__/[___|  \___)
+;    http://www.uocoders.com/
+sub TM_AdvJournalScan
+  namespace push
+  namespace local TM_AdvJS_ , %1
+  set !args %2
+  set !temp_lpc #LPC
+  if !lpc_set = N/A
+    set #LPC 1000
+  else
+    set #LPC !lpc_set
+  set !num_args %0
+  set !first_arg 3
+  if !_jindex = N/A
+    set !_jindex #jindex
+  if !charname = N/A
+  {
+    set !charname #CHARNAME
+AdvJournalScan_loop1:
+    str pos !charname #SPC
+    if #STRRES <> 0
+    {
+      set !val #STRRES - 1
+      str left !charname !val
+      set !left #STRRES
+      set !val !val + 1
+      str del !charname 1 !val
+      set !charname !left , _ , #STRRES
+      goto AdvJournalScan_loop1
+    }
+  }
+  set !index !first_arg
+  repeat
+    set !temp_jindex !_jindex
+    set !text % . !index
+    while !temp_jindex <= #jindex
+    {
+      scanjournal !temp_jindex
+      str pos #JOURNAL !charname 1
+      set !namepos #STRRES
+      str count #JOURNAL !charname
+      set !namecnt #STRRES
+      str pos #JOURNAL :_ 1
+      set !smcpos #STRRES
+      str pos #JOURNAL !text 1
+      set !textpos #STRRES
+      if !textpos < !smcpos && !smcpos <> 0 || !smcpos = 1 || :_ notin #JOURNAL || VALID notin !args
+        set !pass #TRUE
+      else
+        set !pass #FALSE
+      if ( !text in #journal && ( ( !namepos = 1 && !namecnt <= 1 ) || !pass ) )
+      {
+        set !temp_jindex !temp_jindex + 1
+        if ADVANCE in !args
+          set !_jindex !temp_jindex
+        set #LPC !temp_lpc
+        namespace pop
+        set !TM_FunctionCalled #TRUE
+        return #TRUE
+      }
+      set !temp_jindex !temp_jindex + 1
+    }
+    set !index !index + 1
+  until !index - !first_arg > !num_args - !first_arg
+  set #LPC !temp_lpc
+  namespace pop
+  set !TM_FunctionCalled #TRUE
+return #FALSE
+;--------- EasyUO Menu Designer Code Begin ---------
+sub MystMenu
+  menu Clear
+  menu Window Title Snow's Scroll Maker
+  menu Window Color BtnFace
+  menu Window Size 306 111
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 8
+  menu Font Style
+  menu Font Color WindowText
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Text EUOLabel1 84 48 User Tinkering?
+  menu Font BGColor Window
+  menu Combo Create EUOComboBox1 32 24 153
+  menu Combo Add EUOComboBox1 --Select a Spell--
+  menu Combo Add EUOComboBox1 Healing Stone
+  menu Combo Add EUOComboBox1 Nether Bolt
+  menu Combo Add EUOComboBox1 Enchant
+  menu Combo Add EUOComboBox1 Purge Magic
+  menu Combo Add EUOComboBox1 Eagle Strike
+  menu Combo Add EUOComboBox1 Sleep
+  menu Combo Add EUOComboBox1 Animated Weapon
+  menu Combo Add EUOComboBox1 Stone Form
+  menu Combo Add EUOComboBox1 Mass Sleep
+  menu Combo Add EUOComboBox1 Spell Trigger
+  menu Combo Add EUOComboBox1 Bombard
+  menu Combo Add EUOComboBox1 Cleansing Winds
+  menu Combo Add EUOComboBox1 Hail Storm
+  menu Combo Add EUOComboBox1 Spell Plague
+  menu Combo Add EUOComboBox1 Nether Cyclone
+  menu Combo Add EUOComboBox1 Rising Colossus
+  menu Edit amount 192 24 65 0
+  menu Font BGColor BtnFace
+  menu Button Start 16 64 93 41 Start
+  menu Button Pause 180 64 93 41 Pause
+  menu Check EUOCheckBox1 168 48 17 17 #false tinkerit
+  menu Show 421 270
+return
+sub MageMenu
+  menu Clear
+  menu Window Title Snow's Mystic Scroll Maker
+  menu Window Color BtnFace
+  menu Window Size 306 111
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 8
+  menu Font Style
+  menu Font Color WindowText
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Text EUOLabel1 84 48 User Tinkering?
+  menu Font BGColor Window
+  menu Combo Create EUOComboBox1 32 24 153
+  menu Combo Add EUOComboBox1 --Select a Spell--
+  menu Combo Add EUOComboBox1 Clumsy
+  menu Combo Add EUOComboBox1 Create Food
+  menu Combo Add EUOComboBox1 Feeble Mind
+  menu Combo Add EUOComboBox1 Heal
+  menu Combo Add EUOComboBox1 Magic Arrow
+  menu Combo Add EUOComboBox1 Night Sight
+  menu Combo Add EUOComboBox1 Reactive Armor
+  menu Combo Add EUOComboBox1 Weaken
+  menu Combo Add EUOComboBox1 Agility
+  menu Combo Add EUOComboBox1 Cunning
+  menu Combo Add EUOComboBox1 Cure
+  menu Combo Add EUOComboBox1 Harm
+  menu Combo Add EUOComboBox1 Magic Trap
+  menu Combo Add EUOComboBox1 Magic Untrap
+  menu Combo Add EUOComboBox1 Protection
+  menu Combo Add EUOComboBox1 Strength
+  menu Combo Add EUOComboBox1 Bless
+  menu Combo Add EUOComboBox1 Fireball
+  menu Combo Add EUOComboBox1 Magic Lock
+  menu Combo Add EUOComboBox1 Poison
+  menu Combo Add EUOComboBox1 Telekinesis
+  menu Combo Add EUOComboBox1 Teleport
+  menu Combo Add EUOComboBox1 Unlock
+  menu Combo Add EUOComboBox1 Wall of Stone
+  menu Combo Add EUOComboBox1 Arch Cure
+  menu Combo Add EUOComboBox1 Arch Protection
+  menu Combo Add EUOComboBox1 Curse
+  menu Combo Add EUOComboBox1 Firefield
+  menu Combo Add EUOComboBox1 Greater Heal
+  menu Combo Add EUOComboBox1 Lightning
+  menu Combo Add EUOComboBox1 Mana Drain
+  menu Combo Add EUOComboBox1 Recall
+  menu Combo Add EUOComboBox1 Blade Spirits
+  menu Combo Add EUOComboBox1 Dispel Fields
+  menu Combo Add EUOComboBox1 Incogneto
+  menu Combo Add EUOComboBox1 Magic Reflect
+  menu Combo Add EUOComboBox1 Mind Blast
+  menu Combo Add EUOComboBox1 Paralyze
+  menu Combo Add EUOComboBox1 Poison Field
+  menu Combo Add EUOComboBox1 Summon Creature
+  menu Combo Add EUOComboBox1 Dispel
+  menu Combo Add EUOComboBox1 Energy Bolt
+  menu Combo Add EUOComboBox1 Explosion
+  menu Combo Add EUOComboBox1 Invisibility
+  menu Combo Add EUOComboBox1 Mark
+  menu Combo Add EUOComboBox1 Mass Curse
+  menu Combo Add EUOComboBox1 Paralyze Field
+  menu Combo Add EUOComboBox1 Reveal
+  menu Combo Add EUOComboBox1 Chain Lightning
+  menu Combo Add EUOComboBox1 Energy Field
+  menu Combo Add EUOComboBox1 Flamestrike
+  menu Combo Add EUOComboBox1 Gate Travel
+  menu Combo Add EUOComboBox1 Mana Vampire
+  menu Combo Add EUOComboBox1 Mass Dispel
+  menu Combo Add EUOComboBox1 Meteor Swarm
+  menu Combo Add EUOComboBox1 Polymorph
+  menu Combo Add EUOComboBox1 Earthquake
+  menu Combo Add EUOComboBox1 Energy Vortex
+  menu Combo Add EUOComboBox1 Resurrection
+  menu Combo Add EUOComboBox1 Air Elemental
+  menu Combo Add EUOComboBox1 Summon Demon
+  menu Combo Add EUOComboBox1 Earth Elemental
+  menu Combo Add EUOComboBox1 Fire Elemental
+  menu Combo Add EUOComboBox1 Water Elemental
+  menu Edit amount 192 24 65 0
+  menu Font BGColor BtnFace
+  menu Button Start 16 64 93 41 Start
+  menu Button Pause 180 64 93 41 Pause
+  menu Check EUOCheckBox1 168 48 17 17 #false tinkerit
+  menu Show 421 270
+return
+sub SupplyMenu
+  menu Clear
+  menu Window Title Snow's Supply Maker
+  menu Window Color BtnFace
+  menu Window Size 306 111
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 8
+  menu Font Style
+  menu Font Color WindowText
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Text EUOLabel1 84 48 User Tinkering?
+  menu Font BGColor Window
+  menu Combo Create EUOComboBox3 32 24 153
+  menu Combo Add EUOComboBox3 --Select what to Make--
+  menu Combo Add EUOComboBox3 Binder
+  menu Combo Add EUOComboBox3 Blank Scroll
+  menu Edit amount 192 24 65 0
+  menu Font BGColor BtnFace
+  menu Button Start 16 64 93 41 Start
+  menu Button Pause 180 64 93 41 Pause
+  menu Check EUOCheckBox1 168 48 17 17 #false tinkerit
+  menu Show 421 270
+return
+
+sub bookMenu
+  menu Clear
+  menu Window Title Snow's Book Filler
+  menu Window Color BtnFace
+  menu Window Size 307 135
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 15
+  menu Font Style
+  menu Font Color WindowText
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Text EUOLabel1 4 4 Total Books to Fill:
+  menu Font Size 8
+  menu Text EUOLabel2 40 108 Make Books?
+  menu Font Style s
+  menu Font Color Red
+  menu Text EUOLabel3 204 108 Make Scrolls?
+  menu Font Style
+  menu Font Color WindowText
+  menu Button Start 16 64 93 41 Start
+  menu Button Pause 180 64 93 41 Pause
+  menu Font BGColor Window
+  menu Edit EUOEdit1 4 40 289 Status , #spc , Bar
+  menu Edit EUOEdit2 160 4 17 0
+  menu Font BGColor BtnFace
+  menu Check EUOCheckBox1 16 108 17 17 #false EUOCheckBox1
+  menu Check EUOCheckBox2 180 108 17 17 #false EUOCheckBox2
+  menu Show 421 270
+  menu HideEUO
+return
+;--------- EasyUO Menu Designer Code Begin ---------
+sub MainMenu
+  menu Clear
+  menu Window Title Snows Scribe Matic
+  menu Window Color BtnFace
+  menu Window Size 242 129
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 14
+  menu Font Style
+  menu Font Color WindowText
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Text EUOLabel1 0 20 What would  you like to do?
+  menu Font Size 8
+  menu Font BGColor Window
+  menu Combo Create EUOComboBox2 20 52 193
+  menu Font Size 8
+  menu Font BGColor BtnFace
+  menu Button GO 60 88 97 33 GO!
+  menu Show 421 270
+  menu Combo Add EUOComboBox2 --- Select a script ---
+  menu Combo Add EUOComboBox2 Train Inscription
+  menu Combo Add EUOComboBox2 Make Mage Scrolls
+  menu Combo Add EUOComboBox2 Make Supplies
+  menu Combo Add EUOComboBox2 Fill Spellbooks
+  menu Combo Add EUOComboBox2 Make Myst Scrolls
+  menu Combo Add EUOComboBox2 Fill Myst Books
+
+return
+sub showEUOMenu1
+  menu Clear
+  menu Window Title Snow's Inscription Trainer
+  menu Window Color Black
+  menu Window Size 233 73
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 8
+  menu Font Style b
+  menu Font Color Silver
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Font BGColor Black
+  menu Text EUOLabel1 8 8 Set Your Target Level to Train To:
+  menu Font Style
+  menu Font Color Red
+  menu Text EUOLabel2 76 32 Ex) 1000= 100.0,  900= 90.0
+  menu Text EUOLabel3 140 52 Craft Pens?
+  menu Font Color WindowText
+  menu Font BGColor Window
+  menu Edit amount 8 24 61 1000
+  menu Font BGColor $0080FF80
+  menu Button Begin 8 48 111 17 Begin
+  menu Font BGColor Black
+  menu Check tinkerit 124 48 17 17 #false EUOCheckBox1
+  menu Show 421 270
+  menu HideEUO
+  set #menubutton N/A
+  repeat
+  until #menubutton <> N/A
+  menu hide     ;menu hide -will hide menu
+return
+
+sub showEUOMenu2
+  menu Clear
+  menu Window Title Snow's Inscription Trainer
+  menu Window Color Black
+  menu Window Size 248 71
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 8
+  menu Font Style b
+  menu Font Color Silver
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Font BGColor Black
+  menu Text EUOLabel1 8 8 Your Current Skill is at:
+  menu Font Style
+  menu Font Color Red
+  menu Text EUOLabel2 64 56 Ex) 1000= 100.0,  900= 90.0
+  menu Text Skillat 148 8 #skill
+  menu Font Style b
+  menu Font Color Silver
+  menu Text EUOLabel3 12 32 You Have Gained
+  menu Font Style
+  menu Font Color Red
+  menu Text skillgain 124 32 ####
+  menu Font Style b
+  menu Font Color Silver
+  menu Text EUOLabel4 168 32 In Inscription
+  menu Show 421 270
+return
+;--------- EasyUO Menu Designer Code End ---------
+;--------- EasyUO Menu Designer Code End ---------
+
+;========================================================
+; Crafting Stuff
+Sub MWCraft
+
+  ; Gosub Craft (Tool) (Type) (Category) (Page) (Selection)
+  Namespace Push
+  Namespace Local Mwinc_Craft
+  set !Type N/A
+  set !Smelt False
+  set !MakeLast False
+  set !Enhance False
+  set !Craftmenu 530_497
+  set !Toolfletching UFG
+  set !Tooltailoring HAG
+  set !Toolalchemy RQF
+  set !Tooltinkering JTL
+  set !Toolblacksmithing OBG_FBG_TLH
+  set !Toolcooking OGG_DND_BCG
+  set !Toolcarpentry BIG_AIG_EGG_AGG_ZHG_CGG_CIG_IGG_WFG_KGG
+  set !ToolScribe PBG
+  set !Tool !Tool . %1
+  set !N_Variable %0
+  if %2 <> MakeLast && %2 <> Smelt && %3 <> Enhance
+  {
+    set !Type %2
+    set !Category %3
+    set !Page %4 - 1
+    set !Selection %5
+  }
+  if %2 = Smelt
+  {
+    set !Smelt True
+    set !Item %3
+  }
+  if %2 = Makelast
+    set !MakeLast True
+  if %3 = Enhance
+  {
+    set !Enhance True
+    set !Item %4
+  }
+  Finditem !Tool C_ , #backpackid
+  if #findcnt < 1
+  {
+    finditem !Tool C_ , #backpackid
+    if #findcnt < 1
+    {
+      display Out Of %1 Tools
+      halt
+    }
+  }
+
+  if #contsize = !Craftmenu
+  {
+    if !Last_Tool <> !Tool
+    {
+      gosub Click_Offset 50 50 R
+      wait 20
+    }
+  }
+  for #Findindex 1 #Findcnt
+  {
+    if #Findcol = 0
+      Break
+  }
+  if #findcol <> 0
+  {
+    display Out Of %1 Tools
+    halt
+  }
+  if #contsize <> !Craftmenu
+  {
+    While %LObject_Timer > #Systime
+      wait 1
+    set #Lobjectid #findid
+    Event macro 17 0
+    gosub Cont_Timer 30 Contsize !CraftMenu
+    If #result
+    {
+      Namespace Pop
+      return #False
+    }
+    set !Last_Tool !Tool
+  }
+  if !MakeLast = True
+  {
+    Gosub Click_Offset 280 450
+    Gosub Cont_Timer 30 Contsize !CraftMenu
+    Namespace Pop
+    return #True
+  }
+  if !Smelt = True
+  {
+    Gosub Click_Offset 30 351
+    Target 40
+    set #ltargetid !Item
+    set #ltargetkind 1
+    event macro 22 0
+    wait 15
+    Namespace Pop
+    Return #True
+  }
+  if !Type <> N/A
+  {
+    gosub Setting
+    if !N_Variable = 2
+    {
+      Namespace Pop
+      Return #True
+    }
+  }
+  if !Enhance = True
+  {
+    Gosub Click_Offset 283 391
+    Target 80
+    if #targcurs <> 1
+    {
+      NameSpace Pop
+      Return #False
+    }
+    set #ltargetid !Item
+    set #ltargetkind 1
+    Event macro 22 0
+    Gosub Cont_Timer 40 Contsize !CraftMenu
+    if #Contsize = !CraftMenu
+      Gosub Click_Offset 50 50 R
+    Namespace Pop
+    Return #true
+  }
+  set !yclick ( 70 + ( !Category * 20 ) )
+  Gosub Click_Offset 30 !YClick
+  Gosub Cont_Timer 30 Contsize !CraftMenu
+  if #result
+  {
+    Namespace Pop
+    return #False
+  }
+  Gosub Click_Offset 385 270 X !Page
+  set !yclick ( 50 + ( !Selection * 20 ) )
+  Gosub Click_Offset 235 !yclick
+  Gosub Cont_Timer 30 Contsize !CraftMenu
+  Namespace Pop
+Return #True
+
+
+Sub Setting
+  Gosub Click_Offset 31 372
+  set !clicky ( ( !Type - 1 ) * 20 +  70 )
+  Gosub Click_Offset 230 !ClickY
+  Gosub Cont_Timer 30 Contsize !CraftMenu
+return
+;=======================================================
+
+;========================================================
+Sub Click_Offset
+  Namespace Push
+  Namespace Local Mwinc_ClickOffset
+  set !Clickx #contposx + %1
+  set !CLicky #contposy + %2
+  Click !Clickx !CLicky %3 %4
+  set %3 0
+  set %4 0
+  Namespace pop
+Return
+;========================================================
+;==========================================================
+Sub Cont_Timer
+  ; Gosub Cont_Timer (Timer) ( Var ) ( Value )
+  Namespace Push
+  Namespace Local Mwinc_Cont_Timer
+  set #lpc 9999
+  set !Time_Limit #scnt2 + %1
+  set !Cont_Check # . %2
+  While !Cont_Check <> %3 && !Time_Limit > #scnt2
+  {
+    set !Cont_Check # . %2
+    wait 1
+  }
+  if !Time_Limit <= #scnt2
+  {
+    set #Lpc 20
+    Namespace Pop
+    Return #true
+  }
+  set #Lpc 20
+  Namespace Pop
+Return #False
+;=========================================================
+
+Sub MWResource
+  ; Gosub Resource (Secure) (Type) (Col) (Min) (Max)
+  Namespace Push
+  Namespace Local Mwinc_Resource
+  set !Cont_Id %1
+  set !Resource %2
+  set !Col %3
+  set !Min %4
+  set !Max %5
+  Finditem !Resource C_ , #backpackid
+  set !Amount 0
+  for #findindex 1 #findcnt
+  {
+    if #Findcol = !Col || !Col = N/A
+      set !Amount !Amount + #Findstack
+  }
+  if !Amount >= !Min
+  {
+    Namespace Pop
+    Return 0
+  }
+  set !Amount2 !Max - !Amount
+  if !Cont_id <> N/A
+    Finditem !Resource C_ , !Cont_Id
+  Else
+    Finditem !Resource C
+  if #findcnt > 0
+  {
+    For #findindex 1 #findcnt
+    {
+      if ( #findcol = !Col || !Col = N/A ) && #Findbagid <> #Backpackid
+      {
+        Exevent drag #Findid !Amount2
+        wait 15
+        Exevent dropc #backpackid
+        wait 15
+        set #Result !Amount2
+        Namespace Pop
+      Return #Result
+    }
+  }
+}
+Display Out of !Resource !Col
+Halt
+
+
+

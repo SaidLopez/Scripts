@@ -1,0 +1,226 @@
+;; Trinket weaver quest by said3;;;
+;thx crome for you help and inspiration;;
+
+;-------- CREAR 1 TINKER TOOL ANTES DE EMPEZAR-----
+
+
+set #lpc 500
+set %talisman DWR_FWR_GWR_EWR
+set %runic UFG_PIP
+set %clickx #contposx + 285
+set %clicky #contposy + 450
+
+GoSub Setup
+
+
+Start:
+event property %RareRecipebag
+if 100 in #property
+{
+display Hold on you are full of Recipes and Runics ! $ pls unload your bp and press play again
+pause
+}
+Gosub Target_NPC
+Gosub Toogle_Quest
+wait 10
+Gosub Create_tinker
+Gosub Toogle_Quest_Items
+Gosub target_tinker
+Gosub Get_Reward
+Gosub Sort_Rewards
+
+GOTO Start
+;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+Sub Toogle_Quest_Items
+exevent popup #charid
+wait 10
+set %Contsize #contsize
+str mid %contsize 5 3
+wait 10
+set %Tooglex #contposx + 50
+set %Toogley #contposy + #strres - 20
+click %Tooglex %Toogley
+wait 10
+Return
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+sub Setup
+Display Señala la bolsa donde quieres meter todo!
+set #Targcurs 1
+while #targcurs = 1
+{
+}
+set %RareRecipebag #ltargetid
+Display Targetea al npc al que entregaras las quest!
+set #Targcurs 1
+while #targcurs = 1
+{
+}
+set %NPCQUESTER #ltargetid
+set %Lettercolour 8701514
+display Target Your Trashbag!
+set #Targcurs 1
+while #targcurs = 1
+{
+}
+set %Trashing online
+set %Trashbag #ltargetid
+}
+Return
+;-------------------------------------------
+Sub Target_NPC
+Target_NPC:
+Finditem %NPCQUESTER G_18
+if #findkind <> -1
+{
+set #lobjectid %NPCQUESTER
+event macro 17 0
+wait 15
+}
+Return
+;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+sub Toogle_Quest
+
+call kalocr.txt getMLQInfo QuestOffer #contposx #contposy
+
+if mother in %1
+{
+ set %clickx #contposx + 130
+ set %clicky #contposy + 400
+ click %clickx %clicky
+ }
+else
+{
+goto start
+}
+Return
+;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+sub target_tinker
+finditem GTL C_ , #backpackid
+  for #findindex 1 #findcnt
+  {
+    wait 8
+    set #ltargetid #findid
+    set #LTargetKind 1
+    target 5s
+    wait 8
+    event macro 22 0
+  }
+  wait 10
+  finditem ZVH C_ , #backpackid
+  for #findindex 1 #findcnt
+  {
+    if #findcol = 0
+    {
+      wait 8
+      set #ltargetid #findid
+      set #LTargetKind 1
+      target 5s
+      wait 8
+      event macro 22 0
+    }
+  }
+  key esc
+return
+;-------------------------------
+sub Get_Reward
+Accept_NPC:
+Finditem %NPCQUESTER G_18
+if #findkind <> -1
+{
+if #finddist > 18
+{
+;move #findx #findy 0 1s
+goto Accept_Npc
+}
+set #lobjectid %NPCQUESTER
+event macro 17 0
+wait 15
+}
+wait 10
+set %clickx #contposx + 130
+set %clicky #contposy + 400
+click %clickx %clicky
+wait 10
+set %clickx #contposx + 130
+set %clicky #contposy + 400
+click %clickx %clicky
+wait 10
+key esc
+wait 10
+Return
+;------------------------------------------
+sub Sort_Rewards
+Sort_Rewards:
+menu get  EnableRegRecipes
+if #menures = #true
+{
+set %recipesuccess true
+}
+if #menures = #false
+{
+set %recipesuccess false
+}
+Finditem ZJF C_ , #backpackid
+if #findkind <> -1
+{
+set %Currentbag #findid
+wait 6
+
+set #lobjectid %Currentbag
+event macro 17 0
+wait 15
+
+Finditem %talisman C_ , %Currentbag
+if #findkind <> -1
+{
+set %Findid #findid
+exevent drag %Findid 1
+wait 1s
+exevent dropc %RareRecipebag
+wait 1s
+}
+wait 15
+finditem %runic C_ , %Currentbag
+if #findkind <> -1
+{
+set %findid #findid
+event property %findid
+if Pendant in #property
+{
+exevent drag %findid 1
+wait 5
+exevent dropc %RareRecipebag
+wait 5
+}
+if Compendium in #property
+{
+exevent drag %findid 1
+wait 5
+exevent dropc %RareRecipebag
+wait 5
+}
+}
+exevent drag %Currentbag 1
+wait 1s
+exevent dropc %Trashbag
+wait 1s
+Return
+;--------------------------------------
+sub Create_tinker
+while #findcnt <= 11
+{
+finditem GTL C_ , #backpackid
+set #lobjectid #findid
+event macro 17 0
+wait 5
+contpos 0 0
+click 285 450
+wait 1s
+finditem GTL C_ , #backpackid
+}
+contpos 0 0
+wait 5
+click 25 450
+return
+

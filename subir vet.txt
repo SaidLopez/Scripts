@@ -1,0 +1,354 @@
+;===========================================================
+; Script Name:  Legendary Veterinary Trainer
+; Author:  Einstein
+; Version:  1.0.1
+; Client Tested with:  7.0.27.7
+; EUO version tested with:  1.50 build 219
+; Shard OSI / FS:  OSI
+; Revision Date:  09/14/12
+; Public Release:  09/14/12
+; Global Variables Used: N/A
+; Purpose: Train Veterinary skill to Legendary by healing two
+;          tame pets as they fight or ressurect a ghost pet.
+;============================================================
+
+; Note: Bandages must be in your main pack to use this script
+
+INITEVENTS
+
+{
+set %skillcap 1200     ; Adjust your skill cap here - or what you will train too!
+set %waittime1 50      ; Adjust wait time between heal pets here!
+set %waittime2 100     ; Adjust wait time between res pet here!
+set %OldTime #Time
+gosub showEUOMenu2
+}
+{
+sub healsetup            ; Sub for healing pet loop
+delete showEUOMenu2
+Event macro 8 7
+gosub showEUOMenu1
+gosub initial_skills
+Set #TARGCURS 1
+Display Please Target First Pet.
+While #TARGCURS = 1
+{
+  Wait 0
+}
+Set %PetID_1 #LTARGETID
+wait 5
+Set #TARGCURS 1
+Display Please Target Second Pet.
+While #TARGCURS = 1
+{
+  Wait 0
+}
+Set %PetID_2 #LTARGETID
+wait 2
+if %PetID_1 = %PetID_2
+{
+   display You must choose 2 different pets!
+   halt
+}
+EVENT MACRO 3 0 All guard me
+wait 5
+EVENT MACRO 3 0 All follow me
+Wait 5
+EVENT MACRO 3 0 All kill
+TARGET
+SET #LTARGETKIND 1
+SET #LTARGETID %PetID_2
+Event macro 25 0
+Event macro 22 0
+Wait 5
+}
+
+Main:
+if #menubutton = Pause
+  gosub pause
+if #menuButton = Quit
+  gosub stop_it
+gosub heal
+goto main
+
+
+Sub heal
+Bandage:
+if #charGhost = YES
+{
+  display You Are Dead! Get Ressed And Start Over!
+	halt
+}
+finditem %PetID_1
+   if #findCnt < 1
+      {
+      event macro 3 0 All follow me
+      display First Pet Is Dead! Script halting.
+      halt
+      }
+finditem %PetID_2
+   if #findCnt < 1
+      {
+      event marco 3 0 All follow me
+      display Second Pet Is Dead! Script halting.
+      halt
+      }
+If #Time - %OldTIme > 300                           ; keep pet green
+{
+   event macro 3 0 All Guard me
+   set %OldTime #Time
+}
+FINDITEM ZLF C_ , #BACKPACKID
+IF #FINDKIND = -1
+      {
+      event macro 3 0 All Stop
+      wait 2
+      event macro 3 0 All follow me
+      DISPLAY ok You do not have any bandages in your main pack.$$Halting.
+      halt
+      }
+SET #LOBJECTID #FINDID
+EVENT MACRO 17 0
+TARGET
+SET #LTARGETKIND 1
+SET #LTARGETID %PetID_1
+EVENT MACRO 22 0
+wait %waittime1
+SET #LOBJECTID #FINDID
+EVENT MACRO 17 0
+TARGET
+SET #LTARGETKIND 1
+SET #LTARGETID %PetID_2
+EVENT MACRO 22 0
+wait %waittime1
+gosub skills
+return
+}
+{
+sub ressetup                   ; Setup for rez a ghost pet
+delete showEUOMenu2
+Event macro 8 7
+gosub showEUOMenu1
+gosub initial_skills
+Set #TARGCURS 1
+Display Please Target Ghost Pet.
+While #TARGCURS = 1
+{
+  Wait 0
+}
+Set %PetID_3 #LTARGETID
+wait 5
+}
+
+Main2:
+if #menubutton = Pause
+  gosub pause2
+if #menuButton = Quit
+  gosub stop_it2
+gosub res
+goto main2
+
+
+Sub res
+if #charGhost = YES
+{
+  display You Are Dead! Get Ressed And Start Over!
+	halt
+}
+finditem %PetID_3
+   if #findCnt < 1
+      {
+      display Your Ghost Pet Is Gone! Script halting.
+      halt
+      }
+
+Bandage:
+FINDITEM ZLF C_ , #BACKPACKID
+IF #FINDKIND = -1
+{
+	DISPLAY ok You do not have any bandages in your main pack.$$Halting.
+	HALT
+}
+SET #LOBJECTID #FINDID
+EVENT MACRO 17 0
+TARGET
+SET #LTARGETKIND 1
+SET #LTARGETID %PetID_3
+EVENT MACRO 22 0
+wait %waittime2
+gosub skills
+return
+}
+
+sub initial_skills
+chooseskill vete real
+  set %start #skill
+  set %current #skill
+  str len %start
+  str ins %start #dot #strRes
+menu Delete start
+menu Text start 152 8 #strRes
+  str len %current
+  str ins %current #dot #strRes
+menu delete current
+menu text current 152 32 #strRes
+ set %change %current - %starting
+ str len %totalgains
+ str ins %totalgains #dot #strRes
+menu delete change
+menu Text change 172 68 + #strRes
+return
+
+sub skills
+chooseskill vete real
+  set %current #skill
+  str len %current
+  str ins %current #dot #strRes
+menu delete current
+menu text current 152 32 #strRes
+ set %change %current - %start
+ str len %change
+ str ins %change #dot #strRes
+menu delete change
+menu Text change 172 68 + #strRes
+chooseskill vete
+If #Skill = %skillcap
+{
+display You Have Reached Your Veterinary Skil Cap!
+halt
+}
+return
+}
+
+sub stop_it                              ;quit for heal
+event macro 3 0 All Stop
+wait 2
+event macro 3 0 All follow me
+Display I hope you enjoyed my Veterinary trainer! Good-Bye!
+halt
+return
+                                         ;quit for rez
+sub stop_it2
+Display I hope you enjoyed my Veterinary Trainer! Good-Bye!
+halt
+return
+
+sub pause                                ;pause for heal
+event macro 3 0 All stop
+event macro 3 0 All follow me
+menu delete pause
+menu Font Color Black
+menu Font BGColor Red
+menu Button resume 204 8 75 21 Resume
+set #menubutton n/a
+repeat
+until #menubutton <> N/A
+menu delete resume
+menu Button pause 204 8 75 21 Pause
+EVENT MACRO 3 0 All guard me
+wait 5
+EVENT MACRO 3 0 All follow me
+Wait 5
+EVENT MACRO 3 0 All kill
+TARGET
+SET #LTARGETKIND 1
+SET #LTARGETID %PetID_2
+Event macro 25 0
+Event macro 22 0
+Wait 5
+return
+
+
+sub pause2                               ;pause for rez
+menu delete pause
+menu Font Color Black
+menu Font BGColor Red
+menu Button resume 204 8 75 21 Resume
+set #menubutton n/a
+repeat
+until #menubutton <> N/A
+menu delete resume
+menu Button pause 204 8 75 21 Pause
+return
+
+
+sub showEUOMenu1
+	menu Clear
+	menu Window Title Legendary Veterinary Trainer
+	menu Window Color $000000
+	menu Window Size 300 97
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color WindowText
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor $A4A4A4
+	menu Text EUOLabel1 8 8 Starting Veterinary Skill
+	menu Text EUOLabel2 8 32 Current Veterinary Skill
+	menu Font Name Comic Sans MS
+	menu Font Style b
+	menu Font Color Yellow
+	menu Font BGColor $A4A4A4
+	menu Text Start 152 8 000
+	menu Font Color Black
+	menu Text current 152 32 000
+	menu Font Name MS Sans Serif
+	menu Font Style
+	menu Font Color WindowText
+	menu Font BGColor $A4A4A4
+	menu Text EUOLabel3 8 68 Total Gains This Session
+	menu Font Name Comic Sans MS
+	menu Font Style b
+	menu Font Color Red
+	menu Font BGColor $A4A4A4
+	menu Text change 172 68 000
+	menu Font Name MS Sans Serif
+	menu Font Style
+	menu Font Color WindowText
+	menu Font BGColor yellow
+	menu Button Pause 204 8 75 21 Pause
+	menu Font BGColor $5858FA
+	menu Button Quit 204 32 75 21 Quit
+	menu Show 421 270
+  menu HideEUO
+return
+
+sub showEUOMenu2
+  menu clear
+  menu Window Title Veterinary Trainer
+	menu Window Color $000000
+	menu Window Size 200 97
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color WindowText
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor $A4A4A4
+	menu Text EUOLabel1 8 8 Choose what way to train Veterinary!
+	menu Font Name MS Sans Serif
+	menu Font Style
+	menu Font Color WindowText
+	menu Font BGColor yellow
+	menu Button healsetup 8 32 75 21 Heal
+	menu Font BGColor $5858FA
+	menu Button ressetup 115 32 75 21 Res
+	menu Show 421 270
+	menu HideEUO
+	set #menubutton <> n/a
+	loop:
+	if #menubutton = healsetup
+	{
+     gosub healsetup
+  }
+  if #menubutton = ressetup
+  {
+     gosub ressetup
+  }
+  goto loop
+

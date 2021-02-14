@@ -1,0 +1,84 @@
+;FGreco
+set %HotKey 6 ; hotkey to cast fireball/arrow
+;--------------------------
+
+set #lpc 5000
+set %d 8
+while #true
+{
+      sleep 1
+      onhotkey %HotKey
+               gosub Teleport
+}
+
+sub Teleport
+     if #CHARNAME = #CHARNAME
+     {
+     event macro 15 21
+     gosub waitforcurs 2200
+     set %x #CHARPOSX
+     set %y #CHARPOSY
+     set %z #CHARPOSZ
+     if #CHARDIR = 0 1 ;N
+        set %y %y - ( %d + 3 )
+     if #CHARDIR = 1 2 ;NE
+        set %y %y - %d
+        set %x %x + %d
+     if #CHARDIR = 2 1 ;E
+        set %x %x + ( %d + 3 )
+     if #CHARDIR = 3 2 ;SE
+        set %x %x + %d
+        set %y %y + %d
+     if #CHARDIR = 4 1 ;S
+        set %y %y + ( %d + 3 )
+     if #CHARDIR = 5 2 ;SW
+        set %y %y + %d
+        set %x %x - %d
+     if #CHARDIR = 6 1 ;W
+        set %x %x - ( %d + 3 )
+     if #CHARDIR = 7 2 ;WN
+        set %x %x - %d
+        set %y %y - %d
+     set #ltargetx %x
+     set #ltargety %y
+     set #ltargetz %z
+     set #ltargetkind 2
+     event macro 22 0
+     return
+     }
+return
+
+sub waitforcurs
+           set %param 150
+           set %param2 %1
+           set %jindex2 #jindex + 1
+           set %waitforcursor #systime + %param
+           set %finishwaitforcursor #systime + %param2
+          set %paralread #false
+          while #systime < %finishwaitforcursor
+          {
+              set %nextjinedxend2 #jindex
+              if %jindex2 <= %nextjinedxend2
+              {
+                  for %ji2 %jindex2 %nextjinedxend2
+                  {
+                      scanjournal %ji2
+                      if ( casting in #journal || You_cannot_move in #journal || disturbed IN #journal || recovered IN #journal || reagents IN #journal || mana IN #journal  ) && : notin #journal
+                      {
+                         set %paralread #true
+                         break
+                      }
+                  }
+                  set %jindex2 %nextjinedxend2 + 1
+              }
+              if #systime > %finishwaitforcursor || %paralread
+                 break
+              if #targcurs = 1 && #systime >= %waitforcursor
+                 break
+              sleep 10
+          }
+          if %paralread
+             return #false
+          if #targcurs = 1
+             return #true
+return #false
