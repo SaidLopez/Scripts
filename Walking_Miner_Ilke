@@ -1,0 +1,202 @@
+Program Walking_Miner;
+
+const
+  Forge = $4005DE7E;
+  IngotsStorage = $4001D327;
+  IngotsType = $1BF2;
+  
+  //HomeRuneBook = $400B600D;
+  //HomeRuneIndex = 0;
+  //RuneBookShift = 50; //50 for Recal, 75 for Sacred Journey, 100 for Gate Travel
+  
+  MiningType = $0F39;
+  
+  TinkerType = $1EB8;
+  TKNumFirst = 15;
+  TKNumSecond = 23;
+  
+  TKMinerNumFirst = 15;
+  TKMinerNumSecond = 72;
+  
+  IronColor = $0000;
+  IronCount = $20;
+  
+  WaitTime = 500;
+  RecalTime = 5000;
+  WaitCycles = 7;
+  LagWait = 15000;
+  
+  procedure SmellOre; //New
+var
+  CurOre, CurIndex: Integer;
+  CurItem: Cardinal;
+  List: TStringList;
+begin
+  try
+    List := TStringList.Create;
+    for CurOre := 0 to Length(OreTypes) - 1 do begin
+      if Dead or not Connected then Exit;
+      CheckLag(LagWait);
+      FindType(OreTypes[CurOre], Backpack);
+      List.Clear;
+      if GetFindedList(List) then begin
+        CurIndex := 0;
+        while CurIndex < List.Count do begin
+          if Dead or not Connected then Exit;
+          CurItem := StrToInt('$' + List.Strings[CurIndex]);
+          CheckLag(LagWait);
+          if (GetType(CurItem) <> OreTypes[CurOre])
+            or (GetQuantity(CurItem) < 2) then begin
+            Inc(CurIndex);
+          end else begin
+            if TargetPresent then CancelTarget;
+            UseObject(CurItem);
+            CheckLag(LagWait);
+            WaitForTarget(WaitTime * 5);
+            if TargetPresent then begin
+              TargetToObject(Forge);
+              CheckLag(LagWait);
+              Wait(WaitTime);
+            end;
+            CheckLag(LagWait);
+          end;
+        end;
+      end;
+    end;
+  finally
+    List.Free;
+  end;
+end;
+procedure MoveIngots; //New
+var
+  List: TStringList;
+  CurIndex: Integer;
+  CurIngot: Cardinal;
+  CurIron: Cardinal;
+  StartCount, ToMove: Integer;
+begin
+  CheckLag(LagWait);
+  FindType(IngotsType, BackPack);
+  CurIron := 0;
+  try
+    List := TStringList.Create;
+    if GetFindedList(List) then begin
+      CurIndex := 0;
+      while CurIndex < FindCount do begin
+        if Dead or not Connected then Exit;
+        CurIngot := StrToInt('$' + List.Strings[CurIndex]);
+        CheckLag(LagWait);
+        StartCount := GetQuantity(CurIngot);
+        if (GetColor(CurIngot) = IronColor)
+          and (CurIron < IronCount) then begin
+          ToMove := StartCount - (IronCount - CurIron);
+        end else begin
+          ToMove := StartCount;
+        end;
+        if ToMove > 0 then begin
+          if MoveItem(CurIngot, ToMove, IngotsStorage, $FFFF, $FFFF, 0) then begin
+            Inc(CurIndex);
+            CurIron := CurIron + (StartCount - ToMove);
+            CheckLag(LagWait);
+            Wait(WaitTime);
+          end;
+        end else begin
+          Inc(CurIndex);
+          CurIron := CurIron + StartCount;
+        end;
+      end;
+    end;
+  finally
+    List.Free;
+  end;
+end;
+function GoBase: Boolean; //New
+begin
+  Result := RecallRune(HomeRuneBook, HomeRuneIndex);
+end;
+procedure CheckState;
+begin
+  if MaxWeight < Weight + 60 then begin
+    while True do begin
+      if Dead or not Connected then Exit;
+      if GoBase() then Break;
+      if GoBase() then Break;
+      //if not RecallRune(RuneBooks[CurrentBook], CurrentRune) then Wait(10000);
+    end;
+    
+    SmellOre;
+    MoveIngots;
+    //MoveGems;
+    
+    while True do begin
+      if Dead or not Connected then Exit;
+     // if RecallRune(RuneBooks[CurrentBook], CurrentRune) then Break;
+     // if RecallRune(RuneBooks[CurrentBook], CurrentRune) then Break;
+      if GoBase() then Continue;
+     // if not NextRune then Wait(10000);
+    end;
+  end;
+ // while not CheckMiningTool do begin
+  //  if Dead or not Connected then Exit;
+  //  CreateMiningTools;
+ // end;
+end;
+procedure Mine(X, Y: Integer);
+var
+  StaticData: TStaticCell;
+  Tile: Word;
+  Z: ShortInt;
+  Finded: Boolean;
+  Counter: Byte;
+  StartTime: TDateTime;
+  i: Integer;
+begin
+  Finded := False;
+  StaticData := ReadStaticsXY(X, Y, WorldNum);
+  for i := 0 to StaticData.StaticCount - 1 do begin
+    if i >= StaticData.StaticCount then Break;
+    if (GetTileFlags(2, StaticData.Statics[i].Tile) and $200) = $200 then begin
+      Tile := StaticData.Statics[i].Tile;
+      Z := StaticData.Statics[i].Z;
+      Finded := True;
+      Break;
+    end; 
+  end;
+  
+  CheckState(); 
+  while Finded do begin
+    if Dead or not Connected then Exit;
+    if TargetPresent then CancelTarget;
+    while not CheckMiningTool do begin
+      if Dead or not Connected then Exit;
+      CreateMiningTools;
+    end;
+    CheckLag(LagWait);
+    Wait(WaitTime);
+    UseObject(MiningTool);
+    CheckLag(LagWait);
+    WaitForTarget(WaitTime);
+    if TargetPresent then begin
+      StartTime := Now;
+      TargetToTile(Tile, X, Y, Z);
+      Counter := WaitCycles;
+      Finded := False;
+      while (not Finded) and (Counter > 0) do begin
+        CheckLag(LagWait);
+        if InJournalBetweenTimes('t mine there|is too far away|cannot be seen|is no metal here to mine', StartTime, Now) > 0 then Exit;
+        if InJournalBetweenTimes('put it in your backpack|loosen some rocks but fail to find any useable ore|have worn out your tool', StartTime, Now) > 0 then Finded := True;
+        if Not Finded then Wait(200);
+        Dec(Counter);
+      end;
+      CheckState();
+    end;
+  end;    
+end;
+
+
+
+
+
+begin
+ //Body of Script
+end.

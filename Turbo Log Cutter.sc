@@ -1,38 +1,44 @@
-Program New;
+Program TurboLogCutter;
+var
+Resourses:Array of Word;
 const
-Axe=$40070664;
+Axe=$4006D073;
 LogType=$1BDD;
-IngotsStorage=;
+BoardType=$1BD7;
+IngotsStorage=$40195C01;
 LagWait=10000;
 WaitTime=500;
-Procedure Obtain(Item:Array of Word);
+Procedure Obtain(Item:Word);
 begin
-while FindType(Logtype, IngotsStorage)> 0 do begin
-if not Connected then Exit;
-MoveItem(FindItem,300,Backpack,0,0,0);
-CheckLag(LagWait);
+FindTypeEx($1BDD,$FFFF, IngotsStorage,false);
+MoveItem(FindItem,200,Backpack,0,0,0);
 end;
- procedure Move(Item:Array of Word);
-var
+Procedure Move(Item:Array of Word);
+var 
 j:Byte;
 begin
   while FindType(LogType,Backpack)>0 do begin
     if Dead or not Connected then Exit;
+    CheckLag(WaitTime);
     UseObject(Axe);
     CheckLag(LagWait);
     WaitForTarget(LagWait);
     TargetToObject(FindItem);
   end;
   CheckLag(LagWait);
-  for j:=0 to Length(Item)-1 do begin
-    if Dead or not Connected then Exit;
-    CheckLag(LagWait);
+  if Dead or not Connected then Exit;
     While (FindType(Item[j], Backpack)>1) do begin
       if Dead or not Connected then Exit;
-      MoveItem(Finditem,GetQuantity(Finditem),IngotsStorage,0,0,0);
+      MoveItem(FindItem,GetQuantity(FindItem),IngotsStorage,0,0,0);
       CheckLag(LagWait);
       Wait(WaitTime);
     end;
   end;
+begin
+Resourses:= [$1BD7, $318F, $3191, $2F5F, $3199, $3190];
+While Connected() do begin
+Obtain(LogType);
+CheckLag(LagWait);
+Move(Resourses);
 end;
 end.

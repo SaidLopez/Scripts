@@ -31,10 +31,10 @@ end;
 Procedure HpCheck(a,b:integer);
 begin
 If GetHP(Self) > 65 then begin 
-     If (a < 85) and (a > b) then begin
+     If (a < 85) and (a < b) then begin
         Heal(Player1); 
      end;
-      If (a < b) and (b < 85) then begin  
+      If (a > b) and (b < 85) then begin  
         Heal(Player2);
      end
 end else begin
@@ -50,13 +50,13 @@ begin
 UseSkill('Discordance');
 ctime:=Now;
     if InJournalBetweenTimes('Which instrument shall you play?',ctime,Now)<>-1 then begin
-        FindType(Lute,Backpack)
+        FindType(Lute,Backpack);
+        waitforTarget(2000);
         TargetToObject(Finditem);
-    end else begin
+    end;
     WaitforTarget(2000); 
     TargetToObject(Monster);
     end;
-end;
 Procedure Ataque(Monster:Cardinal);
 begin
     Attack(Monster);
@@ -98,8 +98,7 @@ begin
     //SetEventProc(evSpeech,'PartyA');
     Follow(Player1);
     c:=Bicho(GetGlobal('Stealth','Lead'));
-        while WarTargetID <> c do begin  Ataque(c);
-        end;   
+        If WarTargetID <> c then  Ataque(c);  
        a:=GetHP(Player1);
        b:=GetHP(Player2);     
        HpCheck(a,b);

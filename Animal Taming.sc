@@ -31,7 +31,7 @@ if TargetPresent then CancelTarget;
       end;
         if InJournal('You fail to tame the creature.')<>-1  then begin
             Tame(Animal);
-        end else begin
+        end else if InJournal('accept you as master.')<>-1 then begin
             Kill(Animal); 
             end;
 end;
@@ -44,8 +44,11 @@ animal_type [2]:= $00EA;// great hart
 i:= 1; 
 
 
+
 while (Dead = False) do 
 begin 
+    FindDistance := 20;
+    
    if (i> 0) and (i <= 2) then 
    begin
    while FindTypeEX (animal_type[i], $FFFF, Ground, False) <> 0 do 

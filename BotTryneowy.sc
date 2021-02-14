@@ -6,7 +6,7 @@ c:Cardinal;
 Const
 Bandage = $0E21;
 Player1= $000092AA; //Billie
-Player2= $000062CB; //Tryneowy
+Player2= $00008109; //Felurian
 HuntID= $FE5C638B;
 Lute = $0EB3;
 procedure Heal(Player:Cardinal);
@@ -31,10 +31,10 @@ end;
 Procedure HpCheck(a,b:integer);
 begin
 If GetHP(Self) > 65 then begin 
-     If (a < 85) and (a > b) then begin
+     If (a < 85) and (a < b) then begin
         Heal(Player1); 
      end;
-      If (a < b) and (b < 85) then begin  
+      If (a > b) and (b < 85) then begin  
         Heal(Player2);
      end
 end else begin
@@ -62,10 +62,6 @@ begin
     Attack(Monster);
 end;
 
-Procedure PartyA();
-begin
-ClientPrint('/Accept');
-end;
 
 Procedure Hunt();
 begin
@@ -91,21 +87,19 @@ end;
 begin
      FindDistance:=20;
      FindVertical:=5; 
-     If GetSkillValue('Tracking') > 1 then begin 
+     If GetSkillValue('Tracking') > 50 then begin 
        Hunt; 
      end;
  while True do begin
-    //SetEventProc(evSpeech,'PartyA');
     Follow(Player1);
     c:=Bicho(GetGlobal('Stealth','Lead'));
-        while WarTargetID <> c do begin  Ataque(c);
-        end;   
+        If WarTargetID <> c then  Ataque(c); 
        a:=GetHP(Player1);
        b:=GetHP(Player2);     
        HpCheck(a,b);
-       if GetSkillValue('Discordance') > 30 then begin
-        if WarTargetID <> 0 then Discordance(c);
-       end; 
+       //if GetSkillValue('Discordance') > 30 then begin
+       //if WarTargetID <> 0 then Discordance(c);
+       //end; 
        wait(200);   
 
     end;
