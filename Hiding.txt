@@ -1,0 +1,78 @@
+               =================================
+; Script Name: MRTZeroVisibility
+; Author: MRT
+; Version: 2.01
+; Client Tested with: 4.0.1b
+; EUO version tested with: 1.42.0098
+; Shard OSI / FS: FS
+; Revision Date: 6/21/2005
+; Public Release: 4/30/2004
+; Global Variables Used: None
+; Purpose: Easily train Hiding from 0 to GM and Stealth from 0 to GM. For shards with non-movement based Hiding & Stealth.
+;==================================
+;Make sure you are wearing the proper equipment for your stealth gains:
+;0 - 30 - Purchase
+;30 - 65 - Normal Clothes
+;65 - 95 - Full Studded Suit
+;95 - 100 - Full Studded Suit + Close Helm
+;==================================
+SET %UseHidingAndStealth #TRUE
+;==================================
+MAINLOOP:
+GOSUB HIDE
+;GOSUB STEALTH
+GOTO MAINLOOP
+
+SUB HIDE
+CHOOSESKILL HIDI
+IF #SKILL = #SKILLCAP
+{
+        CHOOSESKILL STLT
+        IF #SKILL = #SKILLCAP
+        {
+                DISPLAY OK You have GM'ed Hiding & Stealth.
+        }
+}
+
+HIDINGLOOP:
+IF H <> #CHARSTATUS
+{
+ EVENT MACRO 13 21 ;USESKILL HIDING
+ WAIT 11s
+ RETURN
+}
+
+CHOOSESKILL HIDI
+;IF #SKILL < 800
+{
+ EVENT MACRO 13 21 ;USESKILL HIDING
+ WAIT 11s
+ RETURN
+}
+IF H IN #CHARSTATUS
+{
+        RETURN
+}
+GOTO HIDINGLOOP
+RETURN
+
+SUB STEALTH
+CHOOSESKILL STLT
+IF #SKILL = #SKILLCAP
+{
+        RETURN
+}
+IF %UseHidingAndStealth
+{
+ IF H IN #CHARSTATUS
+ {
+   CHOOSESKILL HIDI
+   IF #SKILL > 799
+   {
+      EVENT MACRO 13 47 ;USESKILL STEALTH
+      WAIT 11s
+   }
+ }
+}
+RETURN
+HALT

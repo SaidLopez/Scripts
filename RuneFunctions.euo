@@ -1,0 +1,151 @@
+Set %rf2Testing TEST2
+set %_0 %0
+goto %_0
+0:
+    exit
+1:
+    Set %rfTesting TEST1
+    gosub %1
+    exit
+2:
+    gosub %1 %2
+    exit
+3:
+    gosub %1 %2 %3
+    exit
+4:
+    gosub %1 %2 %3 %4
+    exit
+5:
+    gosub %1 %2 %3 %4 %5
+    exit
+6:
+    gosub %1 %2 %3 %4 %5 %6
+    exit
+7:
+    gosub %1 %2 %3 %4 %5 %6 %7
+    exit
+8:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8
+    exit
+9:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9
+    exit
+10:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10
+    exit
+11:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11
+    exit
+12:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11 %12
+    exit
+13:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13
+    exit
+14:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13 %14
+    exit
+15:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13 %14 %15
+    exit
+16:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13 %14 %15 %16
+    exit
+17:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13 %14 %15 %16 %17
+    exit
+18:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13 %14 %15 %16 %17 %18
+    exit
+19:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11 %12 %13 %14 %15 %16 %17 %18 %19
+    exit
+
+Sub SetUserDigClickLoc
+   Set %_sudclRuneBook %1
+   Set %_sudclRune     %2
+   Set %_sudclX        %3
+   Set %_sudclY        %4
+   Set %_sudclColor    %5
+   Set %_sudclNumParams %0
+   If %_sudclNumParams < 5
+      Set %_sudclColor %_Color . %_sudclRuneBook
+   If %_sudclNumParams < 4 || %_sudclNumParams > 5
+      Display OK Invalid use of SetUserDigClickLoc
+
+   Set %_sudclIndex ( ( %_sudclRuneBook - 1 ) * 16 ) + %_sudclRune
+   If %nDigSpots . %_sudclIndex = N/A
+      Set %_sudclSpot 1
+   Else
+      Set %_sudclSpot %nDigSpots . %_sudclIndex + 1
+   Set %nDigSpots . %_sudclIndex %_sudclSpot
+
+   GoSub MakeUserDigVarName DigX %_sudclIndex %_sudclSpot
+   Set % . %return %_sudclX
+   GoSub MakeUserDigVarName DigY %_sudclIndex %_sudclSpot
+   Set % . %return %_sudclY
+   GoSub MakeUserDigVarName DigC %_sudclIndex %_sudclSpot
+   Set % . %return %_sudclColor
+
+   GoSub MakeUserDigVarName DigXCoord %_sudclIndex %_sudclSpot
+   Set % . %return N/A
+Return
+
+Sub SetUserDigCoord
+   Set %_sudcRuneBook %1
+   Set %_sudcRune %2
+   Set %_sudcX %3
+   Set %_sudcY %4
+   Set %_sudcZ %5
+   Set %_sudcK %6
+   Set %_sudcT %7
+   Set %_sudcColor %8
+   Set %_sudcNumParams %0
+   If %_sudcNumParams < 8
+      Set %_sudcColor %_Color . %_sudcRuneBook
+   If %_sudcNumParams < 7 || %_sudcNumParams > 8
+      Display OK Invalid use of SetUserDigCoord
+
+   Set %_sudcIndex ( ( %_sudcRuneBook - 1 ) * 16 ) + %_sudcRune
+   If %nDigSpots . %_sudcIndex = N/A
+      Set %_sudcSpot 1
+   Else
+      Set %_sudcSpot %nDigSpots . %_sudcIndex + 1
+   Set %nDigSpots . %_sudcIndex %_sudcSpot
+
+   GoSub MakeUserDigVarName DigXCoord %_sudcIndex %_sudcSpot
+   Set % . %return %_sudcX
+   GoSub MakeUserDigVarName DigYCoord %_sudcIndex %_sudcSpot
+   Set % . %return %_sudcY
+   GoSub MakeUserDigVarName DigZCoord %_sudcIndex %_sudcSpot
+   Set % . %return %_sudcZ
+   GoSub MakeUserDigVarName DigKCoord %_sudcIndex %_sudcSpot
+   Set % . %return %_sudcK
+   GoSub MakeUserDigVarName DigTCoord %_sudcIndex %_sudcSpot
+   Set % . %return %_sudcT
+   GoSub MakeUserDigVarName DigCCoord %_sudcIndex %_sudcSpot
+   Set % . %return %_sudcColor
+Return
+
+Sub MakeUserDigVarName
+   set %_mudvnVarName %1 , %2
+   set %_mudvnVarName %_mudvnVarName , S
+   Set %return %_mudvnVarName , %3
+Return
+
+Sub FindRunebook
+   for %_frbIndex 1 %numRuneBooks
+   {
+      if %1 = %_RuneBook . %_frbIndex
+      {
+         Set %return %_frbIndex
+         Return
+      }
+   }
+   Set %return 0
+Return
+
+Sub CompatibilityVersion
+   Set %Return 1
+Return

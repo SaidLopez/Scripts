@@ -1,0 +1,18 @@
+set %libro XXM
+set %spells MYM_LYM_OYM_NYM_IYM_HYM_KYM_JYM_UYM_TYM_WYM_VYM_QYM_PYM_SYM_RYM_CZM
+set %resource HYDCCND
+set %toolbs PBG
+
+finditem XXM C_ , #backpackid
+if #findkind <> -1
+   set *alibro #findid
+   
+repeat
+finditem %spells C_ , #backpackid
+if #findkind <> -1
+{
+ exevent drag #findid
+ wait 7
+ exevent dropc *alibro
+
+}

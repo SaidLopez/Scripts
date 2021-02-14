@@ -1,0 +1,391 @@
+;============================================================================
+; Script Name: Sin's Mace and Shield Donator
+; Author: Sin
+; Version: 1.2.0
+; Client Tested with: 7.0.25.7
+; EUO version tested with: 1.5.214
+; Purpose: Donating to brit library for Mace and Shield Reading glasses
+;=============================================================================
+;***Setup Instructions***
+;1. Runebook with position 1 marked to secure, anvil and forge
+;2. Runebook with position 2 marked to Library Turn in NPC
+;3. A "Workbag" insdie your backpack, I used a "Bag" during testing.
+;4. At least one tinker tools in the "Workbag"
+;5. Top level of secure should contain Iron Ingots only!
+;6. BEFORE running script, use a blacksmith and tinker tool and line up the
+;6. (cont) Crafting Gumps to the upper left corner.
+;7. Under "User Options", set the two variables.
+;=============================================================================
+; User Options
+set %setup 1 ;Currently "MUST" be set to 1 to make script work, **Needs Work**
+set %max_buckler_amount 59 ; select number of bucklers to make
+==============================================================================
+;Update Log
+;
+;Version 1.2.0
+;Added Tinker Tool Creation Function
+;When your workbag is down to one tinker tool, another is produced.
+;Various code cleanup.
+;Still suffers from being prone to cash, need to add better wait for gump
+;functions.  Will work on this.
+;06/10/2012 Sin
+;
+;Version 1.1.0
+;Changed the way smith hammers were made, now only 3 are made
+;Make Tinker Tools not working at this time.
+;06/10/12 Sin
+;
+;Version 1.0.0
+;Completed the first version of the script.  Script can not recover from lag
+;or glitches very well at this point, but it runs.  Will continue to works on
+;recovery ability etc.
+;06/10/2012 Sin
+==============================================================================
+; Script Variables (Item types)
+set %ingots ENK
+set %tinker_tools JTL
+set %smiths_hammer TLH
+set %buckler FIK
+set %status_bucklers 0
+set %status_ingots 0
+set %makefirstbuckler 1
+set %check 0
+set %count 0
+set %loop 0
+set #weight
+set #maxweight
+;list
+;%time         - Delay Time in "WaitForGump"
+;%setup        - Set to 1 to run script currently **NEEDS WORK HERE**
+;%runebook     - This is the runebook used in this script
+;%secure       - This is the secure container at the house rune location
+;%workbag      - This is the workbags ID number
+;%donation_npc - This is the ID of the donation NPC
+;=============================================================================
+; Main Loop
+if %setup = 1
+   {
+   gosub MainSetup
+   set %setup 0
+   }
+while %loop < 5
+      {
+      gosub CheckWeight
+      gosub InvisSelf
+      gosub GetIngots
+      gosub MakeBuckler
+      gosub DropIngots
+      gosub TurnInBucklers
+      }
+display ok End of main, error halting
+halt
+;=============================================================================
+sub MainSetup
+; Get Runebook ID
+display ok Target your runebook
+set #targcurs 1
+wait 5
+repeat
+wait 0
+until #targcurs = 0
+set %runebook #ltargetID
+set #lobjectID %runebook
+wait 5
+
+; Get workbag ID number
+display ok Target your workbag
+set #targcurs 1
+wait 5
+repeat
+wait 0
+until #targcurs = 0
+set %workbag #ltargetID
+set #lobjectID %workbag
+wait 5
+event macro 17 0
+wait 5
+set #contPosX 850
+set #contPosY 520
+wait 25
+
+; Get secure ID number
+display ok Target your secure container.
+set #targcurs 1
+wait 5
+repeat
+wait 0
+until #targcurs = 0
+set %secure #ltargetID
+set #lobjectID %secure
+wait 10
+event macro 17 0
+wait 10
+set #contPosX 675
+set #contPosY 500
+wait 25
+
+; Get Donation NPC ID
+gosub TravelToLibrary
+display ok Target the reward NPC
+set #targcurs 1
+wait 5
+repeat
+wait 0
+until #targcurs = 0
+set %donation_npc #ltargetID
+set #lobjectID %donation_npc
+wait 5
+display ok Setup complete, You can leave it to me now
+gosub TravelToHome
+wait 5
+
+return
+;=============================================================================
+; Check weight subroutine
+sub CheckWeight                             ;more work to be done with this
+set %avail = ( #maxweight - #weight )
+return
+;=============================================================================
+; Cast Invis on Self at Secure
+sub InvisSelf
+set #ltargetID #charID                      ;set pc as last target
+wait 5
+event macro 15 43                           ;cast invis spell
+wait 50
+event macro 22 0                            ;last target
+wait 5
+return
+;=============================================================================
+; Places ingots in backpack
+sub GetIngots
+set #lobjectID %secure
+wait 10
+event macro 17 0
+;set #contPosX 675                           ;if you position the secure, it moves the
+;set #contPosY 500                           ;position of the workbag for some reason
+wait 25
+finditem %ingots C_ , %secure
+if #findkind = -1
+   {
+   display ok Your secure container has run out of ingots, Ending Script.
+   halt
+   }
+if #findstack < 1000
+   {
+   set %stack #findstack
+   }
+else
+    {
+    set %stack 1000
+    }
+exevent drag #findID %stack
+wait 10
+exevent dropc %workbag
+wait 15
+set %status_ingots ( %status_ingots + %stack )
+return
+;=============================================================================
+; Make Bucklers Loops
+sub MakeBuckler
+finditem %smiths_hammer C_ , %workbag
+if #findkind = -1
+   {
+   ;gosub MakeHammer
+   }
+finditem %smiths_hammer C_ , %workbag
+set #lobjectID #findID
+wait 5
+event macro 17 0
+wait 5
+set #contPosX 0
+set #contPosY 0
+wait 5
+while %makefirstbuckler = 1
+   {
+   click 30 130 dmc
+   wait 5
+   gosub WaitForGump
+   set #contPosX 0
+   set #contPosY 0
+   click 230 70 dmc
+   wait 5
+   gosub WaitForGump
+   set %makefirstbuckler  0
+   gosub MoreBuck
+   click 30 455 dmc                             ;close blacksmithing window
+   wait 25
+   }
+set %makefirstbuckler 1
+Return
+;============================================================
+; 1 to 50 bucklers
+sub MoreBuck
+while %count < %max_buckler_amount
+      {
+      click 285 455 dmc                          ;click make last button
+      wait 10
+      gosub WaitForGump                          ;wait for gump to refresh
+      wait 10
+      finditem %smiths_hammer C_ , %workbag      ;find hammer in workbag
+      if #findkind = -1                          ;checks to see how many hammers there are
+          {
+          ;gosub MakeHammer                       ;if 0 go make more
+          }
+      else
+      if %check = 5
+         {
+         finditem %smiths_hammer C_ , %workbag   ;ensure hammer is targeted
+         set #lobjectID #findID                  ;ensure hammer is targeted
+         event macro 17 0                        ;lasttarget (activate a new hammer if last broke)
+         wait 5
+         set #contPosX 0                         ;reposition gump for makelast button
+         set #contPosY 0                         ;reposition gump for makelast button
+         wait 5
+         set %check 0
+         }
+      else
+      set %check %check + 1
+      set %count %count + 1
+      }
+set %count 0
+return
+;==================================
+; Move ingots to secure
+sub DropIngots
+finditem %ingots C_ , %workbag
+wait 5
+exevent drag #findid #findstack
+wait 10
+exevent dropc %secure
+set %status_ingots ( %status_ingots - #findstack )
+wait 25
+return
+;=============================================================================
+; Turns bucklers into the Donation NPC
+sub TurnInBucklers
+gosub TravelToLibrary
+set #lobjectID %donation_npc
+event macro 17 0
+gosub WaitForGump
+wait 5
+click 288 214 dmc                         ;select "by bag" option on npc, get target cursor
+wait 25
+finditem %workbag C_ , #backpackid
+set #ltargetID #findID
+wait 10
+event macro 22 0                          ;set lasttarget to %workbag, selectlasttarget
+wait 25
+click 606 392 dmc                         ;select "ok" basically
+wait 25
+gosub TravelToHome
+return
+;=============================================================================
+; Makes 3 smith's hammers
+sub MakeHammer
+finditem %tinker_tools C_ , %workbag     ;check for tinker tools
+if #findkind < 2                         ;if 1 left, make one more
+   {
+   gosub MakeTinker                      ;make tinker tools
+   }
+finditem %tinker_tools C_ , %workbag     ;select tinker tools
+set #lobjectID #findID
+repeat
+wait 10
+event macro 17 0                         ;open tinkering gump
+gosub WaitForGump
+set #contPosX 0                          ;position tinkering gump
+set #contPosY 0                          ;position tinkering gump
+wait 10
+click 28 131 dmc                         ;select tools option in gump
+gosub WaitForGump
+wait 10
+click 385 270 dmc                        ;select next page option in gump
+gosub WaitForGump
+wait 10
+click 230 130 dmc                        ;select smith hammer option in gump
+gosub WaitForGump
+wait 25
+;first hammer
+click 282 453 dmc                        ;click make last button option in gump
+gosub WaitForGump
+wait 25
+;second hammer
+click 282 453 dmc                        ;click make last button option in gump
+gosub WaitForGump
+wait 25
+;third and final hammer
+finditem %smiths_hammer C_ , %workbag    ;change last object from tinker tool
+set #lobjectID #findID                   ;to smiths hammer
+wait 5
+return
+;=============================================================================
+; Makes one tinker tool
+sub MakeTinker
+finditem %tinker_tools C_ , %workbag
+set #lobjectID #findID
+repeat
+wait 10
+event macro 17 0                         ;open tinkering gump
+gosub WaitForGump
+set #contPosX 0                          ;position tinkering gump
+set #contPosY 0                          ;position tinkering gump
+wait 10
+click 28 131 dmc                         ;select tools option in gump
+gosub WaitForGump
+wait 10
+click 232 130 dmc                        ;select tinker's tools
+gosub WaitForGump
+wait 10
+return
+;=============================================================================
+; Travel Home to Secure Storage, Anvil, and Forge
+sub TravelToHome
+set %runbook #ltargetID
+set #lobjectID %runebook
+wait 5
+event macro 17 0
+wait 10
+set #contPosX 0
+set #contPosY 0
+wait 5
+click 138 196 dmc                        ;clicking page 1
+wait 10
+click 139 145 dmc                        ;selecting home location
+wait 10
+gosub WaitForGump
+return
+;=============================================================================
+; Travel to Library to Drop off Shields / Select turn in NPC
+sub TravelToLibrary
+set %runbook #ltargetID
+set #lobjectID %runebook
+wait 5
+event macro 17 0
+wait 10
+set #contPosX 0
+set #contPosY 0
+wait 5
+click 138 196 dmc                        ;clicking page 1
+wait 10
+click 298 145 dmc                        ;selecting Library Location
+wait 10
+gosub WaitForGump
+return
+;=============================================================================
+; Wait for gump
+sub WaitForGump
+set %time #scnt
+repeat
+if You_create_ in #sysmsg
+   {
+   break
+   }
+if #scnt > ( %time + 5 )
+   {
+   break
+   }
+wait 0
+until #contname = generic_gump
+wait 5
+return
+;=============================================================================

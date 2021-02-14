@@ -1,0 +1,568 @@
+;==================================
+; Script Name: Boydon's RunUO Craftmenus' Handling Functions
+; Author: Boydon
+; Version: 1.5
+; Client Tested with: 5.0.0b
+; EUO version tested with: 1.5 TV 57
+; Shard OSI / FS: FS, RunUO 1.0
+; Revision Date: 02Feb06
+; Public Release: 14May05
+; Global Variables Used: None
+; Purpose: A callable library to handle crafting menues in RunUO Emulator.
+;==================================
+
+set %_0 %0
+goto %_0
+0:
+    exit
+1:
+    gosub %1
+    exit
+2:
+    gosub %1 %2
+    exit
+3:
+    gosub %1 %2 %3
+    exit
+4:
+    gosub %1 %2 %3 %4
+    exit
+5:
+    gosub %1 %2 %3 %4 %5
+    exit
+6:
+    gosub %1 %2 %3 %4 %5 %6
+    exit
+7:
+    gosub %1 %2 %3 %4 %5 %6 %7
+    exit
+8:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8
+    exit
+9:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9
+    exit
+10:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10
+    exit
+
+;==================
+;* To do list
+;*
+;* Nothing ATM
+;==================
+
+;==================================
+;* Special Thanks to:
+;*
+;* Allanon Wallace for his support, his help and his suggestions in testing phase
+;* Quintok / Raziel for their very nice and usefull waitForSysVars sub
+;* Anom that found a nasty bug
+;==================================
+
+;==================
+;** 
+;* @name BringUpCraftMenu 
+;* @ver 1.1 15May05 
+;* @author  Boydon
+;* @purpose bring up desidered craft menu 
+;*     	
+;* @params %1 req The type/id of the tools you want to use.
+;*								If you prefer you can specify the name of the skill to use.
+;*								This can be tinker|tailor|smith|carpentry|bowcraft|alchemy|inscription|masonry|glassblow|cooking
+;*
+;*				 %2 opt This allow you to decide weather the script halts or not if a toolkit isn't found
+;*								inside your #backpack. This can have two values #true or #false. Default value
+;*								of this parameter is #true
+;*
+;* @returns This sub will return the id of the tools currently used (last #findid value): if you
+;*					called the sub using the skill name (look above) this is very usefull cause you can
+;*					know the exact id of the tool you are currently using and use it in various ways, as
+;*					example you can calculate how many uses it has left... If you called the sub with halt
+;*					option turned off returned value will be "X" (without the "" around) if a tool can't be found
+;*
+;* @example call CraftMenuFunctions.euo BringUpCraftMenu KTL
+;*					call CraftMenuFunctions.euo BringUpCraftMenu tinker
+;*							both this examples will bring up tinker Menu
+;*					call CraftMenuFunctions.euo BringUpCraftMenu tinker #false
+;*							this example will try to bring up tinker Menu and won't halt the script if a tool is not found
+;* @status tested and working properly
+ 
+sub BringUpCraftMenu
+
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub BringUpCraftMenu: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+	
+	if %2 = N/A || %0 <= 1
+		set %2 #true
+		
+	if %2 <> #true && %2 <> #false
+	{
+		display ok Unexpected value for argument 2 in Sub BringUpCraftMenu!
+			+$Please check!$
+			+$Script will be halted.
+		halt
+	}
+	
+	nameSpace Push
+	nameSpace Local BringUpCraftMenu , #time , #random , #scnt2
+		
+	set !ToolsType %1
+	set !Halt %2
+	
+	if !ToolsType = tinker
+		set !ToolsType JTL_GTL_KTL
+	if !ToolsType = tailor
+		set !ToolsType HAG
+	if !ToolsType = smith
+		set !ToolsType TLH_FBG_GBG_OLH_OBG_TBG
+	if !ToolsType = carpentry
+		set !ToolsType YFG_ZHG_CIG_BIG_AGG_EGG_AIG_WFG_IGG_KGG_ZFG
+	if !ToolsType = bowcraft
+		set !ToolsType UFG
+	if !ToolsType = alchemy
+		set !ToolsType RQF
+	if !ToolsType = inscription
+		set !ToolsType PBG
+	if !ToolsType = masonry
+		set !ToolsType ZEH
+	if !ToolsType = glassblow
+		set !ToolsType CQF
+	if !ToolsType = cooking
+		set !ToolsType BCG_DND_OGG
+	
+	UseTools:
+	set !StartContKind #contkind
+	set !StartContName #contname
+	set !StartContSize #contsize
+
+	FindTools:
+	finditem !ToolsType C_ , #backpackid
+	if #findkind = -1 && !Halt
+	{
+		display ok Impossible to find any craft tool in your backpack!
+			+$Script will be halted.
+		halt
+	}
+	if #findcol <> 0
+	{
+		display ok You seem to have some runik kits in your back pack! $Script will ignore them!
+		ignoreitem #findid runikkits
+		goto FindTools
+	}
+	if #findkind <> -1
+		set #lobjectid #findid
+
+	Event Macro 17 0 ;Last Object
+	wait 12
+	
+	gosub waitForSysVars contkind <> !StartContKind contname <> !StartContName contsize <> !StartContSize 5
+
+	if ! #result ;Craft Gump was already opened?
+	{
+		set !CloseGumpX #contposx + 50
+		set !CloseGumpY #contposy + 50
+		click !CloseGumpX !CloseGumpY r
+		wait 5
+		goto UseTools
+	}
+	
+	ignoreitem reset runikkits
+	nameSpace Clear
+	nameSpace Pop
+return #findid
+
+;==================
+;** 
+;* @name CraftAnything 
+;* @ver 1.1 16May05
+;* @author  Boydon
+;* @purpose craft the desiderd item from the menu 
+;*
+;* @params %1 req the category number Where "LAST TEN" is category numer 0 and so on
+;*							I decided to give "LAST TEN"	 number 0 cause it is pretty useless as category
+;*   	%2 req number of the piece to craft. This must be an absolute number.
+;*					Because of menues having more than one page you have to count item numer from 1,
+;*					so on page 1 there will be items from 1 to 10, on page 2 from 11 to 20 and so on..
+;*
+;* @returns 
+;* @example call CraftMenuFunctions.euo CraftAnyThing 2 22 
+;* @status tested and working fine
+ 
+sub CraftAnything
+	
+	if %0 < 2 || %1 = N/A || %2 = N/A
+	{
+		display ok Wrong use of Sub CraftAnything: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+
+	nameSpace Push
+	nameSpace Local CraftAnything , #time , #random , #scnt2
+
+	set !category %1
+	set !piece %2
+
+	set !CraftContKind #contkind
+	set !CraftContName #contname
+	set !CraftContSize #contsize
+
+	; category 
+	set !categoryX #contposx + 30
+	set !categoryY #contposy + 70 + !category * 20
+	click !categoryX !categoryY dmc
+	gosub waitForSysVars contkind = !CraftContKind contname = !CraftContName contsize = !CraftContSize 5
+
+	; page
+	set !page ( !piece - 1 ) / 10 
+
+	if !page > 0
+	{
+		for !i 1 !page
+		{
+			gosub ClickNextPage
+		}
+
+		if !piece % 10 <> 0
+			set !piece !piece % 10
+			
+		if !piece % 10 = 0
+			set !piece 10
+	}
+
+	;piece
+	set !pieceX #contposx + 235
+	set !pieceY #contposy + 50 + !piece * 20
+	click !pieceX !pieceY dmc
+	gosub waitForSysVars contkind <> !CraftContKind contname <> !CraftContName contsize <> !CraftContSize 5
+	gosub waitForSysVars contkind = !CraftContKind contname = !CraftContName contsize = !CraftContSize 5
+
+	nameSpace Clear
+	nameSpace Pop
+return
+
+;==================
+;** 
+;* @name ChooseMaterial 
+;* @ver 1.4 06Oct05
+;* @author  Boydon
+;* @purpose Choose the material you to use to craft 
+;*
+;* @params %1 req material name: it can be:
+;*							iron|dull|shadow|copper|bronze|gold|agapite|verite|valorite|nocolor for Blacksmithy materials
+;*							leather|spined|horned|barbed|nocolor for Tailoring materials
+;*
+;*							As of version 1.4 of the library you can use ingots #findcol as argument, so values can be:
+;*							0|2419|2406|2413|2418|2213|2425|2207|2219 for Blacksmithy
+;*							0|2220|2117|2129 for Tailoring
+;*							nocolor will be -1
+;*
+;* @returns 
+;* @example call CraftMenuFunctions.euo ChooseMaterial iron 
+;* @status tested and working properly
+
+sub ChooseMaterial
+	
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub ChooseMaterial: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+	
+	nameSpace Push
+	nameSpace Local ChooseMaterial , #time , #random , #scnt2
+	
+	set !Material #false
+	
+	if %1 = iron || %1 = leather || %1 = 0
+		set !Material 1
+	if %1 = dull || %1 = spined || %1 = 2220 || %1 = 2419
+		set !Material 2
+	if %1 = shadow || %1 = horned || %1 = 2117 || %1 = 2406
+		set !Material 3
+	if %1 = copper || %1 = barbed || %1 = 2129 || %1 = 2413
+		set !Material 4
+	if %1 = bronze || %1 = 2418
+		set !Material 5
+	if %1 = gold || %1 = 2213
+		set !Material 6
+	if %1 = agapite || %1 = 2425
+		set !Material 7
+	if %1 = verite || %1 = 2207
+		set !Material 8
+	if %1 = valorite || %1 = 2219
+		set !Material 9
+	if %1 = nocolor || %1 = -1
+		set !Material 11
+		
+	if ! !Material
+	{
+		display ok Unkwon material %1 ! $Script will be halted.
+		halt
+	}
+	
+	set !CraftContKind #contkind
+	set !CraftContName #contname
+	set !CraftContSize #contsize
+	
+	clickMaterialCategory:	
+	set !MaterialX #contposx + 30
+	set !MaterialY #contposy + 370
+	click !MaterialX !MaterialY dmc
+	
+	gosub waitForSysVars contkind = !CraftContKind contname = !CraftContName contsize = !CraftContSize 5
+	if ! #result
+		goto clickMaterialCategory
+	
+	clickMaterialColor:
+	set !ColorX #contposx + 235
+	set !ColorY #contposy + ( 50 + ( 20 * !Material ) )
+	click !ColorX !ColorY dmc
+	
+	gosub waitForSysVars contkind = !CraftContKind contname = !CraftContName contsize = !CraftContSize 5
+	if ! #result
+		clickMaterialColor
+	
+	nameSpace Clear
+	nameSpace Pop
+return
+
+;==================
+;** 
+;* @name ClickNextPage 
+;* @ver 1.0 24Apr05
+;* @author  Boydon
+;* @purpose Once the craft menu is focused use this to click the next page button
+;*
+;* @params 
+;*
+;* @returns 
+;* @example call CraftMenuFunctions.euo ClickNextPage 
+;* @status tested and working properly
+
+sub ClickNextPage
+	nameSpace Push
+	nameSpace Local ClickNextPage , #time , #random , #scnt2
+
+	set !NextPageX #contposx + 385
+	set !NextPageY #contposy + 270
+	click !NextPageX !NextPageY dmc
+	wait 10
+
+	nameSpace Clear
+	nameSpace Pop
+return
+
+;==================
+;** 
+;* @name ClickMakeLast 
+;* @ver 1.0 24Apr05
+;* @author  Boydon
+;* @purpose Once the craft menu is focused use this to click the make last button
+;*
+;* @params 
+;*
+;* @returns 
+;* @example call CraftMenuFunctions.euo ClickMakeLast 
+;* @status tested and working properly
+
+sub ClickMakeLast
+	nameSpace Push
+	nameSpace Local ClickMakeLast , #time , #random , #scnt2
+
+	set !CraftContKind #contkind
+	set !CraftContName #contname
+	set !CraftContSize #contsize
+
+	set !MakeLastX #contposx + 280
+	set !MakeLastY #contposy + 410
+	click !MakeLastX !MakeLastY dmc
+	gosub waitForSysVars contkind <> !CraftContKind contname <> !CraftContName contsize <> !CraftContSize 5
+	gosub waitForSysVars contkind = !CraftContKind contname = !CraftContName contsize = !CraftContSize 5
+
+	nameSpace Clear
+	nameSpace Pop
+return
+
+;==================
+;** 
+;* @name ClickExit 
+;* @ver 1.0.1 14May05
+;* @author  Boydon
+;* @purpose Once the craft menu is focused use this to click the exit button
+;*
+;* @params 
+;*
+;* @returns 
+;* @example call CraftMenuFunctions.euo ClickExit 
+;* @status tested and working properly
+
+sub ClickExit
+	nameSpace Push
+	nameSpace Local ClickExit , #time , #random , #scnt2
+
+	set !CraftContKind #contkind
+	set !CraftContName #contname
+	set !CraftContSize #contsize
+
+	set !ExitX #contposx + 30
+	set !ExitY #contposy + 410
+	
+	ClickExit:
+	click !ExitX !ExitY dmc
+	gosub waitForSysVars contkind <> !CraftContKind contname <> !CraftContName contsize <> !CraftContSize 5
+	
+	if ! #result && #contsize = 530_437
+		goto ClickExit
+
+	nameSpace Clear
+	nameSpace Pop
+return
+
+;==================
+;** 
+;* @name ClickSmelt 
+;* @ver 1.2 20Aug05
+;* @author  Boydon
+;* @purpose Once the blacksmithy craft menu is focused use this to click the smelt button
+;*
+;* @params %1 opt The id of the item you want to smelt
+;*
+;* @returns 
+;* @example call CraftMenuFunctions.euo ClickSmelt 
+;* @status tested and working properly
+
+sub ClickSmelt
+	nameSpace Push
+	nameSpace Local ClickSmelt , #time , #random , #scnt2
+
+	set !CraftContKind #contkind
+	set !CraftContName #contname
+	set !CraftContSize #contsize
+	
+	set !TargetItem #false	
+	if %0 = 1
+	{
+		set !TargetItem #true
+		set !Item %1
+	}
+
+	set !SmeltX #contposx + 30
+	set !SmeltY #contposy + 355
+	click !SmeltX !SmeltY dmc
+	gosub waitForSysVars contkind <> !CraftContKind contname <> !CraftContName contsize <> !CraftContSize targcurs = 1 5
+	
+	if !TargetItem
+	{
+		set #ltargetkind 1
+		set #ltargetid !Item
+		Event Macro 22 0
+		gosub waitForSysVars contkind = !CraftContKind contname = !CraftContName contsize = !CraftContSize targcurs = 0 5
+	}
+
+	nameSpace Clear
+	nameSpace Pop
+return
+
+;==================
+;** 
+;* @name ClickRepair 
+;* @ver 1.2 20Aug05
+;* @author  Boydon
+;* @purpose Once the craft menu is focused use this to click the repair button
+;*
+;* @params  %1 opt The id of the item you want to repair
+;*
+;* @returns 
+;* @example call CraftMenuFunctions.euo ClickRepair 
+;* @status tested and working properly
+
+sub ClickRepair
+	nameSpace Push
+	nameSpace Local ClickRepair , #time , #random , #scnt2
+
+	set !CraftContKind #contkind
+	set !CraftContName #contname
+	set !CraftContSize #contsize
+
+	set !TargetItem #false	
+	if %0 = 1
+	{
+		set !TargetItem #true
+		set !Item %1
+	}
+
+	set !RepairX #contposx + 280
+	set !RepairY #contposy + 355
+	
+	click !RepairX !RepairY dmc
+	gosub waitForSysVars contkind <> !CraftContKind contname <> !CraftContName contsize <> !CraftContSize targcurs = 1 5
+	
+	if !TargetItem
+	{
+		set #ltargetkind 1
+		set #ltargetid !Item
+		Event Macro 22 0
+		gosub waitForSysVars contkind = !CraftContKind contname = !CraftContName contsize = !CraftContSize targcurs = 0 5
+	}
+		
+	nameSpace Clear
+	nameSpace Pop
+return
+
+;==================
+;** 
+;* @name Inizialize 
+;* @ver 1.1 12Sep05
+;* @author  Boydon
+;* @purpose This function is for internal purpose only. If you plan to use this
+;*						library inside one of your script, running this will ensure you,
+;*						returning the version number of the library, that you are calling
+;*						the library in the right way.
+;*
+;* @params 
+;*
+;* @returns Version of the library with no float 
+;* @example call GetBodParameters.euo Inizialize 
+;* @status tested and working properly
+
+Sub Inizialize
+return 140
+
+;------------------------ IMPORTED SUBS ------------------------
+
+;==================================
+; Script Name: sub waitForSysVars
+; Author: Quintok / Raziel
+; Version: 1.04
+; Client Tested with: 4.0.2b
+; EUO version tested with: 0078
+; Shard OSI / FS: OSI / FS
+; Revision Date: 21st March 2004
+; Public Release: 20th March 2004
+; Global Variables Used: none
+; Purpose: same as waitForSysVar but for multiple inputs.
+;==================================
+sub waitForSysVars
+  set !cnt %0 / 3
+  if ( %0 % 3 = 1 )
+    set !timeOut #scnt + % . %0
+  else
+    set !timeOut #scnt + 5
+  for !i 1 !cnt
+  {
+    set !offset 3 * !i - 2
+    set !evaluation !offset + 1
+    set !value !offset + 2
+    if ! ( # . % . !offset % . !evaluation % . !value )
+      set !i 0
+    if #scnt > !timeout
+      return #false
+  }
+return #true

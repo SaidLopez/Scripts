@@ -1,0 +1,24 @@
+set %reg WZF_KZF_SZF_RZF_MZF_KUF_JUF_JZF
+set %bolsita CFTARQD
+
+
+repeat
+{
+finditem %reg C_ , #backpackid
+
+if #findkind = -1
+   return
+else
+{
+    if #findcnt > 0
+    {
+    set %regactual #findid
+  wait 5
+  exevent drag %regactual #findstack
+  wait 5
+  exevent dropc %bolsita
+  wait 5
+  }
+  return
+ }
+ }

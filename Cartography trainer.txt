@@ -1,0 +1,494 @@
+;=============================================
+; Script Name: XIIxOveR's Cartography Trainer
+; Author: XIIxOveR
+; Version: 3.0
+; Revision: 04/2/11
+; Purpose: Train Cartography
+;=============================================
+; Description:
+; Train Cartography from 0 to 99.5 using scrolls and Mapmaker Pens from
+; a secure in your bank or home
+;
+; Instructions:
+; 1. Put Mapmaker pens and blank scrolls in a secure in your home or bankbox.
+;    Note: Pens can be put in your backpack as well as in the secure
+; 2. If using the bankbox make sure to have it open and the secure visable
+;    before starting
+; 3. Be standing within reach of a Trash Barrel
+; 4. Hit Play and follow the prompts
+;
+; Notes:
+; 1. Any treasure maps in your pack will get trashed as well
+; 2. If you are hidden before running the script it will not try to hide you
+;
+;===========================================================================
+; Set these variables only if you know what you are doing
+;
+set %BlankScrollTypes DPF
+set %PenTypes PBG
+set %MapTypes SVH
+set %sWait 10
+set %mWait 20
+;===========================================================================
+; Start XIIxOveR's Cartography Trainer
+gosub Setup
+
+;Mainloop
+repeat
+   {
+   gosub SkillCheck Cart %StartSkill
+   set %CurrentSkill #RESULT
+   gosub SetMap %CurrentSkill
+   set %CurrentMap #RESULT
+   gosub MaxWeight 0
+   set %ScrollAmount #RESULT - #WEIGHT
+
+   while %ToHide = yes && H notin #CHARSTATUS
+      {
+      gosub UseSkill Hidi
+      wait 11s
+      }
+
+   gosub CartCraft
+   gosub TrashMap
+
+   if #menubutton = Pause
+      gosub Pause
+   }
+until #FALSE
+; End Mainloop
+
+;#######################
+; Sub Setup
+;#######################
+sub Setup
+   gosub SkillCheck Lock
+   set %StartSkill #RESULT
+
+   display ok Target your secure container
+   set #targcurs 1
+   while #targcurs = 1
+      wait 1
+   set %Secure #ltargetid
+   nextcpos 10 10
+   set #lobjectid %Secure
+   event macro 17
+
+   display ok Target your Trash Can
+   set #targcurs 1
+   while #targcurs = 1
+      wait 1
+   set %Trashcan #ltargetid
+
+   finditem %BlankScrollTypes C_ , #backpackid
+   if #findcnt > 0
+      {
+      exevent drag #findid #findstack
+      wait %sWait
+      exevent dropc %Secure
+      wait %sWait
+      }
+   finditem %BlankScrollTypes C_ , %Secure
+   if #findkind = -1
+      {
+      Display Can't find blank scrolls in your secure. Please put scrolls in your secure and start again. Script halting!
+      Halt
+      }
+
+   finditem %PenTypes C_ , #BackpackID
+   if #findkind = -1
+      {
+      finditem %PenTypes C_ , %Secure
+      if #findkind = -1
+         {
+         Display You don't seem to have any Mapmaker's Pens. Please put pens in your backpack and/or secure and start again. Script halting!
+         Halt
+         }
+       }
+
+   chooseskill Hidi
+   finditem #charid
+   if #skill >= 200 || #findtype notin AV_XU_OCB_NCB ;Human JOAT = 20 Hiding
+      {
+      display yesno Hide while training?
+      if #dispRes = yes
+         set %ToHide yes
+      if #dispRes = no
+         set %ToHide no
+      }
+
+   gosub Display_M_Skill
+   Menu set M_Skill_Current %StartSkill
+return
+
+;####################
+;SUB MaxWeight
+;####################
+; %1 = Maxweight offset
+sub MaxWeight
+   Namespace Push
+   Namespace Local MWeight
+   set !offset %1
+   If #maxweight = N/A
+      {
+      event macro 8 2
+      wait 5
+      event macro 10 2
+      }
+
+   set !MaxWeight #MaxWeight
+
+   finditem #CHARID
+   if #findtype NOTIN AV_XU_OCB_NCB ;char is human
+      set !MaxWeight !MaxWeight + 60
+
+   if !MaxWeight > 550
+      set !MaxWeight 550 ;Backpack maximum
+
+   set !MaxWeight !MaxWeight - !offset ;Adjust as see fit for overfull buffer
+   set #RESULT !MaxWeight
+   Namespace pop
+Return #RESULT
+
+;####################
+;SUB Skillcheck
+;####################
+; Checks skill, updates menu, and engages RoT Timer if applicable
+; %1 = Skill to check
+; Returns Skill Level
+sub SkillCheck
+   Namespace Push
+   NameSpace Local XIIxSkillCheck
+   set !SkillName %1
+   set !StartSkill %2
+   set !RoTShards Siege_Perilous_Mugen_
+
+   chooseskill !SkillName
+   set !CurrentSkill #skill
+   set !LastGain !GainedSkill
+
+   set !GainedSkill !CurrentSkill - !StartSkill
+   gosub Whole2Dec !CurrentSkill
+   Menu set M_Skill_Current #RESULT
+   gosub Whole2Dec !GainedSkill
+   Menu set M_Skill_Gained #RESULT
+
+   if #Shard in !RoTShards && !CurrentSkill >= 700 && !GainedSkill > !LastGain
+      gosub RoT_Timer !CurrentSkill
+
+   set #RESULT !CurrentSkill
+   Namespace Pop
+return #RESULT
+
+;#######################
+;SUB SetMap
+;#######################
+; %1 = Skill Level
+sub SetMap
+   Namespace Push
+   Namespace Local XIIxSetMap
+   set !CurrentSkill %1
+
+   if !CurrentSkill >= 995
+      {
+      Display Your skill is too high to train by making maps. Time to decode Treasure Maps to GM. Script halting.
+      Halt
+      }
+   If !CurrentSkill > 800
+      {
+      set #RESULT WorldMap
+      Namespace Pop
+      return #RESULT
+      }
+   If !CurrentSkill > 620
+      {
+      set #RESULT SeaChart
+      Namespace Pop
+      return #RESULT
+      }
+   If !CurrentSkill > 500
+      {
+      set #RESULT CityMap
+      Namespace Pop
+      return #RESULT
+      }
+   If !CurrentSkill => 0
+      set #RESULT LocalMap
+   Namespace Pop
+return #RESULT
+
+;#######################
+;SUB CartCraft
+;#######################
+sub CartCraft
+   repeat
+      {
+      repeat
+         {
+         finditem %BlankScrollTypes C_ , #BackPackID
+         if #findkind = -1
+            {
+            gosub Restock %BlankScrollTypes %Secure %ScrollAmount
+            if #RESULT = #FALSE
+               {
+               Display You seem to be out of scrolls. Please restock and Resume. Script Pausing!
+               gosub Pause
+               }
+            }
+      until #findkind <> -1
+
+      repeat
+         {
+         finditem %PenTypes C_ , #BackPackID
+         if #findkind = -1
+            {
+            gosub Restock %PenTypes %Secure 1
+            if #RESULT = #FALSE
+               {
+               Display You seem to be out of Mapmaker Pens. Please restock and Resume. Script Pausing!
+               gosub Pause
+               }
+            }
+      until #findkind <> -1
+
+      finditem %PenTypes C_ , #backpackid
+      set #lobjectid #findid
+      event macro 17
+      gosub Gumpwait generic_gump generic_gump 550_587
+      gosub ClickNWait 28 91 #TRUE generic_gump 550_587
+
+      if %CurrentMap = LocalMap
+         gosub ClickNWait 235 70 #FALSE
+      if %CurrentMap = CityMap
+         gosub ClickNWait 235 90 #FALSE
+      if %CurrentMap = SeaChart
+         gosub ClickNWait 235 110 #FALSE
+      if %CurrentMap = WorldMap
+         gosub ClickNWait 235 130 #FALSE
+      if %CurrentMap = WallMapSouth
+         gosub ClickNWait 235 150 #FALSE
+      if %CurrentMap = WallMapEast
+         gosub ClickNWait 235 170 #FALSE
+
+      finditem %MapTypes C_ , #backpackid
+      wait %sWait
+
+      if #menubutton = Pause
+         gosub Pause
+      }
+   until #findkind <> -1
+return
+
+;#######################
+;SUB TRASHMAP
+;#######################
+sub TrashMap
+   repeat
+      {
+      finditem %MapTypes C_ , #BackPackID
+      if #findkind <> -1
+         {
+         exevent drag #findid
+         wait %sWait
+         exevent dropc %Trashcan
+         wait %sWait
+         }
+      if #menubutton = Pause
+         gosub Pause
+      }
+   until #findkind = -1
+return
+
+;#######################
+;SUB RESTOCK
+;#######################
+; %1 ItemType to restock
+; %2 Container to restock from
+; %3 Number of items to take
+; Returns #FALSE if item to move is not found
+sub Restock
+   Namespace Push
+   Namespace Local Restock
+   set !Item2Stock %1
+   set !Container %2
+   set !Amount2Stock %3
+   set !sWait 10
+
+   finditem !Item2Stock C_ , !Container
+   if #findkind = -1
+      {
+      NameSpace Pop
+      Return #FALSE
+      }
+   if #findstack < !Amount2Stock
+      set !Amount2Stock #findstack
+   exevent drag #findid !Amount2Stock
+   wait !sWait
+   exevent dropc #backpackid
+   wait !sWait
+   Namespace Pop
+return
+
+;#######################
+;SUB CLICKNWAIT
+;#######################
+; %1 = Required: Xoffset
+; %2 = Required: Yoffset
+; %3 = Required: #TRUE to wait for gump, any other value to return after click
+; %4 = Required if %3 is #TRUE: Gump_Name
+; %5 = Required if %3 is #TRUE: Gump_Size
+sub ClickNWait
+   namespace push
+   namespace local CW
+   set !clickx #contposx + %1
+   set !clicky #contposy + %2
+   set !gName1 %4
+   set !gName2 %4
+   set !gSize %5
+   click !clickx !clicky
+   if %3 <> #TRUE
+      {
+      namespace pop
+      return
+      }
+   if %0 > 3
+      gosub GumpWait !gName1 !gName2 !gSize
+   namespace pop
+return
+
+;#######################
+;SUB GumpWait
+;#######################
+; %1 = Required: Gumpname 1
+; %2 = Required only if using Gumpsize: Gumpname 2
+; %3 = Optional: Gumpsize
+; Returns #TRUE if gump occured before timeout, #FALSE if timeout occured
+sub GumpWait
+   namespace push
+   namespace local GW
+   wait 10
+   set !gName1 %1
+   set !gName2 %2
+   set !gSize %3
+   set !_time #SCNT
+   while #SCNT <= !_time + 5
+      {
+      if %0 > 2
+         {
+         if ( #CONTNAME = !gName1 && #CONTSIZE = !gSize ) || ( #CONTNAME = !gName2 && #CONTSIZE = !gSize )
+            {
+            namespace pop
+            return #TRUE
+            }
+         }
+      else
+         {
+         if #CONTNAME = !gName1 || #CONTNAME = !gName2
+            {
+            namespace pop
+            return #TRUE
+            }
+         }
+      }
+   namespace pop
+return #FALSE
+
+;#######################
+;SUB UseSkill
+;#######################
+sub UseSkill
+   if %1 = Hidi
+      {
+      event macro 13 21
+      return
+      }
+Return
+
+;#######################
+;SUB Whole2Dec
+;#######################
+; %1 = Whole number value to convert to Decimal form
+; Returns Decimal value
+sub Whole2Dec
+   Namespace Push
+   Namespace XIIxDec
+   set !Int %1 / 10
+   set !Dec %1 % 10
+   set #RESULT !Int , #dot , !Dec
+   Namespace Pop
+return #RESULT
+
+;#######################
+;SUB Pause
+;#######################
+Sub Pause
+   menu delete Pause
+   menu Font BGColor BtnFace
+   menu Font Color WindowText
+   menu button resume 280 10 50 20 Resume
+   set #menubutton N/A
+   while #menubutton <> Resume
+      wait 1
+   menu delete resume
+   menu Font BGColor BtnFace
+   menu Font Color WindowText
+   menu Button Pause 280 10 50 20 Pause
+Return
+
+;####################
+;SUB RoT_Timer
+;####################
+; %1 = Skill Level
+; Original sub and idea by Paulonius @ ScriptUO.com
+; Slightly Mod'd by 12x
+Sub RoT_Timer
+   Namespace Push
+   Namespace Local XIIxRoT
+   set !Skill %1
+
+   If !Skill > 699 && !Skill < 800
+      Set !Timer #SCNT + 300
+   If !Skill > 799 && !Skill < 900
+      Set !Timer #SCNT + 480
+   If !Skill > 899 && !Skill < 1000
+      Set !Timer #SCNT + 720
+   If !Skill > 999 && !Skill < 1200
+      Set !Timer #SCNT + 900
+
+   Repeat
+      wait 1220
+      Set #LobjectID #BackpackID
+      Event Macro 17 0
+   Until #SCNT >= !Timer
+
+   Namespace Pop
+Return
+
+;####################
+;SUB DISPLAY_M_SKILL
+;####################
+sub Display_M_Skill
+	menu Clear
+	menu Window Title XIIxCart - #CHARNAME - #SHARD
+	menu Window Color Black
+	menu Window Size 350 40
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color Silver
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+	menu Text EUOLabel1 130 8 Gained:
+	menu Text EUOLabel2 1 8 Current Skill:
+	menu Font Color White
+	menu Edit M_Skill_Gained 185 5 35 35
+	menu Edit M_Skill_Current 80 5 35 35
+	menu Font Color WindowText
+	menu Font BGColor BtnFace
+	menu Button Pause 280 10 50 20 Pause
+	menu Show 450 10
+return
+

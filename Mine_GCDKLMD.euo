@@ -1,0 +1,21 @@
+Call RuneFunctions.euo FindRunebook GCDKLMD
+Set %sdlbook %return
+If %sdlBook > 0
+{
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 1 2560 891 0 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 2 2568 888 0 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 3 2431 902 0 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 4 2441 906 0 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 5 2442 894 0 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 6 2449 885 0 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 7 2437 876 0 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 8 2376 903 0 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 9 2386 907 0 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 10 2399 907 0 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 11 2397 917 0 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 12 2334 828 0 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 13 2328 817 0 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 14 2317 817 0 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 15 2349 808 0 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 16 2358 804 0 3 1341
+}

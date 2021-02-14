@@ -1,0 +1,387 @@
+;==============================================
+; Script Name: MeWon's Tailor BOD Sorter-er
+; Author: MeWonUo
+; Version: 1.3
+; Client Tested With: 7.0.27.5
+; EUO version tested with: 1.50 218
+; Shard OSI / FS: OSI
+; Revision Date: 09/01/2012
+; Public Release: 08/018/2012
+; Purpose: Sorts Tailor BODs.
+;----------------------------------------------
+;**
+;General Setup:
+;1. Need a container in your main pack with the 13 different books to sort into.
+;2. Book of BODs to be sorted in your pack.
+;3. Books need to be named as such:
+
+;Large Female
+;Small Female
+;Large Male
+;Small Male
+;Large Bone
+;Small Bone
+;Large Studded
+;Small Studded
+;Footwear
+;Large Cloth Cbd - For large, 20ct, exceptional, cloth bods that give CBD's
+;Large Cloth Kit  - For large, 20ct, normal, cloth bods that give spined kits.
+;Cloth Fill
+;Junk
+;**
+;===============================================
+; 1.3 - Added automatic book filtering.
+;     - Fixed issue causing script to timeout for some users.
+; 1.2 - Fixed a major bug with scoring certain footwear items.
+; 1.0 - Initial release.
+;===============================================
+
+
+gosub setup
+
+gosub BookScan
+
+gosub setfilter
+
+repeat
+  gosub DropBod
+  gosub GetBodScore
+  gosub EvalDrop
+  gosub DropToBook
+until #false
+
+;;------------;;
+;;--SetupBks--;;
+;;------------;;
+
+sub setup
+
+display Select book of BODs to be sorted.
+
+set #targcurs 1
+
+ClickLoop1:
+if #targcurs = 1
+	goto clickloop1
+
+set %SortBook #ltargetid
+set #lObjectID %SortBook
+
+display Select container with books to sort into.
+
+set #targcurs 1
+
+ClickLoop1:
+if #targcurs = 1
+	goto clickloop1
+
+set %SortBag #ltargetid
+set #lObjectID %SortBag
+
+return
+;;------------;;
+;;--BookScan--;;
+;;------------;;
+
+sub BookScan
+
+finditem %Sortbag c_ , #backpackid
+set #lobjectid #findid
+event macro 17 0
+repeat
+until #contid = %Sortbag
+wait 10
+
+repeat
+finditem DYM c_ , %Sortbag
+if #findkind = -1
+{
+return
+}
+
+event property #findid
+if large , #spc , Female in #property
+  set %LF #findid
+if Small , #spc , Female in #property
+  set %SF #findid
+if large , #spc , Male in #property
+  set %LM #findid
+if small , #spc , Male in #property
+  set %SM #findid
+if large , #spc , Studded in #property
+  set %LS #findid
+if small , #spc , Studded in #property
+  set %SS #findid
+if large , #spc , Bone in #property
+  set %LB #findid
+if small , #spc , Bone in #property
+  set %SB #findid
+if footwear in #property
+  set %FW #findid
+if junk in #property
+  set %JK #findid
+if large , #spc , Cloth , #spc , CBD in #property
+  set %LCC #findid
+if large , #spc , Cloth , #spc , Kit in #property
+  set %LCK #findid
+if cloth , #spc , Fill in #property
+  set %CF #findid
+if oops in #property
+  set %OOPS #findid
+
+ignoreitem #findid
+until #false
+
+;;-----------;;
+;;--DropBod--;;
+;;-----------;;
+
+sub DropBod
+
+wait 10
+
+set %findtimeout #scnt + 5
+repeat
+ finditem %SortBook c_ , #backpackid
+ set #lobjectid %SortBook
+ event macro 17 0
+ gosub WaitForGump
+
+ set %clickx #contposx + 41
+ set %clicky #contposy + 104
+ click %clickx %clicky f
+ wait 10
+ finditem EYM C_ , #backpackid
+until #findcnt  > 0 || #scnt > %findtimeout
+if #scnt > %findtimeout
+{
+display No more BOD's to sort
+halt
+}
+
+gosub WaitForGump
+
+click %clickx %clicky r
+wait 10
+
+
+return
+
+;;---------------;;
+;;--GetBODScore--;;
+;;---------------;;
+
+sub GetBODScore
+
+set %score 0
+set %findtimeout #scnt + 5
+repeat
+finditem EYM c_ , #backpackid
+event property #findid
+until weight in #property || #scnt > %findtimeout
+wait 10
+if #scnt > %findtimeout
+{
+display No more BODs to sort
+halt
+}
+event property #findid
+
+;display #property
+
+if barbed in #property
+	set %score %score + 150000
+if horned in #property
+	set %score %score + 140000
+if spined in #property
+	set %score %score + 130000
+if normal , #spc , leather in #property
+	set %score %score + 120000
+if cloth in #property
+	set %score %score + 110000
+
+if Leather , #spc , Skirt in #property
+	set %score %score + 5000
+if Leather , #spc , Shorts in #property && Large notin #property
+	set %score %score + 5000
+if Leather , #spc , Bustier in #property && Large notin #property
+	set %score %score + 5000
+if Female , #spc , Leather , #spc , Armor in #property && Large notin #property
+	set %score %score + 5000
+if Studded , #spc , Bustier in #property && Large notin #property
+	set %score %score + 5000
+if Studded , #spc , Armor in #property && Large notin #property
+	set %score %score + 5000
+if Leather , #spc , Gorget in #property
+	set %score %score + 4000
+if Leather , #spc , Cap in #property && Large notin #property
+	set %score %score + 4000
+if Leather , #spc , Gloves in #property && Large notin #property
+	set %score %score + 4000
+if Leather , #spc , Sleeves in #property && Large notin #property
+	set %score %score + 4000
+if Leather , #spc , Leggings in #property && Large notin #property
+	set %score %score + 4000
+if Leather , #spc , Tunic in #property && Large notin #property
+	set %score %score + 4000
+if Bone , #spc , Helmet in #property
+	set %score %score + 3000
+if Bone , #spc , Gloves in #property && Large notin #property
+	set %score %score + 3000
+if Bone , #spc , Arms in #property && Large notin #property
+	set %score %score + 3000
+if Bone , #spc , Leggings in #property && Large notin #property
+	set %score %score + 3000
+if Bone , #spc , Armor in #property && Large notin #property
+	set %score %score + 3000
+if Studded , #spc , Gorget in #property
+	set %score %score + 2000
+if Studded , #spc , Gloves in #property && Large notin #property
+	set %score %score + 2000
+if Studded , #spc , Sleeves in #property && Large notin #property
+	set %score %score + 2000
+if Studded , #spc , Leggings in #property && Large notin #property
+	set %score %score + 2000
+if Studded , #spc , Tunic in #property && Large notin #property
+	set %score %score + 2000
+if Shoes in #property && skullcap notin #property
+	set %score %score + 1000
+if Sandals in #property && Large notin #property
+	set %score %score + 1000
+if Boots in #property && Large notin #property
+	set %score %score + 1000
+if Feathered in #property && Small notin #property
+	set %score %score + 500
+
+
+if 20 in #property
+	set %score %score + 300
+if 15 in #property
+	set %score %score + 200
+if 10 in #Property
+	set %score %score + 100
+
+if normal in #property
+	set %score %score + 10
+if exceptional in #property
+	set %score %score + 20
+
+if small , #spc , bulk in #property
+  set %score %score + 1
+if large , #spc , bulk in #property
+  set %score %score + 2
+
+;display %score
+
+return
+
+;;---------------;;
+;;--WaitForGump--;;
+;;---------------;;
+
+sub WaitForGump
+
+set %failsafe_timer #scnt + 2
+repeat
+until #contsize = 620_459 || ( #scnt > %failsafe_timer )
+
+return
+
+;;------------;;
+;;--EvalDrop--;;
+;;------------;;
+
+sub EvalDrop
+
+set %dropBook n/a
+
+if %score = 155112 || %score = 145112 || %score = 135112 || %score = 125112 || %score = 155212 || %score = 145212 || %score = 135212 || %score = 125212 || %score = 155312 || %score = 145312 || %score = 135312 || %score = 125312 || %score = 155122 || %score = 145122 || %score = 135122 || %score = 125122 || %score = 155222 || %score = 145222 || %score = 135222 || %score = 125222 || %score = 155322 || %score = 145322 || %score = 135322 || %score = 125322 || %score = 125132 || %score = 125232 || %score = 125332
+  set %DropBook %LF
+if %score = 155111 || %score = 145111 || %score = 135111 || %score = 125111 || %score = 155211 || %score = 145211 || %score = 135211 || %score = 125211 || %score = 155311 || %score = 145311 || %score = 135311 || %score = 125311 || %score = 155121 || %score = 145121 || %score = 135121 || %score = 125121 || %score = 155221 || %score = 145221 || %score = 135211 || %score = 125211 || %score = 155321 || %score = 145321 || %score = 135321 || %score = 125321 || %score = 125131 || %score = 125231 || %score = 125331
+  set %DropBook %SF
+if %score = 154112 || %score = 144112 || %score = 134112 || %score = 124112 || %score = 154212 || %score = 144212 || %score = 134212 || %score = 124212 || %score = 154312 || %score = 144312 || %score = 134312 || %score = 124312 || %score = 154122 || %score = 144122 || %score = 134122 || %score = 124122 || %score = 154222 || %score = 144222 || %score = 134222 || %score = 124222 || %score = 154322 || %score = 144322 || %score = 134322 || %score = 124322 || %score = 124132 || %score = 124232 || %score = 124332
+  set %DropBook %LM
+if %score = 154111 || %score = 144111 || %score = 134111 || %score = 124111 || %score = 154211 || %score = 144211 || %score = 134211 || %score = 124211 || %score = 154311 || %score = 144311 || %score = 134311 || %score = 124311 || %score = 154121 || %score = 144121 || %score = 134121 || %score = 124121 || %score = 154221 || %score = 144221 || %score = 134221 || %score = 124221 || %score = 154321 || %score = 144321 || %score = 134321 || %score = 124321 || %score = 124131 || %score = 124231 || %score = 124331
+  set %DropBook %SM
+if %score = 153112 || %score = 143112 || %score = 133112 || %score = 123112 || %score = 153212 || %score = 143212 || %score = 133212 || %score = 123212 || %score = 153312 || %score = 143312 || %score = 133312 || %score = 123312 || %score = 153122 || %score = 143122 || %score = 133122 || %score = 123122 || %score = 153222 || %score = 143222 || %score = 133222 || %score = 123222 || %score = 153322 || %score = 143322 || %score = 133322 || %score = 123322 || %score = 123132 || %score = 123232 || %score = 123332
+  set %DropBook %LB
+if %score = 153111 || %score = 143111 || %score = 133111 || %score = 123111 || %score = 153211 || %score = 143211 || %score = 133211 || %score = 123211 || %score = 153311 || %score = 143311 || %score = 133311 || %score = 123311 || %score = 153121 || %score = 143121 || %score = 133121 || %score = 123121 || %score = 153221 || %score = 143221 || %score = 133221 || %score = 123221 || %score = 153321 || %score = 143321 || %score = 133321 || %score = 123321 || %score = 123131 || %score = 123231 || %score = 123331
+  set %DropBook %SB
+if %score = 152112 || %score = 142112 || %score = 132112 || %score = 122112 || %score = 152212 || %score = 142212 || %score = 132212 || %score = 122212 || %score = 152312 || %score = 142312 || %score = 132312 || %score = 122312 || %score = 152122 || %score = 142122 || %score = 132122 || %score = 122122 || %score = 152222 || %score = 142222 || %score = 132222 || %score = 122222 || %score = 152322 || %score = 142322 || %score = 132322 || %score = 122322 || %score = 122132 || %score = 122232 || %score = 122332
+  set %DropBook %LS
+if %score = 152111 || %score = 142111 || %score = 132111 || %score = 122111 || %score = 152211 || %score = 142211 || %score = 132211 || %score = 122211 || %score = 152311 || %score = 142311 || %score = 132311 || %score = 122311 || %score = 152121 || %score = 142121 || %score = 132121 || %score = 122121 || %score = 152221 || %score = 142221 || %score = 132221 || %score = 122221 || %score = 152321 || %score = 142321 || %score = 132321 || %score = 122321 || %score = 122131 || %score = 122231 || %score = 122331
+  set %DropBook %SS
+if %score = 151111 || %score = 151112 || %score = 151211 || %score = 151212 || %score = 151311 || %score = 151312 || %score = 151121 || %score = 151122 || %score = 151221 || %score = 151222 || %score = 151321 || %score = 151322 || %score = 141111 || %score = 141112 || %score = 141211 || %score = 141212 || %score = 141311 || %score = 141312 || %score = 141121 || %score = 141122 || %score = 141221 || %score = 141222 || %score = 141321 || %score = 141322 || %score = 131111 || %score = 131112 || %score = 131211
+  set %DropBook %FW
+if %score = 131212 || %score = 131311 || %score = 131312 || %score = 131121 || %score = 131122 || %score = 131221 || %score = 131222 || %score = 131321 || %score = 131322 || %score = 121111 || %score = 121112 || %score = 121211 || %score = 121212 || %score = 121311 || %score = 121312 || %score = 121121 || %score = 121122 || %score = 121221 || %score = 121222 || %score = 121321 || %score = 121322 || %score = 121131 || %score = 121132 || %score = 121231 || %score = 121232 || %score = 121331 || %score = 121332
+  set %DropBook %FW
+if %score = 110112 || %score = 110212 || %score = 110122 || %score = 110222 || %score = 110321
+  set %DropBook %JK
+if %score = 110612 || %score = 110712 || %score = 110812 || %score = 110622 || %score = 110722 || %score = 110822
+  set %DropBook %LCC
+if %score = 110312
+  set %DropBook %LCK
+if %score = 110111 || %score = 110211 || %score = 110311 || %score = 110121 || %score = 110221 || %score = 110321
+  set %DropBook %CF
+if %DropBook = n/a
+  set %DropBook %OOPS
+
+return
+
+;;--------------;;
+;;--DropToBook--;;
+;;--------------;;
+
+sub DropToBook
+
+exevent drag #findid
+wait 10
+exevent dropc %DropBook
+wait 10
+
+return
+
+;;-------------;;
+;;--SetFilter--;;
+;;-------------;;
+
+sub SetFilter
+
+finditem %SortBook c_ , #backpackid
+ set #lobjectid %SortBook
+ event macro 17 0
+ gosub waitforgump
+ wait 10
+
+;set filter
+set %clickx #contposx + 48
+set %clicky #contposy + 41
+click %clickx %clicky f
+gosub waitforgump
+wait 20
+
+;clear filter
+set %clickx #contposx + 388
+set %clicky #contposy + 426
+click %clickx %clicky f
+gosub waitforgump
+wait 20
+
+;select tailor
+set %clickx #contposx + 38
+set %clicky #contposy + 276
+click %clickx %clicky f
+gosub waitforgump
+wait 20
+
+;apply
+set %clickx #contposx + 518
+set %clicky #contposy + 426
+click %clickx %clicky f
+gosub waitforgump
+wait 20
+
+return
+
+
+

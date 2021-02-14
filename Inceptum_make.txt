@@ -1,0 +1,109 @@
+set %my_secure_BS FRRDCRD ;Box: LKSAPMD Tailor: XSBYPMD BS: PGUIOMD
+set %my_secure_tai FRRDCRD
+set %my_bod XXX
+set %b_bod EYM
+set %end_book JEZONMD ;PLZRGND
+set %ibook PXFJGRD ;UKPVOMD
+;CAPVOMD ;UPBVOMD ;CSCVOMD ;AUBVOMD ;STFVOMD ;GNFVOMD ;OGZRGND ;UNOVOMD ;EPZRGND
+;CHOVOMD -- Horned
+;JZNAOMD -- Barbed
+;JPPVOMD -- Buenos
+set %patchh C:\Easyuo\s7Inceptum
+;Tailor TDMNMMD
+;;SVPAPMD ;Normal:ZHNVLMD ;FXCXLMD ;SVPAPMD
+
+
+
+inicio:
+set %my_secure %my_secure_tai
+gosub Checks
+wait 10
+gosub Sacarbod
+wait 10
+finditem %b_bod C_ , #backpackid
+wait 10
+  ;if #findkind = -1
+    ;sound E:/musica/AAA_sonidos/navegar.wav
+if #findkind <> -1
+{
+  if #findcol <> 1155
+    set %my_secure %my_secure_BS
+call %patchh #findid %my_secure #false
+}
+wait 20
+gosub Guardarbod
+
+if #contsize = 530_507
+{
+  event SysMessage Ahí ta mi gump!
+  set %my_x_2 #contposx + 50
+  set %my_y_2 #contposy + 50
+  click %my_x_2 %my_y_2 r
+}
+
+goto inicio
+
+
+;########### Checks ###########
+sub Checks
+  set #lobjectid %my_secure_bs
+  event macro 17 0
+  wait 10
+  set #contposx 385
+  set #contposy 650
+  wait 10
+  set #lobjectid %my_secure_tai
+  event macro 17 0
+  wait 10
+  set #contposx 157
+  set #contposy 655
+  wait 10
+
+return
+
+;########### Sacarbod ###########
+sub Sacarbod
+  finditem %b_bod C_ , #backpackid
+  if #findkind <> -1
+    return
+  set #lobjectid %ibook
+  event macro 17 0
+  gosub waitforgump 615_454
+  set %my_x #contposx + 40
+  set %my_y #contposy + 101
+  click %my_x %my_y
+  gosub waitforgump 615_454
+  click %my_x %my_y r
+return
+
+;########### Guardarbod ###########
+sub Guardarbod
+  finditem %b_bod C_ , #backpackid
+  if #findkind = -1
+    return
+  for #FINDINDEX 1 #FINDCNT
+  {
+    Exevent Drag #findid 1
+    wait 10
+    Exevent Dropc %end_book
+    wait 20
+  }
+  gosub waitforgump 615_454
+  wait 10
+  set %my_x_1 #contposx + 50
+  set %my_y_1 #contposy + 50
+  click %my_x_1 %my_y_1 r
+return
+
+;########### waitforgump ###########
+;usage gosub waitforgump #contsize
+sub waitforgump
+  set #result 0
+  set %Csize %1
+  set %timeout #SCNT + 7
+  repeat
+    until #CONTSIZE = %Csize || %timeout =< #SCNT
+    if %timeout = #SCNT
+      return no
+return
+

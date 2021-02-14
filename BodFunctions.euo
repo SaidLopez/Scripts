@@ -1,0 +1,1269 @@
+set %_0 %0
+goto %_0
+0:
+    exit
+1:
+    gosub %1
+    exit
+2:
+    gosub %1 %2
+    exit
+3:
+    gosub %1 %2 %3
+    exit
+4:
+    gosub %1 %2 %3 %4
+    exit
+5:
+    gosub %1 %2 %3 %4 %5
+    exit
+6:
+    gosub %1 %2 %3 %4 %5 %6
+    exit
+7:
+    gosub %1 %2 %3 %4 %5 %6 %7
+    exit
+8:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8
+    exit
+9:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9
+    exit
+10:
+    gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10
+    exit
+    
+;==================
+;* To do list
+;*
+;* Add support for Blacksmithing:
+;* 		Add blacksmity support implementing sub GetSmithyBodParameters (49 bods to be implemented!!)
+;* 		Complete sub GetBodMaterial with blacksmithy material support
+
+;==================
+;** 
+;* @name GetTailorBodParameters 
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose Get info about the piece that is needed to fill the BOD 
+;*     	
+;* @params %1 req #property of the bod
+;* 				 %2 opt name of the variable containing the category without the "%" symbol (default is "category")
+;* 				 %3 opt name of the variable containing the piece without the "%" symbol (default is "piece")
+;* 				 %4 opt name of the variable containing the required cloth without the "%" symbol (default is "cloth")
+;* 				 %5 opt name of the variable containing the required hides without the "%" symbol (default is "hides")
+;*				 %6 opt name of the variable containing the required bones without the "%" symbol (default is "bones")
+;*				 %7 opt name of the variable containing the item type without the "%" symbol (default is "type")
+;*
+;* @returns 
+;* @example call GetBodParameters.euo GetTailorBodParameters #property
+;*							this is the standar call
+;*					call GetBodParameters.euo GetTailorBodParameters #property selection piece_number cloth leather bone item_type
+;*							this is a call wich will return infos in %selection, %piece_number,
+;*						  %cloth, %leather and %bone item_type variables
+;* @status deeply tested
+
+sub GetTailorBodParameters
+	
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub GetTailorBodParameters: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+	
+	if %2 = N/A || %0 = 1
+		set %2 category
+	if %3 = N/A || %0 <= 2
+		set %3 piece
+	if %4 = N/A || %0 <= 3
+		set %4 cloth
+	if %5 = N/A || %0 <= 4
+		set %5 hides
+	if %6 = N/A || %0 <= 5
+		set %6 bones
+	if %7 = N/A || %0 <= 6
+		set %7 type
+		
+	nameSpace Push
+	nameSpace Local GetTailorBodParameters , #time , #random , #scnt2
+
+	set !Property %1
+	set !Category %2
+	set !Piece %3
+	set !Cloth %4
+	set !Hides %5
+	set !Bones %6
+	set !Type %7
+	
+	set !lpc #lpc
+	set #lpc 500
+	
+	set % . !Category N/A
+	set % . !Cloth 0
+	set % . !Hides 0
+	set % . !Bones 0
+	
+	if cap in !Property && skull in !Property && leather notin !Property
+	{
+		set % . !Category 2
+		set % . !Piece 1
+		set % . !Cloth 2
+		set % . !Type CZH
+		goto gbp_out
+	}
+	
+	if cap in !Property && skull notin !Property && leather notin !Property
+	{
+		set % . !Category 2
+		set % . !Piece 4
+		set % . !Cloth 11
+		set % . !Type VVI
+		goto gbp_out
+	}
+
+	if bandana in !Property
+	{
+		set % . !Category 2
+		set % . !Piece 2
+		set % . !Cloth 2
+		set % . !Type GZH
+		goto gbp_out
+	}
+
+	if hat in !Property
+	{
+		
+		if floppy in !Property
+		{
+			set % . !Category 2
+			set % . !Piece 3
+			set % . !Cloth 11
+			set % . !Type BWI
+			goto gbp_out
+		}
+		
+		if wide in !Property
+		{
+			set % . !Category 2
+			set % . !Piece 5
+			set % . !Cloth 12
+			set % . !Type WVI
+			goto gbp_out
+		}
+		
+		if straw in !Property && tall notin !Property
+		{
+			set % . !Category 2
+			set % . !Piece 6
+			set % . !Cloth 10
+			set % . !Type XVI
+			goto gbp_out
+		}
+		
+		if straw in !Property && tall in !Property
+		{
+			set % . !Category 2
+			set % . !Piece 7
+			set % . !Cloth 13
+			set % . !Type YVI
+			goto gbp_out
+		}
+		
+		if wizard in !Property
+		{
+			set % . !Category 2
+			set % . !Piece 8
+			set % . !Cloth 15
+			set % . !Type IWI
+			goto gbp_out
+		}
+		
+		if feathered in !Property
+		{
+			set % . !Category 2
+			set % . !Piece 10
+			set % . !Cloth 12
+			set % . !Type KWI
+			goto gbp_out
+		}
+		
+		if tricorne in !Property
+		{
+			set % . !Category 2
+			set % . !Piece 11
+			set % . !Cloth 12
+			set % . !Type JWI
+			goto gbp_out
+		}
+		
+		if jester in !Property
+		{
+			set % . !Category 2
+			set % . !Piece 12
+			set % . !Cloth 15
+			set % . !Type EWI
+			goto gbp_out
+		}
+	}
+		
+	if bonnet in !Property
+	{
+		set % . !Category 2
+		set % . !Piece 9
+		set % . !Cloth 11
+		set % . !Type HWI
+		goto gbp_out
+	}
+	
+	if doublet in !Property
+	{
+		set % . !Category 3
+		set % . !Piece 1
+		set % . !Cloth 8
+		set % . !Type XVL
+		goto gbp_out
+	}
+	
+	if shirt in !Property && fancy notin !Property
+	{
+		set % . !Category 3
+		set % . !Piece 2
+		set % . !Cloth 8
+		set % . !Type FCI
+		goto gbp_out
+	}
+	
+	if shirt in !Property && fancy in !Property
+	{
+		set % . !Category 3
+		set % . !Piece 3
+		set % . !Cloth 8
+		set % . !Type TQL
+		goto gbp_out
+	}
+	
+	if tunic in !Property && leather notin !Property && studded notin !Property
+	{
+		set % . !Category 3
+		set % . !Piece 4
+		set % . !Cloth 12
+		set % . !Type HCM
+		goto gbp_out
+	}
+	
+	if surcoat in !Property
+	{
+		set % . !Category 3
+		set % . !Piece 5
+		set % . !Cloth 14
+		set % . !Type PAM
+		goto gbp_out
+	}
+	
+	if dress in !Property
+	{
+		if plain in !Property
+		{
+			set % . !Category 3
+			set % . !Piece 6
+			set % . !Cloth 10
+			set % . !Type DWL
+			goto gbp_out
+		}
+	
+		if fancy in !Property
+		{
+			set % . !Category 3
+			set % . !Piece 7
+			set % . !Cloth 12
+			set % . !Type VQL_EWL
+			goto gbp_out
+		}
+	}
+
+	if cloak in !Property
+	{
+		set % . !Category 3
+		set % . !Piece 8
+		set % . !Cloth 14
+		set % . !Type DCI
+		goto gbp_out
+	}
+	
+	if robe in !Property
+	{
+		set % . !Category 3
+		set % . !Piece 9
+		set % . !Cloth 16
+		set % . !Type FWL
+		goto gbp_out
+	}
+	
+	if suit in !Property
+	{
+		set % . !Category 3
+		set % . !Piece 10
+		set % . !Cloth 24
+		set % . !Type XBM
+		goto gbp_out
+	}
+	
+	if pants in !Property
+	{
+		if  short in !Property
+		{
+			set % . !Category 3
+			set % . !Piece 20
+			set % . !Cloth 6
+			set % . !Type EDI
+			goto gbp_out
+		}
+	
+		if long in !Property
+		{
+			set % . !Category 3
+			set % . !Piece 21
+			set % . !Cloth 8
+			set % . !Type VDI
+			goto gbp_out
+		}
+	}
+	
+	if kilt in !Property
+	{
+		set % . !Category 3
+		set % . !Piece 22
+		set % . !Cloth 8
+		set % . !Type LDI
+		goto gbp_out
+	}
+	
+	if skirt in !Property && leather notin !Property
+	{
+		set % . !Category 3
+		set % . !Piece 23
+		set % . !Cloth 10
+		set % . !Type GCI
+		goto gbp_out
+	}
+	
+	if body in !Property
+	{
+		set % . !Category 4
+		set % . !Piece 1
+		set % . !Cloth 4
+		set % . !Type FZH
+		goto gbp_out
+	}
+	
+	if apron in !Property
+	{
+		if half in !Property
+		{
+			set % . !Category 4
+			set % . !Piece 2
+			set % . !Cloth 6
+			set % . !Type XDI
+			goto gbp_out
+		}
+		
+		if full in !Property
+		{
+			set % . !Category 4
+			set % . !Piece 3
+			set % . !Cloth 10
+			set % . !Type RDI
+			goto gbp_out
+		}
+	}
+	
+	if leather in !Property && studded notin !Property && bone notin !Property
+	{
+		if gorget in !Property
+		{
+			set % . !Category 6
+			set % . !Piece 4
+			set % . !Hides 4
+			set % . !Type JKH
+			goto gbp_out
+		}
+	
+		if cap in !Property
+		{
+			set % . !Category 6
+			set % . !Piece 5
+			set % . !Hides 2
+			set % . !Type NJL
+			goto gbp_out
+		}
+	
+		if gloves in !Property
+		{
+			set % . !Category 6
+			set % . !Piece 6
+			set % . !Hides 3
+			set % . !Type KKH
+			goto gbp_out
+		}
+	
+		if sleeves in !Property
+		{
+			set % . !Category 6
+			set % . !Piece 7
+			set % . !Hides 8
+			set % . !Type PKH
+			goto gbp_out
+		}
+		
+		if leggings in !Property
+		{
+			set % . !Category 6
+			set % . !Piece 8
+			set % . !Hides 10
+			set % . !Type VKH
+			goto gbp_out
+		}
+		
+		if tunic in !Property
+		{
+			set % . !Category 6
+			set % . !Piece 9
+			set % . !Hides 12
+			set % . !Type QKH
+			goto gbp_out
+		}
+	
+		if shorts in !Property 
+		{
+			set % . !Category 9
+			set % . !Piece 1
+			set % . !Hides 8
+			set % . !Type QSK
+			goto gbp_out
+		}
+		
+		if skirt in !Property
+		{
+			set % . !Category 9
+			set % . !Piece 2
+			set % . !Hides 6
+			set % . !Type YSK
+			goto gbp_out
+		}
+		
+		if bustier in !Property
+		{
+			set % . !Category 9
+			set % . !Piece 3
+			set % . !Hides 6
+			set % . !Type ATK
+			goto gbp_out
+		}
+		
+		if female in !Property
+		{
+			set % . !Category 9
+			set % . !Piece 5
+			set % . !Hides 8
+			set % . !Type OSK
+			goto gbp_out
+		}
+	}
+	
+	if studded in !Property
+	{
+		if gorget in !Property
+		{
+			set % . !Category 8
+			set % . !Piece 1
+			set % . !Hides 6
+			set % . !Type ALH
+			goto gbp_out
+		}
+		
+		if gloves in !Property
+		{
+			set % . !Category 8
+			set % . !Piece 2
+			set % . !Hides 8
+			set % . !Type XKH
+			goto gbp_out
+		}
+		
+		if sleeves in !Property
+		{
+			set % . !Category 8
+			set % . !Piece 3
+			set % . !Hides 10
+			set % . !Type GLH
+			goto gbp_out
+		}
+		
+		if leggings in !Property
+		{
+			set % . !Category 8
+			set % . !Piece 4
+			set % . !Hides 12
+			set % . !Type MLH
+			goto gbp_out
+		}
+		
+		if tunic in !Property
+		{
+			set % . !Category 8
+			set % . !Piece 5
+			set % . !Hides 14
+			set % . !Type LLH
+			goto gbp_out
+		}
+		
+		if bustier in !Property
+		{
+			set % . !Category 9
+			set % . !Piece 4
+			set % . !Hides 8
+			set % . !Type USK
+			goto gbp_out
+		}
+	
+		if armor in !Property
+		{
+			set % . !Category 9
+			set % . !Piece 6
+			set % . !Hides 10
+			set % . !Type SSK
+			goto gbp_out
+		}
+	}
+	
+	if bone in !Property
+	{
+		if helmet in !Property
+		{
+			set % . !Category 10
+			set % . !Piece 1
+			set % . !Hides 4
+			set % . !Bones 2
+			set % . !Type ZPH
+			goto gbp_out
+		}
+		
+		if gloves in !Property
+		{
+			set % . !Category 10
+			set % . !Piece 2
+			set % . !Hides 6
+			set % . !Bones 2
+			set % . !Type AQH
+			goto gbp_out
+		}
+		
+		if arms in !Property
+		{
+			set % . !Category 10
+			set % . !Piece 3
+			set % . !Hides 8
+			set % . !Bones 4
+			set % . !Type QPH
+			goto gbp_out
+		}
+		
+		if leggings in !Property
+		{
+			set % . !Category 10
+			set % . !Piece 4
+			set % . !Hides 10
+			set % . !Bones 6
+			set % . !Type CQH
+			goto gbp_out
+		}
+		
+		if armor in !Property
+		{
+			set % . !Category 10
+			set % . !Piece 5
+			set % . !Hides 12
+			set % . !Bones 10
+			set % . !Type PPH
+			goto gbp_out
+		}
+	}
+	
+	if boots in !Property && thigh notin !Property
+	{
+		set % . !Category 5
+		set % . !Piece 7
+		set % . !Hides 8
+		set % . !Type TVI
+		goto gbp_out
+	}
+	
+	if boots in !Property && thigh in !Property
+	{
+		set % . !Category 5
+		set % . !Piece 7
+		set % . !Hides 10
+		set % . !Type ZVI
+		goto gbp_out
+	}
+	
+	if shoes in !Property
+	{
+		set % . !Category 5
+		set % . !Piece 6
+		set % . !Hides 6
+		set % . !Type PVI
+		goto gbp_out
+	}
+	
+	if sandals in !Property
+	{
+		set % . !Category 5
+		set % . !Piece 5
+		set % . !Hides 4
+		set % . !Type NVI
+		goto gbp_out
+	}
+	
+	gbp_out:
+	set #lpc !lpc
+	
+	if % . !Category = N/A
+	{
+		display ok Impossible to recognize the bod. Please report the problem to Boydon! $script will be halted!
+		halt
+	}
+	
+	nameSpace Clear
+	nameSpace Pop
+return
+
+;==================
+;** 
+;* @name GetSmithyBodParameters 
+;* @ver 1.0 19Aug05 
+;* @author  Boydon
+;* @purpose Get info about the piece that is needed to fill the BOD 
+;*     	
+;* @params %1 req #property of the bod
+;* 				 %2 opt name of the variable containing the category without the "%" symbol (default is "category")
+;* 				 %3 opt name of the variable containing the piece without the "%" symbol (default is "piece")
+;* 				 %4 opt name of the variable containing the required ingots without the "%" symbol (default is "ingots")
+;*
+;* @returns 
+;* @example call GetBodParameters.euo GetSmithyBodParameters #property
+;*							this is the standar call
+;*					call GetBodParameters.euo GetTailorBodParameters #property selection piece_number ing item_type
+;*							this is a call wich will return infos in %selection, %piece_number,
+;*						  %ing and %item_type variables
+;* @status still incomplete
+
+sub GetSmithyBodParameters
+	
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub GetTailorBodParameters: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+	
+	if %2 = N/A || %0 = 1
+		set %2 category
+	if %3 = N/A || %0 <= 2
+		set %3 piece
+	if %4 = N/A || %0 <= 3
+		set %4 ingots
+	if %5 = N/A || %0 <= 4
+		set %5 Type
+
+		
+	nameSpace Push
+	nameSpace Local GetTailorBodParameters , #time , #random , #scnt2
+
+	set !Property %1
+	set !Category %2
+	set !Piece %3
+	set !Ingots %4
+	set !Type %5
+	
+	set !lpc #lpc
+	set #lpc 500
+	
+	set % . !Category N/A
+	set % . !Cloth 0
+	set % . !Ingots 0
+	
+	if plate in #property
+	{
+		if Arms in #property
+		{
+			set % . !Category 3
+			set % . !Piece 1
+			set % . !Ingots 18
+			set % . !Type MSH
+			goto gbbp_out
+		}
+		
+		if female in #property
+		{
+			set % . !Category 3
+			set % . !Piece 6
+			set % . !Ingots 20
+			set % . !Type MSK
+			goto gbbp_out
+		}
+		
+		if legs in #property
+		{
+			set % . !Category 3
+			set % . !Piece 4
+			set % . !Ingots 20
+			set % . !Type LSH
+			goto gbbp_out
+		}
+		
+		if gorget in #property
+		{
+			set % . !Category 3
+			set % . !Piece 3
+			set % . !Ingots 10
+			set % . !Type NSH
+			goto gbbp_out
+		}
+		
+		if tunic in #property
+		{
+			set % . !Category 3
+			set % . !Piece 5
+			set % . !Ingots 25
+			set % . !Type HSH
+			goto gbbp_out
+		}
+		
+		if gloves in #property
+		{
+			set % . !Category 3
+			set % . !Piece 2
+			set % . !Ingots 12
+			set % . !Type ISH
+			goto gbbp_out
+		}
+		
+		if helm in #property
+		{
+			set % . !Category 4
+			set % . !Piece 5
+			set % . !Ingots 15
+			set % . !Type OSH
+			goto gbbp_out
+		}
+	}
+	
+	if ringmail in #property
+	{
+		if Leggings in #property
+		{
+			set % . !Category 1
+			set % . !Piece 2
+			set % . !Ingots 16
+			set % . !Type IMH
+			goto gbbp_out
+		}
+		
+		if Gloves in #property
+		{
+			set % . !Category 1
+			set % . !Piece 1
+			set % . !Ingots 10
+			set % . !Type BMH
+			goto gbbp_out
+		}
+		
+		if Tunic in #property
+		{
+			set % . !Category 1
+			set % . !Piece 4
+			set % . !Ingots 18
+			set % . !Type WLH
+			goto gbbp_out
+		}
+		
+		if Sleeves in #property
+		{
+			set % . !Category 1
+			set % . !Piece 3
+			set % . !Ingots 14
+			set % . !Type YLH
+			goto gbbp_out
+		}
+	}
+	
+	if chainmail in #property
+	{
+		if Leggings in #property
+		{
+			set % . !Category 2
+			set % . !Piece 2
+			set % . !Ingots 18
+			set % . !Type APH
+			goto gbbp_out
+		}
+		
+		if coif in #property
+		{
+			set % . !Category 2
+			set % . !Piece 1
+			set % . !Ingots 10
+			set % . !Type DPH
+			goto gbbp_out
+		}
+		
+		if Tunic in #property
+		{
+			set % . !Category 2
+			set % . !Piece 3
+			set % . !Ingots 20
+			set % . !Type ZOH
+			goto gbbp_out
+		}
+
+	}
+	
+	if helmet in #property
+	{
+		if close in #property
+		{
+			set % . !Category 4
+			set % . !Piece 2
+			set % . !Ingots 15
+			set % . !Type ESH
+			goto gbbp_out
+		}
+		
+		if ! ( close in #property )
+		{
+			set % . !Category 4
+			set % . !Piece 3
+			set % . !Ingots 15
+			set % . !Type GSH
+			goto gbbp_out
+		}
+	}
+	
+	if Shield in #property
+	{
+		if Bronze , #SPC , Shield in #property
+		{
+			set % . !Category 5
+			set % . !Piece 2
+			set % . !Ingots 12
+			set % . !Type GIK
+			goto gbbp_out
+		}
+		
+		if Tear in #property && Kite in #property
+		{
+			set % . !Category 5
+			set % . !Piece 6
+			set % . !Ingots 16
+			set % . !Type MIK
+			goto gbbp_out
+		}
+		
+		if Metal in #property && Kite in #property
+		{
+			set % . !Category 5
+			set % . !Piece 5
+			set % . !Ingots 8
+			set % . !Type AIK
+			goto gbbp_out
+		}
+		
+		if Metal in #property && Kite notin #property
+		{
+			set % . !Category 5
+			set % . !Piece 4
+			set % . !Ingots 14
+			set % . !Type NIK
+			goto gbbp_out
+		}
+		
+		if Heater in #property
+		{
+			set % . !Category 5
+			set % . !Piece 3
+			set % . !Ingots 18
+			set % . !Type CIK
+			goto gbbp_out
+		}
+	}
+	
+	if Bascinet in #property
+	{
+		set % . !Category 4
+		set % . !Piece 1
+		set % . !Ingots 15
+		set % . !Type ASH
+		goto gbbp_out
+	}
+	
+	if Norse in #property
+	{
+		set % . !Category 4
+		set % . !Piece 4
+		set % . !Ingots 15
+		set % . !Type CSH
+		goto gbbp_out
+	}
+	
+	if Buckler in #property
+	{
+		set % . !Category 5
+		set % . !Piece 1
+		set % . !Ingots 10
+		set % . !Type FIK
+		goto gbbp_out
+	}
+	
+	gbbp_out:
+	set #lpc !lpc
+	
+	if % . !Category = N/A
+	{
+		display ok Impossible to recognize the bod. Please report the problem to Boydon! $script will be halted!
+		halt
+	}
+	
+	nameSpace Clear
+	nameSpace Pop	
+return
+
+;==================
+;** 
+;* @name GetBodMaterial 
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose This sub will tell you wich material is required by the BOD
+;*					The material will be returned in a var defined by the user without the "%" symbol.
+;*					Default variable name is "material"
+;*     	
+;* @params %1 req bod type (tailor|smithy)
+;*				 %2 req bod #property
+;*				 %3 opt name of the var containing the material without the "%" symbol (default is "material")
+;*
+;* @returns 
+;*
+;* @example call GetBodParameters.euo GetBodMaterial tailor #property
+;*							this is the standar call
+;*					call GetBodParameters.euo GetBodMaterial tailor #property material_needed
+;*							this is a call with the material being returned to %material_needed
+;* @status Only Tailoring BODs are supported ATM
+
+sub GetBodMaterial
+	
+	if %0 < 2 || %1 = N/A || %2 = N/A
+	{
+		display ok Wrong use of Sub GetBodParameters: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+	
+	if %1 <> tailor && %1 <> smithy
+	{
+		display ok Wrong value for parameter 1 in sub GetBodParameters!
+			+$Script will be halted!
+		halt
+	}
+	
+	if %3 = N/A || %0 <= 2
+		set %3 material
+	
+	nameSpace Push
+	nameSpace Local GetBodMaterial , #time , #random , #scnt2
+	
+	set !lpc #lpc
+	set #lpc 500
+	
+	set !BodType %1
+	set !Property %2
+	set !Material %3
+	
+	if !BodType = tailor
+	{
+		if leather notin !Property && studded notin !Property && bone notin !Property && boots notin !Property && shoes notin !Property && sandals notin !Property
+			set % . !Material cloth
+		if leather in !Property || studded in !Property || bone in !Property || boots in !Property || shoes in !Property || sandals in !Property
+			set % . !Material 0
+		if spined in !Property
+			set % . !Material 2220
+		if horned in !Property
+			set % . !Material 2117
+		if barbed in !Property
+			set % . !Material 2129
+	}
+
+	if !BodType = smithy
+	{
+		display ok Smithy Support it is not ready at the moment! $Script will be halted!
+		halt
+	}
+	
+	set #lpc !lpc
+	
+	namespace Clear
+	namespace Pop
+	
+return
+
+;==================
+;** 
+;* @name GetBodQuantity 
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose This sub will tell you how many items are totaly needed to
+;*					fill a bod.
+;*     	
+;* @params %1 req #property of the bod
+;*
+;* @returns This sub will return the number of item needed to accomplish the Bod.
+;* 					Result can be 10|15|20. Other value will return an error.
+;* @example call GetBodParameters.euo GetBodQuantity #property
+;* @status Tested and working fine.
+
+sub GetBodQuantity
+	
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub GetBodQuantity: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+	
+	nameSpace Push
+	nameSpace Local GetBodQuantity , #time , #random , #scnt2
+	
+	set !Property %1
+	
+	set !lpc #lpc
+	set #lpc 500
+	
+	str pos !Property Make
+	set !Quantity #strres + 5
+	str del !Property 1 !Quantity
+	set !quantity #strres
+	str left !Quantity 2
+	;set !Quantity #strres
+	
+	set #lpc !lpc
+	
+	nameSpace Clear
+	nameSpace Pop
+	
+	if #strres <> 10 && #strres <> 15 && #strres <> 20
+	{
+		display ok Unexpected value returned form sub GetBodQuantity! Please check!
+			+$Script will be halted!
+		halt
+	}
+	
+return #strres
+
+;==================
+;** 
+;* @name GetBodAlredyMadeQuantity 
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose If a bod is partially filled this sub will let you how many
+;*					items have been already added inside it.
+;*     	
+;* @params %1 req #property of the bod
+;*
+;* @returns This sub will return the number of item alredy added to the Bod
+;* @example call GetBodParameters.euo GetBodAlredyMadeQuantity #property
+;* @status Tested and working fine.
+
+sub GetBodAlredyMadeQuantity
+	
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub GetBodAlreadyMadeQuantity: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+	
+	nameSpace Push
+	nameSpace Local GetBodAlredyMadeQuantity , #time , #random , #scnt2
+	
+	set !Property %1
+	
+	set !lpc #lpc
+	set #lpc 500
+	
+	str pos !Property :
+	str del !Property #strres 1
+	set !MadeQuantity #strres
+	str pos !MadeQuantity :
+	set #strres ( #strres + 1 )
+	str del !MadeQuantity 1 #strres
+	set !MadeQuantity #strres
+	str pos !MadeQuantity $
+	str del !MadeQuantity #strres 1
+	;set !MadeQuantity #strres
+	
+	set #lpc !lpc
+	
+	nameSpace Clear
+	nameSpace Pop
+return #strres
+
+;==================
+;** 
+;* @name BodIsLarge 
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose Identify Large bods
+;*     	
+;* @params %1 req #property of the bod
+;*
+;* @returns This sub will return #true if a bod IS a large bod or #false if it IS NOT a large bod
+;* @example call GetBodParameters.euo BodIsLarge #property
+;* @status working fine, no test needed
+
+sub BodIsLarge
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub BodIsLarge: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+return large in %1
+
+;==================
+;** 
+;* @name BodIsSmall 
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose Identify Small bods
+;*     	
+;* @params %1 req #property of the bod
+;*
+;* @returns This sub will return #true if a bod IS a small bod or #false if it IS NOT a small bod
+;* @example call GetBodParameters.euo BodIsSmall #property
+;* @status working fine, no test needed
+
+sub BodIsSmall
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub BodIsLarge: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+return large notin %1
+
+;==================
+;** 
+;* @name BodIsEceptional
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose Identify Exceptional bods
+;*     	
+;* @params %1 req #property of the bod
+;*
+;* @returns This sub will return #true if a bod IS an exceptional bod or #false if it IS NOT an exceptional bod
+;* @example call GetBodParameters.euo BodIsExceptional #property
+;* @status working fine, no test needed
+
+sub BodIsExceptional
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub BodIsExceptional: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+return exceptional in %1
+
+;==================
+;** 
+;* @name BodIsNormal
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose Identify Normal bods
+;*     	
+;* @params %1 req #property of the bod
+;*
+;* @returns This sub will return #true if a bod IS a normal bod or #false if it IS NOT a normal bod
+;* @example call GetBodParameters.euo BodIsNormal #property
+;* @status working fine, no test needed
+
+sub BodIsNormal
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub BodIsNormal: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+return exceptional notin %1
+
+;==================
+;** 
+;* @name BodIsTailor 
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose Identify Tailoring bods
+;*     	
+;* @params %1 req #findcol of the bod
+;*
+;* @returns This sub will return #true if a bod IS a tailoring bod or #false if it IS NOT a tailoring bod
+;* @example call GetBodParameters.euo BodIsTailor #findcol
+;* @status working fine, no test needed
+
+sub BodIsTailor
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub BodIsTailor: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+return %1 = 1155
+
+;==================
+;** 
+;* @name BodIsSmithy 
+;* @ver 1.0 11May05 
+;* @author  Boydon
+;* @purpose Identify Blacksmithy bods
+;*     	
+;* @params %1 req #findcol of the bod
+;*
+;* @returns This sub will return #true if a bod IS a blacksmithy bod or #false if it IS NOT a blacksmithy bod
+;* @example call GetBodParameters.euo BodIsSmithy #findcol
+;* @status working fine, no test needed
+
+sub BodIsSmithy
+	if %0 < 1 || %1 = N/A
+	{
+		display ok Wrong use of Sub BodIsSmithy: some required arguments are missing!
+			+$Script will be halted.
+		halt
+	}
+return %1 = 1102
+
+;==================
+;** 
+;* @name Inizialize 
+;* @ver 1.1 12Sep05
+;* @author  Boydon
+;* @purpose This function is for internal purpose only. If you plan to use this
+;*						library inside one of your script, running this will ensure you,
+;*						returning the version number of the library, that you are calling
+;*						the library in the right way.
+;*
+;* @params 
+;*
+;* @returns Version of the library with no float 
+;* @example call GetBodParameters.euo Inizialize 
+;* @status tested and working properly 
+
+Sub Inizialize
+return 120

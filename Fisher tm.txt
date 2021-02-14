@@ -1,0 +1,3554 @@
+;===================================================================
+; Script Name: TrailMyx's Full-Auto Fisherman 2.0s
+; Author: TrailMyx
+; Version: 3.0b
+; Shard OSI / FS: OSI / FS(Alexandria)
+; Revision Date: 08/29/2007
+; Purpose:
+;     Completely automate the operation of fishing up MIBs/Nets/Tmaps/pearls/scales/hides
+;
+; Features:
+;     . Utilizes 4x4 resource gathering to hunt for sea serpents containing treasure.
+;     . Automatically fishes until a sea serpent is encountered
+;     . Utilizes Offensive selection until sea serpent is dead
+;     . During combat, your character is healed using your Healing methon.
+;     . Boat automatically moved to dead serpent location
+;     . Sea serpent may be carved for hides, scales
+;     . All loot is collected based upon user selections.
+;     . All trash is deposited on dead sea serpent corpses
+;     . Automatically travels to bank to deposit treasure and back to boat
+;     . Script continues to run until selected ending condition is achieved.
+;     . Once ending condition is achieved, your character will transport to save location
+;       and automatically logout
+;     . Save/Load user preferences
+;     . Saves session loot to a log file.
+;     . Use multiple safe logout and bank runes
+;     . Many statistics collected.
+;     . Randomly uses runes in rune blocks.
+;
+; Requirements:
+;     . SMALL boat in deep water pointed NORTH
+;     . Runebook in main pack with at least:
+;       = 1 rune for a safe logout point
+;       = 1 rune for a bank
+;     . Boat key in main pack
+;     . Container in bank for non-stackable items
+;     . Container in bank for stackable items
+;     . 100% LRC suit.  On OSI, it's best to have self-repair items.
+;     . Scissors for cutting leather
+;     . Dagger, knife for skinning sea serpents
+;     . Offensive ability using Necromancy, Magery, or Archery buffed with Chivalry (optional)
+;     . Defensive healing ability using Magery, Necromancy, Chivalry, or bandages
+;     . Start script standing on your boat at the key recall point.
+;     . If you haven't run the Guided Setup yet, it's best to start at a bank location.
+;
+; Special Thanks:
+;     Valuable testing/feature input by j4bber, MissyMoose, Bookwyrm, sss567, Hoby, Gimlet
+;====================================
+; Revision History:
+;===================================================================
+; ToDo:
+;  . Item evaluation with TM_CLAw
+;
+;=================================================================
+; Disclaimer:  By downloading, copying, running or otherwise using this script, you accept the contents
+; of this limited personal use licence agreement.
+; This script is only authorized to be distributed on www.scriptuo.com.  If you purchase this script,
+; or acquire it from any other source, it is not considered an authorized copy and should be deleted
+; immediately. TrailMyx and www.scriptuo.com (Author) provide no warranty for use, function, or safe
+; interaction with any software or hardware. User downloads and runs this script at his-her own risk
+; User shall hold Author and the distribution site www.scriptuo.com harmless for any loss of
+; items, accounts, money, virtual currency or items associated with the use of this script.
+; User shall hold the author harmless for any consequences that may result from the use of this script as
+; intended.  Furthermore, you promise not to distribute or sell this script to anyone without the express
+; permission of the author, Trailmyx.
+; Violation of this agreement will result in one or more of the following:
+; litigation, www.scriptuo.com account termination, bad karma for your next life, and most definitely
+; causing a black mark placed on your soul.
+;
+; I worked very hard to bring this script to you, so please use it responisibily and
+; respectfully.  If you have any questions, please reach me at trailmyx@scriptuo.com.
+; (c) 2007 TrailMyx, All rights reserved.
+;===================================================================
+; ENX - north
+; JNX - east
+; HNX - south
+; ONX - west
+
+display yesno Do you have protection currently enabled?
+if #DISPRES = no
+  stop
+set %AR #AR
+set %use_looter #TRUE
+set %carve_new_fish #FALSE
+
+set %version v3.0b
+gosub Setup
+set %training #FALSE
+chooseskill eval
+if #SKILL < 800
+  set %magery_offense 36 ; mind blast
+else
+  set %magery_offense 41 ; Energy bolt
+
+set %display_update #SCNT + 2 ; 2 second screen update
+set #MENUBUTTON N/A
+menu set EUOStatus Initialization complete!
+
+set %shard_type ALEXANDRIA
+gosub TM_AdvJournalSync FISHING 100
+gosub TM_AdvJournalSync SPELLCAST 100
+
+;-------------------------------------------------------------------------------
+;---------------------------------- Main Loop ----------------------------------
+;-------------------------------------------------------------------------------
+
+mainloop:
+gosub HandleMenu
+if %autodefend = #TRUE
+{
+  gosub Defend NULL KI %offencetype %defencetype 8
+}
+if #HITS < ( #MAXHITS - 5 )
+  set %forceheal #TRUE
+gosub MonitorHealth NULL %defencetype %forceheal
+
+set %forceheal #FALSE
+gosub LootSerpent
+gosub CheckEndofProgram
+if %runenable = #TRUE
+{
+  menu set EUOStatus Fishing...
+  gosub RefreshBoat
+  gosub FastFishup
+  set %temp ( ( #SCNT - %loottime ) / 60 )
+  if ( %temp > 15 ) || ( %nofish > 4 ) ; 15 minutes in a spot will cause advance forward
+  {
+    gosub Advance8
+    set %nofish 0
+    set %loottime #SCNT
+  }
+}
+if #SCNT > %display_update
+{
+  gosub HandleDisplay
+  set %display_update #SCNT + 2
+}
+if #CONTNAME = waiting_gump && #CONTSIZE = 203_121 ; connection lost
+{
+  gosub SaveSetup
+  stop
+}
+goto mainloop
+;-------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
+sub InitializeCounters
+  set %netcount 0
+  set %tmapcount 0
+  set %mibcount 0
+  set %pearlcount 0
+  set %colorednetcount 0
+  set %lootcount 0
+  set %programstarttime #SCNT
+  set %loottime %programstarttime
+  set %lastloottime 0
+return
+;-------------------------------------------------------------------------------
+sub Setup
+  set %keepfishsize 190
+  set %fishingnumber 0
+  set %fishingspotcounter 0
+  set %moveship #FALSE
+  set %runenable #FALSE
+  set %underattack #FALSE
+  set %donatesteaks #FALSE
+  set %fishinglocationcount 2
+  set %loottologout 12
+  set %minutestologout 120
+  set %bankrunmax 3
+  set %bankruncount 0
+  set %bandaidinuse #FALSE
+  set %baindaidcounter 0
+  set %forceheal #FALSE
+  set %healingdelay 11 - #DEX / 20 + 1 ; info from Stratics.com
+  set %deadserpcount 0
+  set %nofish 0
+  set %totaltmaps 0
+  set %totalmibs 0
+  set %totalnets 0
+  set %totalpearls 0
+  set %totalcolorednets 0
+  set %totalserps 0
+  set %travelmethod RE
+  set %traveltype 1
+  set %maxarrows 500
+  set %maxbandages 500
+  set %crossbowtypes PPO_JSF_USF_LMH
+  set %ammotype RWF ; RWF = arrows, LNK - crossbow bolts
+  set %totalprogramtime 0
+  set #MENURES 0
+  set %ancientcount 0
+  set %totalancient 0
+  set %totalsteakdonation 0
+  set %totalscaledonation 0
+
+  gosub InitializeCounters
+
+  chooseskill fish
+  set %startingskill #SKILL
+
+  gosub AddUnderscore #SHARD
+  set %shard #RESULT
+  gosub AddUnderscore #CHARNAME
+  set %charname #RESULT
+  set %configfile #CURPATH , %shard , _ , %charname , _fishing , #dot , txt
+  set %logfile #CURPATH , %shard , _ , %charname , _fishinglog.txt
+  gosub showEUOMenu1
+  menu set EUOStatus TrailMyx's Full-Auto Fisherman - Initializing..
+  menu Combo Select EUOComboOffence 1
+  menu Combo Select EUOComboHealing 1
+  menu Combo Select EUOComboTravel 1
+
+  call %configfile
+  set %setup #FALSE
+  if %setupfile <> N/A
+  {
+    menu set EUOEdit12 %setupfile
+    menu set EUOStatus Loading setup file..
+    gosub LoadSetup
+    set %setup #TRUE
+    menu set EUOCheckBox20 #TRUE
+    wait 20
+  }
+  else
+  {
+    menu set EUOStatus Config file not found, using default.
+  }
+
+  gosub SetupGumps
+
+  finditem XHF_KDF C_ , #BACKPACKID ; fishing pole
+  if #FINDKIND = -1
+  {
+    finditem XHF_KDF C_ , #CHARID   ; fishing pole on paperdoll
+    if #FINDKIND = -1
+    {
+      display ok No fishing pole, doh!
+      halt
+    }
+  }
+  set %fishingpole #FINDID
+
+  finditem CNF_INF_WSF_VRH_TSF_HNF C_ , #BACKPACKID ; butch knife, cleaver, kryss, dagger, cleaver
+  if #FINDKIND = -1
+  {
+    display ok No approved edged weapon.$Please get a dagger, knife or cleaver.
+    halt
+  }
+  set %blade #FINDID
+
+  finditem KAG_JAG C_ , #BACKPACKID ; scissors
+  if #FINDKIND = -1
+  {
+    display ok No scissors, exiting!
+    halt
+  }
+  set %scissors #FINDID
+
+  gosub CountItems          ; Counts all the "special items" in #BACKPACKID before execution
+
+  set #LTARGETKIND 1
+ignoreserps:
+  finditem YFM G_10 ; locate a dead body
+  if #FINDKIND <> -1
+  {
+    ignoreitem #FINDID
+    goto ignoreserps
+  }
+
+  gosub CheckItemDurability 5 #TRUE
+  gosub TM_AdvJournalSync FISHING 100
+  gosub TM_AdvJournalSync SPELLCAST 100
+
+  if %use_looter = #TRUE
+  {
+    menu set EUOStatus Waiting for TM_CLAw to initialize...
+    gosub TM_InitializeLootingAssistant
+    set %init_timeout #SCNT + 20 ; 20 second timeout, wait for looter.
+init_loop:
+    gosub TM_LootingAssistantInitialized
+    if #RESULT = #TRUE
+      goto init_loop_skip1
+    if #SCNT < %init_timeout
+      goto init_loop
+    set %init_timeout #SCNT + 20 ; 20 second timeout, wait for looter.
+    display ok Looter did not initialize.  Make sure you are running in another tab.
+    goto init_loop
+
+init_loop_skip1:
+    gosub TM_PingLootingAssistant
+    if #RESULT = PING
+    {
+      display ok Looting system is initialized, but doesn't respond.$Please restart it.
+      stop
+    }
+    gosub TM_SetupLooter AUTOMATIC_SENDGOLD_LOOTGROUND_CARVE_LOOTALL_HIDEBODIES_PREVIEW_TURBO #FALSE
+    gosub TM_SetupLooter CARVE_TURBO_STEALTH #TRUE
+    gosub TM_SetupLooter MINMAX #FALSE
+  }
+return
+;-------------------------------------------------------------------------------
+; %1 - percentage left from max.  CURRENT/MAX
+; %2 - #TRUE, display warn
+sub CheckItemDurability
+  namespace push
+  namespace local CID
+  set !temp_LPC #LPC
+  set #LPC 1000
+  set !warning_percentage %1
+  set !displaywarning %2
+  set !result #FALSE
+  set !warnstring
+  finditem * C_ , #CHARID
+
+  for #FINDINDEX 1 #FINDCNT
+  {
+    set !item #FINDID
+    event property !item
+    set !searchfor Durability , #SPC
+    if !searchfor in #PROPERTY
+    {
+      gosub TM_CheckMaxDurability !item
+      set !max #RESULT
+      gosub TM_CheckCurrentDurability !item
+      set !current #RESULT
+      gosub TM_GetItemName !item
+      if #RESULT <> #TRUE
+      {
+        set !name #RESULT
+        set !percent !current * 100 / !max
+        if !percent <= !warning_percentage
+        {
+          set !warnstring !warnstring , !name , : , #SPC , !current , / , !max , $
+          set !result #TRUE
+        }
+      }
+    }
+  }
+  if !result = #TRUE && !displaywarning = #TRUE
+  {
+    display ok Repair scan summary: , $ , $ , !warnstring
+  }
+  set #LPC !temp_LPC
+  set #RESULT !result
+  namespace pop
+return #RESULT
+;-------------------------------------------------------
+; %1 = #FINDID of item to evaluate
+sub TM_CheckCurrentDurability
+  namespace push
+  namespace local CMD
+  set !item %1
+  event property !item
+  set !property #PROPERTY
+  set !search Durability , #SPC
+  str count !property !search
+  if #STRRES > 1
+  {
+    str pos !property !search #STRRES
+    set #STRRES #STRRES - 1
+    str del !property 1 #STRRES
+    set !property #STRRES
+  }
+  str pos !property !search 1
+  set #STRRES #STRRES + 10
+  str del !property 1 #STRRES ; 87 / 87$
+  set !temp #STRRES
+  str pos #STRRES / 1
+  set #STRRES #STRRES - 2
+  str left !temp #STRRES
+  set #RESULT #STRRES
+  namespace pop
+return #RESULT
+;-------------------------------------------------------
+; %1 = #FINDID of item to evaluate
+sub TM_CheckMaxDurability
+  namespace push
+  namespace local CCD
+  set !item %1
+  event property !item
+  set !property #PROPERTY
+  set !search Durability , #SPC
+  str count !property !search
+  if #STRRES > 1
+  {
+    str pos !property !search #STRRES
+    set #STRRES #STRRES - 1
+    str del !property 1 #STRRES
+    set !property #STRRES
+  }
+  str pos !property !search 1
+  set #STRRES #STRRES + 10
+  str del !property 1 #STRRES ; 87 / 87$
+  set !temp #STRRES
+  str pos #STRRES / 1
+  str del !temp 1 #STRRES
+  set !temp #STRRES
+  str pos #STRRES $ 1
+  set #STRRES #STRRES - 1
+  str left !temp #STRRES
+  set #RESULT #STRRES
+  namespace pop
+return #RESULT
+;-------------------------------------------------------------------------------
+sub TM_GetItemName
+  namespace push
+  namespace local GIN
+  set !item %1
+  set !timeout #SCNT + 2
+  event property !item
+  str len #PROPERTY
+  if #STRRES <= 1
+  {
+    namespace pop
+    return #TRUE
+  }
+  str pos #PROPERTY $
+  set #STRRES #STRRES - 1
+  str left #PROPERTY #STRRES
+  set !tempstr #STRRES
+  set #RESULT !tempstr
+  str pos #PROPERTY :
+  if #STRRES > 0
+  {
+    set #STRRES #STRRES - 1
+    str left !tempstr #STRRES
+    set #RESULT #STRRES
+  }
+  namespace pop
+return #RESULT
+;-------------------------------------------------------------------------------
+; %1 = ConvertDate  changes date to MM/DD/YY format
+sub ConvertDate
+  str Mid %1 3 2
+  set #RESULT #STRRES , /
+  str Mid %1 5 2
+  set #RESULT #RESULT , #STRRES , /
+  str Mid %1 1 2
+  set #RESULT #RESULT , #STRRES
+return #RESULT
+
+;-------------------------------------------------------------------------------
+; %1 = ConvertDailyTime  changes date to HH:MM:SS
+sub ConvertDailyTime
+  namespace push
+  namespace local CDT
+  set !ampm AM
+  str Mid %1 1 2
+  if #STRRES >= 12
+  {
+    set #STRRES #STRRES - 12
+    set !ampm PM
+  }
+  set !tempstr #STRRES , :
+  str Mid %1 3 2
+  set !tempstr !tempstr , #STRRES , :
+  str Mid %1 5 2
+  set #RESULT !tempstr , #STRRES , #spc , !ampm
+  namespace pop
+return #RESULT
+;-------------------------------------------------------------------------------
+sub RefreshBoat
+  namespace push
+  namespace local RB
+
+  if !boatrefreshed <> #TRUE
+  {
+    finditem GWX_DWX_DUX_SUX G_2
+    if #FINDKIND <> -1
+    {
+      set #LOBJECTID #FINDID
+      event macro 17 0
+      wait 20
+      event macro 17 0
+      wait 20
+      set !boatrefreshed #TRUE
+      set %boat_door #FINDID
+    }
+  }
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1 = Method (RE, GA, SJ)
+; %2 = Object Findid
+; returns #TRUE if error, #FALSE for no error
+sub TM_TravelFromObject
+  namespace push
+  namespace local RFR
+  set !method %1
+  set !object %2
+
+  finditem !object C_ , #BACKPACKID
+  if !method notin RE_GA_SJ ;|| #FINDKIND = -1
+  {
+    namespace pop
+    return #TRUE
+  }
+
+  set !oldx #CHARPOSX
+  set !oldy #CHARPOSY
+TravelFromObject_loop1:
+  if !method = RE
+    gosub TM_NewCastSpell 31 !object -1 10 10 ; recall until successful
+  if !method = GA
+  {
+    gosub TM_NewCastSpell 51 !object -1 10 20 ; gate until successful
+    set !temp_cnt #SCNT + 10
+    repeat
+      finditem KEF_OTF_JEF G_0
+    until #FINDKIND <> -1 || #SCNT > !temp_cnt
+    if #FINDKIND <> -1
+    {
+      set #LOBJECTID #FINDID
+      wait 10
+      event macro 17 0
+      wait 20
+      if #CONTNAME = generic_gump && #CONTSIZE = 420_280
+      {
+        set !clickx #CONTPOSX + 26
+        set !clicky #CONTPOSY + 261
+        click !clickx !clicky ; click ok
+      }
+    }
+  }
+
+  if !method = SJ
+    gosub TM_NewCastSpell 210 !object -1 10 30 ; sacred journey until successful
+  wait 30
+
+  set !tempscnt #SCNT + 10
+WaitforTravel2_loop1:
+  gosub TM_AdvJournalScan SPELLCAST VALID location_is_blocked something_is_blocking your_spirit
+  if #RESULT = #TRUE
+  {
+    gosub TM_AdvJournalSync SPELLCAST
+    set !locindex !locindex + 1
+    if !locindex > !locindexend
+    {
+      namespace pop
+      return #TRUE
+    }
+    goto TravelFromObject_loop1
+  }
+
+  if ( ( #CHARPOSX = !oldx && #CHARPOSY = !oldy ) && #SCNT < !tempscnt )
+    goto WaitforTravel2_loop1
+  namespace pop
+return #FALSE
+
+;-------------------------------------------------------------------------------
+sub TM_DecimalDivision
+  namespace push
+  namespace local DEC
+  for !i 1 %3
+  {
+    if !i = 1
+      set !places 10
+    else
+      set !places !places * 10
+  }
+  set !val ( %1 * !places ) / %2
+  set !whole !val / !places
+  set !dec !val % !places
+  set #RESULT !whole , #dot , !dec
+  namespace pop
+return #RESULT
+;-------------------------------------------------------------------------------
+sub DragStack
+  namespace push
+  namespace local DS
+  set !source %1
+  set !dest %2
+  set !item %3
+  set !stacksize %4
+
+  finditem !item C_ , !source
+  if #FINDKIND <> -1
+  {
+    exevent drag #FINDID !stacksize
+    wait 10
+    exevent dropc !dest
+    wait 20
+  }
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+sub ArmWeapon
+  if #RHANDID <> %1
+  {
+    finditem %1 C_ , #BACKPACKID
+    if #FINDKIND <> -1
+    {
+      set #RHANDID %1
+    }
+    else
+    {
+      display ok I cannot find this weapon
+      return
+    }
+  }
+ArmWeapon_loop1:
+  finditem %1 C_ , #CHARID
+  if #FINDKIND = -1
+  {
+ArmWeapon_loop2:
+    finditem %fishingpole C_ , #CHARID
+    if #FINDKIND <> -1 ; must de-equip fishing pole
+    {
+      exevent drag %fishingpole 1
+      wait 10
+      exevent dropc #BACKPACKID
+      wait 30
+      goto ArmWeapon_loop2
+    }
+    finditem %1 C_ , #BACKPACKID
+    if #FINDKIND <> -1
+    {
+      if #FINDTYPE in PPO
+        event macro 24 1 ; disarm weapon to setup - left
+      else
+        event macro 24 2 ; disarm weapon to setup - right
+      wait 30
+      goto ArmWeapon_loop1
+    }
+    else
+    {
+      display ok I can't locate your archery weapon
+      stop
+    }
+  }
+return
+;-------------------------------------------------------------------------------
+sub DisarmWeapon
+DisarmWeapon_loop1:
+  finditem %1 C_ , #CHARID
+  if #FINDKIND <> -1
+  {
+    if #FINDTYPE in PPO
+      event macro 24 1 ; disarm weapon to setup - left
+    else
+      event macro 24 2 ; disarm weapon to setup - right
+    wait 30
+    goto DisarmWeapon_loop1
+  }
+return
+;-------------------------------------------------------------------------------
+sub SetupWeapon
+  finditem %1 C_ , #CHARID
+  if #FINDKIND = -1
+  {
+    finditem %1 C_ , #BACKPACKID
+    if #FINDKIND <> -1
+    {
+      if #FINDTYPE in PPO
+        set #LHANDID %1
+      else
+        set #RHANDID %1
+    }
+    else
+    {
+      display ok I can't locate your archery weapon
+      stop
+    }
+  }
+  else
+  {
+    gosub DisarmWeapon
+  }
+  if #FINDTYPE in %crossbowtypes
+  {
+    menu Font BGColor BtnFace
+    menu delete EUOLabel32
+    menu Text EUOLabel32 176 196 Bolts
+    set %ammotype LNK ; LNK - crossbow bolts
+  }
+  else
+  {
+    menu Font BGColor BtnFace
+    menu delete EUOLabel32
+    menu Text EUOLabel32 176 196 Arrows
+  }
+return
+;-------------------------------------------------------------------------------
+sub TM_RandomRunebookTravel
+  namespace push
+  namespace local RRT
+  set !travelmethod %1
+  set !rune1 %2
+  set !rune2 %3
+  set !runebook %4
+  if !rune1 > !rune2
+  {
+    set !temp !rune2
+    set !rune2 !rune1
+    set !rune1 !temp
+  }
+RunebookTravel_loop1:
+  set !random #RANDOM
+  set !rune ( ( !random % ( !rune2 - !rune1 + 1 ) ) + !rune1 )
+  gosub TM_TravelFromRunebook !travelmethod !rune !rune !runebook
+  if #RESULT = #TRUE
+    goto RunebookTravel_loop1
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+sub ConvertSkill
+  set #RESULT %1 / 10
+  set %temp %1 % 10
+return #RESULT , #dot , %temp
+;-------------------------------------------------------------------------------
+sub HandleDisplay
+  set #LPC 1000
+  menu Font Name MS Sans Serif
+  menu Font Size 8
+  menu Font Style
+
+  menu Font BGColor BtnFace
+  set %bankruntext ( , %bankruncount , / , %bankrunmax , )
+  menu delete EUOLabel29
+  menu Text EUOLabel29 176 324 %bankruntext
+
+  set %programtimetext ( #SCNT - %programstarttime ) / 60
+  set %programtimetext ( , %programtimetext , / , %minutestologout , )
+  menu delete EUOLabel30
+  menu Text EUOLabel30 176 348 %programtimetext
+
+  set %loottext ( , %lootcount , / , %loottologout , )
+  menu delete EUOLabel28
+  menu Text EUOLabel28 176 304 %loottext
+
+  menu Font BGColor White
+  chooseskill fish
+  set %skillgain #SKILL - %startingskill
+  gosub ConvertSkill #SKILL
+  set %currentskill #RESULT
+  gosub ConvertSkill %skillgain
+  set %tempgain #RESULT
+  menu delete EUOLabel43
+  set %formattedskillgain Skill: , #SPC , %currentskill , #SPC , (+ , %tempgain , )
+  menu Text EUOLabel43 243 348 %formattedskillgain
+
+  set %time #SCNT - %programstarttime
+  gosub ConvertTimeHourMinSec %time
+  set %convertedprogramtime #RESULT
+
+  menu delete EUOLabel21
+  set %time %totalprogramtime + ( #SCNT - %programstarttime )
+  gosub ConvertTimeHourMinSec %time
+  set %time Online , #SPC , Time: , #SPC , #RESULT
+  menu Text EUOLabel21 380 188 %time
+
+  set %time #SCNT - %loottime
+  gosub ConvertTimeMinSec %time
+  set %convertedloottime #RESULT
+
+  gosub ConvertTimeMinSec %lastloottime
+  set %convertedlastloottime #RESULT
+
+  set %text Tmaps: , #SPC , %tmapcount
+  menu delete EUOLabel15
+  menu Text EUOLabel15 294 224 %text
+
+  set %text MIBs: , #SPC , %mibcount
+  menu delete EUOLabel16
+  menu Text EUOLabel16 302 236 %text
+
+  set %text Nets: , #SPC , %netcount
+  menu delete EUOLabel17
+  menu Text EUOLabel17 304 248 %text
+
+  set %text C_Nets: , #SPC , %colorednetcount
+  menu delete EUOLabel18
+  menu Text EUOLabel18 291 260 %text
+
+  set %text Pearls: , #SPC , %pearlcount
+  menu delete EUOLabel19
+  menu Text EUOLabel19 297 272 %text
+
+  set %text TotalSerp: , #SPC , %deadserpcount
+  menu delete EUOLabel8
+  menu Text EUOLabel8 280 284 %text
+
+  set %text Online , #SPC , Time: , #SPC , %convertedprogramtime
+  menu delete EUOLabel10
+  menu Text EUOLabel10 270 188 %text
+
+  set %text Last , #SPC , MIB , #SPC , Time: , #SPC , %convertedlastloottime
+  menu delete EUOLabel11
+  menu Text EUOLabel11 258 200 %text
+
+  set %text Current , #SPC , MIB , #SPC , Time: , #SPC , %convertedloottime
+  menu delete EUOLabel12
+  menu Text EUOLabel12 244 212 %text
+
+  set %text Tmaps: , #SPC , %totaltmaps
+  menu delete EUOLabel22
+  menu Text EUOLabel22 416 224 %text
+
+  set %text MIBs: , #SPC , %totalmibs
+  menu delete EUOLabel23
+  menu Text EUOLabel23 424 236 %text
+
+  set %text Nets: , #SPC , %totalnets
+  menu delete EUOLabel24
+  menu Text EUOLabel24 426 248 %text
+
+  set %text C_Nets: , #SPC , %totalcolorednets
+  menu delete EUOLabel25
+  menu Text EUOLabel25 413 260 %text
+
+  set %text Pearls: , #SPC , %totalpearls
+  menu delete EUOLabel26
+  menu Text EUOLabel26 419 272 %text
+
+  set %text TotalSerp: , #SPC , %totalserps
+  menu delete EUOLabel27
+  menu Text EUOLabel27 404 284 %text
+
+  set %text ASOS: , #SPC , %ancientcount
+  menu delete EUOLabel40
+  menu Text EUOLabel40 295 320 %text
+
+  set %text ASOS: , #SPC , %totalancient
+  menu delete EUOLabel41
+  menu Text EUOLabel41 419 320 %text
+
+  set %text Steak , #SPC , Points: , #SPC , %totalsteakdonation
+  menu delete EUOLabel42
+  menu Text EUOLabel42 383 336 %text
+
+  set %text Scale , #SPC , Points: , #SPC , %totalscaledonation
+  menu delete EUOLabel44
+  menu Text EUOLabel44 383 348 %text
+
+  set %val_dec %mibcount * 3600
+  set %time #SCNT - %programstarttime
+  gosub TM_DecimalDivision %val_dec %time 3
+  set %formattedmibperhour MIB/hr.: , #SPC , #RESULT
+  menu delete EUOLabel34
+  menu Text EUOLabel34 290 296 %formattedmibperhour
+
+  set %val_dec %deadserpcount * 3600
+  set %time #SCNT - %programstarttime
+  gosub TM_DecimalDivision %val_dec %time 3
+  set %formattedserpsperhour Serp/hr.: , #SPC , #RESULT
+  menu delete EUOLabel35
+  menu Text EUOLabel35 287 308 %formattedserpsperhour
+
+  finditem %ammotype C_ , #BACKPACKID
+  set %text Ammo: , #SPC , #FINDSTACK , #SPC , #SPC
+  finditem ZLF C_ , #BACKPACKID
+  set %text %text , Bandages: , #SPC , #FINDSTACK
+  menu delete EUOLabel36
+  menu Text EUOLabel36 243 336 %text
+
+  set %val_dec %totalmibs * 3600
+  set %time %totalprogramtime + ( #SCNT - %programstarttime )
+  gosub TM_DecimalDivision %val_dec %time 3
+  set %text MIB/hr.: , #SPC , #RESULT
+  menu delete EUOLabel37
+  menu Text EUOLabel37 414 296 %text
+
+  set %val_dec %totalserps * 3600
+  set %time %totalprogramtime + ( #SCNT - %programstarttime )
+  gosub TM_DecimalDivision %val_dec %time 3
+  set %text Serp/hr.: , #SPC , #RESULT
+  menu delete EUOLabel38
+  menu Text EUOLabel38 411 308 %text
+
+  set #LPC 10
+return
+;-------------------------------------------------------------------------------
+sub GuidedSetup
+  display ok Please target the runebook you will be using
+  set #TARGCURS 1
+  repeat
+  until #TARGCURS = 0
+  set %runebook #LTARGETID
+
+  display ok Please target your boat key
+  set #TARGCURS 1
+  repeat
+  until #TARGCURS = 0
+  set %boatkey #LTARGETID
+  menu set EUOCheckBox20 #TRUE
+
+  display ok Please goto your bank
+  ;gosub FindBanker
+  wait 20
+  set %bankbox SOLNKMD
+  display ok Please target your non-stackable loot container (MIB/Tmaps/Net/etc)..
+  set #TARGCURS 1
+  repeat
+  until #TARGCURS = 0
+  set %container_MIBs #LTARGETID
+
+  display ok Please target your non-stackable loot container (steaks/hides/scales/gold)..
+  set #TARGCURS 1
+  repeat
+  until #TARGCURS = 0
+  set %container_Stack #LTARGETID
+
+  display ok Please target Fish stacked container..
+  set #TARGCURS 1
+  repeat
+  until #TARGCURS = 0
+  set %container_Fish #LTARGETID
+
+  display yesno Do you want to use a slayer spellbook?
+  if #DISPRES = yes
+  {
+    display ok Please target the slayer spellbook you will be using.
+    set #TARGCURS 1
+    repeat
+    until #TARGCURS = 0
+    set %slayerbook #LTARGETID
+    menu get EUOComboOffence
+    if #MENURES in 2_3
+    {
+      if %slayerbook <> N/A
+        gosub SetupWeapon %slayerbook
+    }
+  }
+  else
+  {
+    set %slayerbook N/A
+  }
+
+  display yesno Do you want to select an archery weapon?
+  if #DISPRES = yes
+  {
+    display ok Please target the archery weapon you will be using.
+    set #TARGCURS 1
+    repeat
+    until #TARGCURS = 0
+    set %archeryweapon #LTARGETID
+    menu get EUOComboOffence ; need to setup
+    if #MENURES in 4_5
+    {
+      if %archeryweapon <> N/A
+        gosub SetupWeapon %archeryweapon
+    }
+  }
+  set %trashcan N/A
+  menu set EUOCheckBox22 #FALSE
+  set %enabletrash #FALSE
+return
+;-------------------------------------------------------------------------------
+sub FindBanker
+  set #RESULT #FALSE
+  ignoreitem #CHARID people
+FindBanker_loop1:
+  finditem HS_IS G_10
+  if #FINDKIND <> -1
+  {
+    event property #FINDID
+    set %prop1 the , #SPC , minter
+    set %prop2 the , #SPC , banker
+    if %prop1 in #PROPERTY || %prop2 in #PROPERTY
+    {
+      set #RESULT #TRUE
+      goto FindBanker_skip1
+    }
+    ignoreitem #FINDID people
+  }
+  goto FindBanker_loop1
+FindBanker_skip1:
+  ignoreitem reset people
+  msg bank$
+  wait 20
+return #RESULT
+;-------------------------------------------------------------------------------
+sub LoadSetup
+  set #LPC 1000
+  menu set EUOStatus Loading setup....
+  menu get EUOEdit12
+  gosub AddUnderscore #MENURES
+  set %setupfile #RESULT
+  gosub TM_FileSystem_LoadFile NULL %setupfile
+  menu Combo Select EUOComboOffence %offencetype
+  menu Combo Select EUOComboHealing %defencetype
+  menu Combo Select EUOComboTravel %traveltype
+  menu set EUOEdit3 %loottologout
+  menu set EUOEdit4 %bankrunmax
+  menu set EUOEdit2 %minutestologout
+
+  menu set EUOCheckBox17 %pitchonserpent ; throw away junk on serpent
+  menu set EUOCheckBox1 %pitchshoes ; Footwear?
+  menu set EUOCheckBox2 %pitchsteaks ; Fish steaks?
+  menu set EUOCheckBox3 %pitchspecialfish ; Special Fish?
+  menu set EUOCheckBox13 %carvefish ; carve fish?
+  menu set EUOCheckBox9 %autodefend ; autodefend?
+  menu set EUOCheckBox11 %enablebankrun ; need to do a bank run?
+  menu set EUOCheckBox10 %evaluateloot ; evaluate loot?
+  menu set EUOCheckBox4 %check_loot_scales
+  menu set EUOCheckBox5 %check_loot_hides
+  menu set EUOCheckBox6 %check_loot_gold
+  menu set EUOCheckBox7 %check_loot_tmaps
+  menu set EUOCheckBox8 %check_loot_MIB
+  menu set EUOCheckBox12 %check_loot_nets
+  menu set EUOCheckBox19 %check_loot_cnets
+  menu set EUOCheckBox21 %check_loot_asos
+  menu set EUOCheckBox15 %check_logout_lootcnt ; logout after number of loot fished up?
+  menu set EUOCheckBox16 %check_logout_bankrun ; logout after number of bankruns?
+  menu set EUOCheckBox14 %check_logout_minutes ; logout after number of minutes?
+  menu set EUOCheckBox18 %donatesteaks
+  menu set EUOCheckBox22 %enabletrash
+  menu set EUOCheckBox23 %donatescales
+  menu set EUOCheckBox24 %terminate
+  menu set EUOCheckCarveHighSeasFish %carve_new_fish
+
+  menu set EUOEdit5 %bankrune1 ; Bank rune lower range
+  menu set EUOEdit6 %bankrune2 ; Bank rune upper range
+  menu set EUOEdit7 %innrune1 ; inn rune lower range
+  menu set EUOEdit8 %innrune2 ; inn rune upper range
+  menu set EUOEdit11 %donaterune1 ; donation rune lower range
+  menu set EUOEdit13 %donaterune2 ; donation rune upper range
+  menu set EUOEdit14 %trashrune1 ; trash rune lower range
+  menu set EUOEdit1 %keepfishsize ; big fish size to keep
+  menu set EUOEdit9 %maxarrows ; # Ammo to load with
+  menu set EUOEdit10 %maxbandages ; # Bandages to load with
+
+  menu set EUOStatus Setup loaded!
+  set #LPC 10
+  gosub HandleDisplay
+return
+;-------------------------------------------------------------------------------
+sub SaveSetup
+  set #LPC 1000
+  menu set EUOStatus Saving setup....
+  set %totalprogramtime ( %totalprogramtime + ( #SCNT - %programstarttime ) )
+  gosub TM_FileSystem_CreateFileHandle NULL save_handle
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalmibs
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totaltmaps
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalnets
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalpearls
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalcolorednets
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalserps
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalancient
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalsteakdonation
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalscaledonation
+
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle runebook
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle boatkey
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle container_MIBs
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle container_Stack
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle container_Fish
+
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle bankbox
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle archeryweapon
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle maxarrows
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle maxbandages
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle slayerbook
+
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle bankrune1
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle bankrune2
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle innrune1
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle innrune2
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle donaterune1
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle donaterune2
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle trashrune1
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle trashcan
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle terminate
+
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle offencetype
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle defencetype
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle traveltype
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle loottologout
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle minutestologout
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle bankrunmax
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle totalprogramtime
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle keepfishsize
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle donatesteaks
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle enabletrash
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle donatescales
+
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle pitchonserpent
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle pitchshoes
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle pitchsteaks
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle pitchspecialfish
+
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle carvefish
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle carve_new_fish
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle autodefend
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle enablebankrun
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle evaluateloot
+
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_scales
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_hides
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_gold
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_tmaps
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_MIB
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_nets
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_pearls
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_cnets
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_loot_asos
+
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_logout_lootcnt
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_logout_bankrun
+  gosub TM_FileSystem_SaveVariable NULL local std save_handle check_logout_minutes
+
+  menu get EUOEdit12
+  gosub AddUnderscore #MENURES
+  set #MENURES #RESULT
+  gosub TM_FileSystem_SaveFile NULL save_handle #MENURES
+  execute cmd.exe /c echo set , #spc , % , setupfile , #spc , #MENURES > %configfile
+  set #LPC 10
+  menu set EUOStatus Setup Saved!
+  gosub InitializeCounters
+return
+;-------------------------------------------------------------------------------
+sub FastFishup
+  set %xloc #LTARGETX
+  set %yloc #LTARGETY
+  set %pole #LOBJECTID
+  set %targ #LTARGETID
+  if %fishinglocationcount = 1
+  {
+    set #LTARGETX #CHARPOSX + 4
+    set #LTARGETY #CHARPOSY + 4
+  }
+  if %fishinglocationcount = 2
+  {
+    set #LTARGETX #CHARPOSX - 4
+    set #LTARGETY #CHARPOSY - 4
+  }
+  if %fishinglocationcount = 3
+  {
+    set #LTARGETX #CHARPOSX + 4
+    set #LTARGETY #CHARPOSY - 4
+  }
+  if %fishinglocationcount = 4
+  {
+    set #LTARGETX #CHARPOSX - 4
+    set #LTARGETY #CHARPOSY + 4
+  }
+  finditem WWS C_ , #BACKPACKID ; check if pearl count changed
+  set %temppearl #FINDSTACK
+  set #LOBJECTID %fishingpole
+  set #LTARGETKIND 2
+  gosub TM_AdvJournalSync FISHING
+  event macro 17 0
+  target 4s
+  event macro 22 0
+  set %fishtimeout #SCNT + 9
+
+FastFishLoop1:
+  if %training = #TRUE
+  {
+    if #SKILL = 100
+    {
+      msg stop$
+      terminate UO
+    }
+    set %tempx #CHARPOSX
+    set %tempy #CHARPOSY
+    wait 20
+    if %tempx = #CHARPOSX && %tempy = #CHARPOSY
+      msg slow forward$
+  }
+  set #LPC 100
+  gosub TM_AdvJournalScan FISHING VALID seem_to_be_biting
+  if #RESULT = #TRUE  ; change fishing coordinates
+  {
+    if %training <> #TRUE
+      set %fishinglocationcount %fishinglocationcount + 1
+    set %nofish %nofish + 1
+    if %fishinglocationcount > 4
+      set %fishinglocationcount 1
+    gosub TM_AdvJournalSync FISHING
+    goto EndFastFish1
+  }
+  gosub TM_AdvJournalScan FISHING VALID you_pull_out you_fish_a_while
+  if #RESULT = #TRUE
+  {
+    gosub TM_AdvJournalSync FISHING
+    set %nofish 0
+    goto EndFastFish1
+  }
+  if #SCNT > %fishtimeout
+    goto EndFastFish1
+  set #LPC 10
+  gosub Defend NULL KI %offencetype %defencetype 8
+  goto FastFishLoop1
+
+EndFastFish1:
+  finditem WWS C_ , #BACKPACKID ; check if pearl count changed
+  if #FINDSTACK <> %temppearl
+  {
+    set %pearlcount %pearlcount + 1
+    set %totalpearls %totalpearls + 1
+  }
+  gosub TM_AdvJournalSync FISHING
+  set #LPC 10
+  gosub Defend NULL KI %offencetype %defencetype 8
+  if %pitchspecialfish = #true
+  {
+    gosub eatspecial
+  }
+ScanForBigFish_loop1:
+  gosub EvaluateBigFish #BACKPACKID #FALSE
+  gosub EvaluateBigFish G_0 #TRUE
+  gosub CheckWeight
+  set #LTARGETX %xloc
+  set #LTARGETY %yloc
+  set #LOBJECTID %pole
+  set #LTARGETID %targ
+return
+;-------------------------------------------------------------------------------
+sub EvaluateBigFish
+  namespace push
+  namespace local EF
+  set !source %1
+  set !drag_to_pack %2
+  set !temp_lobject #LOBJECTID
+  set !temp_ltarget #LTARGETID
+  set !temp_kind #LTARGETKIND
+  finditem EQD !source
+  if #FINDCNT > 0
+  {
+    for #FINDINDEX 1 #FINDCNT
+    {
+      if #FINDCOL = 1420 || #FINDCOL = 2119 ;col=1420(green) 2119(blue) type=EQD
+      {
+        gosub TM_GetItemWeight #FINDID
+        if #MAXWEIGHT > 425
+          set %tempweight 425 - #WEIGHT
+        else
+          set %tempweight #MAXWEIGHT - #WEIGHT
+        if #RESULT >= %keepfishsize && #RESULT <= %tempweight
+        {
+          if !drag_to_pack = #TRUE
+          {
+            exevent drag #FINDID 1
+            wait 10
+            exevent dropc #BACKPACKID
+            wait 20
+          }
+        }
+        else
+        {
+          set #LOBJECTID %blade
+          set #LTARGETID #FINDID
+          event macro 17 0
+          target 5s
+          event macro 22 0
+          wait 20
+        }
+      }
+    }
+  }
+  set #LOBJECTID !temp_lobject
+  set #LTARGETID !temp_ltarget
+  set #LTARGETKIND !temp_kind
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+sub TM_GetItemWeight
+  namespace push
+  namespace local GIC
+  set !item %1
+  finditem !item *
+  set #RESULT -1
+  if #FINDKIND <> -1
+  {
+    event property #FINDID
+    set !string #PROPERTY
+    str pos !string Weight:
+    if #STRRES <> 0
+    {
+      set !start #STRRES + 8
+      str pos !string Stones$
+      set !len #STRRES - !start - 1
+      str mid !string !start !len
+      set #RESULT #STRRES
+    }
+    else
+    {
+      str pos !string Stones$ ; RunUO 2.0
+      if #STRRES <> 0
+      {
+        set !end #STRRES
+        set !ptr !end - 1
+        repeat
+          set !ptr !ptr - 1
+          str mid !string !ptr 1
+        until #STRRES notin _0_1_2_3_4_5_6_7_8_9_
+        set !ptr !ptr + 1
+        set !len !end - !ptr - 1
+        str mid !string !ptr !len
+        set #RESULT #STRRES
+      }
+    }
+  }
+  namespace pop
+return #RESULT
+;-------------------------------------------------------------------------------
+sub CheckWeight
+  if #WEIGHT >= #MAXWEIGHT - 20 || #WEIGHT >= 425
+  {
+    menu get EUOCheckBox13
+    if #MENURES = #TRUE
+      gosub cutfish
+    if #WEIGHT >= #MAXWEIGHT - 20 || #WEIGHT >= 425 ; still overweight?
+    {
+      if %enabletrash = #TRUE
+      {
+        gosub TM_RandomRunebookTravel %travelmethod %trashrune1 %trashrune1 %runebook
+        gosub TransferItems NULL CWI_AWI_NVI_OVI_PVI_QVI_ZVI_TVI -1 #BACKPACKID %trashcan
+      }
+      if %enablebankrun = #true
+      {
+        gosub DonateItems
+        gosub BankItems
+        gosub TM_TravelFromObject %travelmethod %boatkey
+        if #RESULT = #TRUE
+        {
+          display ok Error in TM_TravelFromObject
+          stop
+        }
+        wait 20
+        gosub TM_StandCorrectly
+      }
+    }
+  }
+return
+; ---------------------------------------------------------------------------
+sub TM_StandCorrectly
+  namespace push
+  namespace local SC
+  finditem ENX G_6
+  if #FINDCNT <> 1
+  {
+    display ok Cannot locate tillerman
+    stop
+  }
+  if ( ( #FINDX - #charposx ) <> 1 ) || ( ( #FINDY - #charposy ) <> 3 )
+  {
+    set !tempy #FINDY - 3
+    set !tempx #FINDX - 1
+    click 400 400 mc n
+    repeat
+       event pathfind !tempx !tempy
+       wait 15
+    until #charposx = !tempx && #charposy = !tempy
+    wait 10
+  }
+  namespace pop
+return
+;----------------------------------------------------------------
+sub FindVender
+  namespace push
+  namespace local FV
+  set !temp_lpc #LPC
+  set #LPC 1000
+  set !temp_vendortype %1
+find_vendor:
+  finditem IS_HS_XU_AV G_20
+  if #findkind <> -1
+  {
+    event property #FINDID
+    if !temp_vendortype in #PROPERTY
+    {
+      ignoreitem reset vendors
+      set #LPC !temp_lpc
+      namespace pop
+      return #FINDID
+    }
+    ignoreitem #findid vendors
+    goto find_vendor
+  }
+  ignoreitem reset vendors
+  set #LPC !temp_lpc
+  namespace pop
+return #true
+;-------------------------------------------------------------------------------
+; %1 = GumpAndSizeWait
+; %2 = Gumpname 1
+; %3 = Gumpname 2
+sub GumpAndSizeWait
+  set %timedelay #SCNT
+  wait 5
+GumpWait_loop1:
+  if #CONTNAME = %2 && #CONTSIZE = %3
+    return #FALSE ; no error
+  if #SCNT > %timedelay + 7
+    return #TRUE ; error, timeout
+  goto GumpWait_loop1
+return #TRUE ; should never get here.
+;-------------------------------------------------------------------------------
+sub DonateItems
+  namespace push
+  namespace local DI
+  menu get EUOCheckBox18 ; donate fish?
+  if #MENURES = #TRUE
+  {
+    menu Get EUOCheckBox13 ; carve fish?
+    set !tempcarvefish #MENURES
+    menu set EUOCheckBox13 #TRUE  ; force fish to be carved for donation.
+    gosub cutfish
+    menu set EUOCheckBox13 !tempcarvefish
+  }
+  set !alreadythere #FALSE
+  menu set EUOStatus Donation run...
+  set %random #RANDOM
+  if %random % 2 = 0 ; randomly turn in items.
+  {
+    menu get EUOCheckBox18 ; donate fish?
+    if #MENURES = #TRUE
+      gosub DonateSteaks
+    menu get EUOCheckBox18 ; donate scales?
+    if #MENURES = #TRUE
+      gosub DonateScales
+  }
+  else
+  {
+    menu get EUOCheckBox18 ; donate scales?
+    if #MENURES = #TRUE
+      gosub DonateScales
+    menu get EUOCheckBox18 ; donate fish?
+    if #MENURES = #TRUE
+      gosub DonateSteaks
+  }
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+sub DonateSteaks
+  namespace push
+  namespace local DI
+  finditem IND C_ , #BACKPACKID
+  menu get EUOCheckBox18 ; Donate fish steaks?
+  if #MENURES = #TRUE && #FINDSTACK > 0
+  {
+    menu set EUOStatus Donating fish steaks....
+    if !alreadythere = #FALSE
+    {
+      gosub TM_RandomRunebookTravel %travelmethod %donaterune1 %donaterune2 %runebook
+      if #RESULT = #TRUE
+      {
+        display ok Error in runebook travel.
+        stop
+      }
+      wait 40
+    }
+    else
+    {
+      move !tempcharposx !tempcharposy 1 3s
+    }
+    gosub TM_AdvJournalSync FISHING
+    set !vendername The , #SPC , Fisher$
+    gosub FindVender !vendername
+    if #RESULT <> #TRUE
+    {
+      finditem #RESULT G
+      if #FINDKIND <> -1
+      {
+        set !tempcharposx #CHARPOSX
+        set !tempcharposy #CHARPOSY
+        set !vender #RESULT
+        set !alreadythere #TRUE
+        move 1412 1606 1 3s
+        move #FINDX #FINDY 2 3s
+        set #LOBJECTID !vender
+        event macro 17 0
+        gosub GumpAndSizeWait NULL generic_gump 345_359
+        wait 20
+        if %shard_type = OSI
+        {
+          set !clickx #CONTPOSX + 305 ; Next arrow
+          set !clicky #CONTPOSY + 342
+          click !clickx !clicky
+          wait 20
+          set !clickx #CONTPOSX + 38  ; Click fishsteaks
+          set !clicky #CONTPOSY + 305
+          click !clickx !clicky
+        }
+        else
+        {
+          set !clickx #CONTPOSX + 38  ; Click fishsteaks
+          set !clicky #CONTPOSY + 222
+          click !clickx !clicky
+        }
+        wait 20
+
+        finditem IND C_ , #BACKPACKID ; get the steak stack size
+        set !stacksize #FINDSTACK
+        if #FINDKIND <> -1
+        {
+DonateSteaks_loop1:
+          gosub TM_AdvJournalScan FISHING VALID please_enter_how_much
+          if #RESULT = #FALSE
+            goto DonateSteaks_loop1
+          msg !stacksize , $
+          set %totalsteakdonation %totalsteakdonation + ( !stacksize / 4 )
+          wait 20
+        }
+        set !clickx #CONTPOSX + 50 ; close window
+        set !clicky #CONTPOSY + 50
+        click !clickx !clicky r
+        wait 20
+      }
+    }
+  }
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+
+sub DonateScales
+  namespace push
+  namespace local DI
+  finditem STO C_ , #BACKPACKID
+  menu get EUOCheckBox23 ; Donate dragon scales?
+  if #MENURES = #TRUE && #FINDSTACK > 0
+  {
+    menu set EUOStatus Donating serpent scales...
+    if !alreadythere = #FALSE
+    {
+      gosub TM_RandomRunebookTravel %travelmethod %donaterune1 %donaterune2 %runebook
+      if #RESULT = #TRUE
+      {
+        display ok Error in runebook travel.
+        stop
+      }
+      wait 40
+    }
+    else
+    {
+      move !tempcharposx !tempcharposy 1 3s
+    }
+    gosub TM_AdvJournalSync FISHING
+    set !vendername The , #SPC , Animal , #SPC , Trainer$
+    gosub FindVender !vendername
+    if #RESULT <> #TRUE
+    {
+      finditem #RESULT G
+      if #FINDKIND <> -1
+      {
+        set !tempcharposx #CHARPOSX
+        set !tempcharposy #CHARPOSY
+        set !vender #RESULT
+        set !alreadythere #TRUE
+        move 1413 1595 0 3s
+        move #FINDX #FINDY 2 3s
+        set #LOBJECTID !vender
+        event macro 17 0
+        gosub GumpAndSizeWait NULL generic_gump 345_359
+        wait 20
+        set !clickx #CONTPOSX + 305 ; Next arrow
+        set !clicky #CONTPOSY + 342
+        click !clickx !clicky
+        wait 20
+        set !clickx #CONTPOSX + 38  ; Click fishsteaks
+
+        if %shard_type = OSI
+        {
+          set !clicky #CONTPOSY + 196
+        }
+        else
+        {
+          set !clicky #CONTPOSY + 260
+        }
+        click !clickx !clicky
+        wait 20
+
+        finditem STO C_ , #BACKPACKID ; get the scales
+        set !stacksize #FINDSTACK
+        if #FINDKIND <> -1
+        {
+DonateScales_loop1:
+          gosub TM_AdvJournalScan FISHING VALID please_enter_how_much
+          if #RESULT = #FALSE
+            goto DonateScales_loop1
+          msg !stacksize , $
+          set %totalscaledonation %totalscaledonation + ( !stacksize * 20 )
+          wait 20
+        }
+        set !clickx #CONTPOSX + 50 ; close window
+        set !clicky #CONTPOSY + 50
+        click !clickx !clicky r
+        wait 20
+      }
+    }
+  }
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+sub BankItems
+  menu set EUOStatus Bank run...
+  gosub TM_RandomRunebookTravel %travelmethod %bankrune1 %bankrune2 %runebook
+  if #RESULT = #TRUE
+  {
+    display ok Error in runebook travel. Stopping.
+    stop
+  }
+  wait 40
+  ;gosub FindBanker
+  if #RESULT = #FALSE
+  {
+    display Cannot locate banker.  Stopping.
+    stop
+  }
+  gosub GumpWait NULL container_gump container_gump
+  gosub TransferItems NULL SVH_XVH_HTD_UDF_EQD_UVH -1 #BACKPACKID %container_MIBs
+  wait 20
+  gosub TransferItems NULL WWS -1 #BACKPACKID %container_Stack   ; pearls
+  wait 20
+  gosub TransferItems NULL POF -1 #BACKPACKID %container_Stack
+  wait 20
+  gosub TransferItems NULL IND_HND_STO_JJG_UDHB -1 #BACKPACKID %container_Stack
+  wait 20
+  gosub TransferItems NULL EQD_FQD_GQD_DQD -1 #BACKPACKID %container_Fish ; uncut old-style fish
+  wait 20
+  gosub TransferItems NULL WYZ_SMZ_OMZ_RMZ_UYZ_RMZ_ZYZ_TYZ_NMZ -1 #BACKPACKID %container_Fish ; uncut-High Seas fish
+  wait 20
+
+  if %offencetype in 4_5
+  {
+    finditem %ammotype C_ , #BACKPACKID
+    set #RESULT %maxarrows - #FINDSTACK
+    if #RESULT > 0
+      gosub DragStack %bankbox #BACKPACKID %ammotype #RESULT
+  }
+  if %defencetype in 3_4_5_6
+  {
+    finditem ZLF C_ , #BACKPACKID
+    set #RESULT %maxbandages - #FINDSTACK
+    if #RESULT > 0
+      gosub DragStack %bankbox #BACKPACKID ZLF #RESULT
+  }
+  set %bankruncount %bankruncount + 1
+return
+;-------------------------------------------------------------------------------
+; north -->    #CHARPOSY decreases
+sub Advance8
+  menu set EUOStatus Boat stuck, unblock in progress...
+  set %tempyy #CHARPOSY
+  set %unblockboat #false
+  gosub TM_AdvJournalSync FISHING
+  msg slow forward $
+Advance8loop:
+  if #CHARPOSY <= ( %tempyy - 8 )
+  {
+    event macro 3 0 stop
+    return
+  }
+  if #CHARPOSY > %tempyy  ; looped around world, run done if it was going
+    set %unblockboat #true
+
+  gosub TM_AdvJournalScan FISHING VALID stopped
+  if #RESULT = #TRUE
+  {
+    gosub TM_AdvJournalSync FISHING
+    set %unblockboat #true
+  }
+
+  if %unblockboat = #true
+  {
+    gosub UnblockBoat2
+    return
+  }
+  goto Advance8loop
+return
+;-------------------------------------------------------------------------------
+sub UnblockBoat2
+  ; 0 = left
+  ; 1 = right
+  ; 2 = back
+  set %presentdirection 0
+  set %nummoves 6
+  set %tempxx #CHARPOSX
+UnblockBoat2loop:
+  for %j 1 %nummoves
+  {
+    if %presentdirection = 0
+      event macro 3 0 left one
+    if %presentdirection = 1
+      event macro 3 0 right one
+    if %presentdirection = 2
+      event macro 3 0 back one
+    wait 25
+
+    gosub TM_AdvJournalScan FISHING VALID stopped
+    if #RESULT = #TRUE
+    {
+      gosub TM_AdvJournalSync FISHING
+      if %presentdirection = 0 || %presentdirection = 1
+      {
+        set %nummoves ( 6 + %j - 1 )
+      }
+      set %presentdirection %presentdirection + 1
+      if %presentdirection > 2
+        set %presentdirection 0
+      if %presentdirection = 2
+      {
+        set %nummoves 6
+      }
+      goto UnblockBoat2loop
+    }
+  }
+  event macro 3 0 forward
+  wait 10s
+  event macro 3 0 stop
+  wait 25
+  while %tempxx <> #CHARPOSX
+  {
+    gosub TM_AdvJournalScan FISHING VALID stopped
+    if #RESULT = #TRUE
+    {
+      gosub TM_AdvJournalSync FISHING
+      goto UnblockBoat2loop
+    }
+
+    if %presentdirection = 0
+      event macro 3 0 right one
+    if %presentdirection = 1
+      event macro 3 0 left one
+    wait 25
+  }
+return
+;-------------------------------------------------------------------------------
+sub LootSerpent
+  namespace push
+  namespace local LS
+  set !temptargetkindid #LTARGETKIND
+  set !templtargetid #LTARGETID
+  set !templobjectid #LOBJECTID
+  set #LTARGETKIND 1
+  finditem YFM G_10 ; locate a dead body
+  if #FINDKIND = -1
+  {
+    namespace pop
+    return
+  }
+  wait 2s
+  finditem YFM G_10 ; locate a dead body again, first body may have changed.
+
+  event property #FINDID
+  if serpent NOTIN #property ; be sure the located body is a serpent of some sort
+  {
+    ignoreitem #FINDID
+    namespace pop
+    return
+  }
+  set !presentserp #FINDID
+  ignoreitem #FINDID
+  set %deadserpcount %deadserpcount + 1
+  set %totalserps %totalserps + 1
+  menu set EUOStatus Serpent looting in progress...
+  set !tempxxx #CHARPOSX
+  set !tempyyy #CHARPOSY
+closey:
+  set !xdist #CHARPOSX - #FINDX
+  set !ydist #CHARPOSY - #FINDY
+  if !xdist = -1 && ( !ydist < -1 || !ydist > 1 )
+  {
+   event macro 3 0 left one
+    move ( #charposx - 1 ) #charposy 0 10s
+    wait 25
+    goto closey
+  }
+  if ( !xdist = 0 || !xdist = 1 ) && ( !ydist < -1 || !ydist > 1 )
+  {
+  move ( #charposx + 1 ) #charposy 0 10s
+    event macro 3 0 right one
+    wait 25
+    goto closey
+  }
+  set !ydist #CHARPOSY - #FINDY
+  if !ydist < -1
+  {
+  move  #charposx ( #charposy + 1 ) 0 10s
+    event macro 3 0 back one
+    wait 25
+    goto closey
+  }
+  if !ydist > 1
+  {
+   move  #charposx ( #charposy - 1 ) 0 10s
+    event macro 3 0 forward one
+    wait 25
+    goto closey
+  }
+closex:
+  set !xdist #CHARPOSX - #FINDX
+  if !xdist < -2
+  {
+    event macro 3 0 right one
+    wait 25
+    goto closex
+  }
+  if !xdist > 2
+  {
+    event macro 3 0 left one
+    wait 25
+    goto closex
+  }
+
+  wait 10
+  gosub TM_UseAndTargetResponse %blade !presentserp you_skin_it 20 10 #FALSE
+
+  set #LOBJECTID !presentserp
+  wait 20
+  event macro 17 0 ; last object, open serpent and position his container
+  gosub GumpAndSizeWait NULL container_gump 144_212
+  contpos 125 186
+  wait 20
+  set !serpcont #CONTID
+
+  gosub CheckandDragSpecial STO !serpcont EUOCheckBox4 #true ; serpent scales
+  gosub CheckandDragSpecial JJG !serpcont EUOCheckBox5 #true ; serpent hides
+  gosub CheckandDragSpecial DEG !serpcont EUOCheckBox5 #true ; serpent hides, freeshard(RunUO)
+  gosub CheckandDragSpecial POF !serpcont EUOCheckBox6 #true ; gold
+
+  gosub CheckandDragSpecial XVH !serpcont EUOCheckBox7 #false ; tmaps
+  gosub CheckandDragSpecial SVH !serpcont EUOCheckBox7 #false ; tmaps, freeshard(RunUO)
+
+  gosub CheckandDragSpecial HTD !serpcont EUOCheckBox21 #false ; mibs (ancient)
+  gosub CheckandDragSpecial HTD_UVH_RVH !serpcont EUOCheckBox8 #false ; mibs %check_loot_asos
+  gosub CheckandDragSpecial UDF !serpcont EUOCheckBox12 #false ; special nets
+  gosub CheckandDragSpecial UDF !serpcont EUOCheckBox19 #false ; special nets (colored)
+
+  if %pitchonserpent = #true ; transfer trash to serpent
+  {
+    if %pitchshoes = #true
+      gosub TransferItems NULL CWI_AWI_NVI_OVI_PVI_QVI_ZVI_TVI  -1 #BACKPACKID !serpcont
+    if %pitchsteaks = #true
+    {
+      menu get EUOCheckBox13
+      if #MENURES = #TRUE
+        gosub cutfish
+      gosub TransferItems NULL IND_HND -1 #BACKPACKID !serpcont
+    }
+  }
+
+  wait 20
+  finditem DEG_EEG C_ , #BACKPACKID ; scissors search
+  if #FINDKIND <> -1
+  {
+    gosub TM_UseAndTargetResponse %scissors #FINDID you_cut_the_material 3 2 #FALSE
+  }
+
+  if %use_looter = #TRUE
+  {
+    menu set EUOStatus Looting with the CLAw....
+    gosub TM_EvaluateContainer !serpcont #BACKPACKID
+    set #LPC 2
+    repeat
+      gosub TM_LootInProgress
+    until #RESULT = #FALSE
+    set #LPC 1000
+  }
+
+  set #LTARGETKIND !temptargetkindid
+  set #LTARGETID !templtargetid
+  set #LOBJECTID !templobjectid
+  namespace pop
+  menu set EUOStatus Serpent looting complete!
+return
+;-------------------------------------------------------------------------------
+sub TM_UseAndTargetResponse
+  namespace push
+  namespace UATR
+  set !item %1
+  set !target %2
+  set !response %3
+  set !wait %4
+  set !timeout %5
+  set !sync %6
+
+  set !timer #SCNT + !timeout
+  repeat
+    set #LOBJECTID !item
+    set #LTARGETID !target
+    set #LTARGETKIND 1
+    event macro 17 0
+    wait 10
+    event macro 22 0
+    wait !wait
+    gosub TM_AdvJournalScan FISHING VALID !response
+  until #RESULT = #TRUE || #SCNT > !timer
+  if !sync = #TRUE
+    gosub TM_AdvJournalSync FISHING
+  namespace pop
+return
+
+;-------------------------------------------------------------------------------
+; %1 = item kind or id
+; %2 = container id
+; %3 = menu button
+; %4 = #true for a stackable item
+sub CheckandDragSpecial
+  set %tempitemid %1
+  set %tempcontid %2
+  set %tempmenu %3
+  set %tempstackable %4
+
+  menu Get %tempmenu ; check specified menu radio button?
+  if #MENURES = #true
+  {
+checkanddragagain:
+    finditem %tempitemid C_ , %tempcontid
+    if #FINDKIND <> -1
+    {
+      if #FINDTYPE = HTD
+      {
+        event property #FINDID
+        if message NOTIN #property  ; this is just a bottle of ale
+        {
+          ignoreitem #FINDID 2
+          goto checkanddragagain
+        }
+      }
+      if #FINDTYPE = UDF ; net, but colored
+      {
+        if %tempmenu = EUOCheckBox19  ; just take the colored ones?
+        {
+          menu get EUOCheckBox19
+          if ( #MENURES = #true ) && ( #FINDCOL = 2208 )
+          {
+            ignoreitem #FINDID 2 ; it's plain, forget it
+            goto checkanddragagain
+          }
+        }
+      }
+      if #FINDTYPE = HTD ; MIB, but ancient?
+      {
+        if %tempmenu = EUOCheckBox21 ; check for ancient MIB
+        {
+          set #LOBJECTID #FINDID
+          event macro 17 0
+          wait 30
+          event property #FINDID
+          if ancient notin #PROPERTY
+          {
+            menu get EUOCheckBox8 ; just checking for ancients and not MIBs
+            if #MENURES = #FALSE
+            {
+              ignoreitem #FINDID 2 ; it's plain, forget it
+              goto checkanddragagain
+            }
+          }
+          else
+          {
+            set %ancientcount %ancientcount + 1
+            set %totalancient %totalancient + 1
+          }
+        }
+      }
+
+      exevent drag #FINDID #FINDSTACK
+      wait 10
+      exevent dropc #BACKPACKID
+      wait 20
+      if #FINDTYPE in %tempitemid
+      {
+        if  #FINDTYPE = XVH  ||  #FINDTYPE = SVH
+        {
+          set %tmapcount %tmapcount + 1
+          set %totaltmaps %totaltmaps + 1
+          set %lootcount %lootcount + 1
+        }
+        if #FINDTYPE in HTD_UVH_RVH
+        {
+          set %mibcount %mibcount + 1
+          set %totalmibs %totalmibs + 1
+          set %lootcount %lootcount + 1
+        }
+        if #FINDTYPE = UDF
+        {
+          set %totalnets %totalnets + 1
+          if #FINDCOL <> 2208
+          {
+            set %totalcolorednets %totalcolorednets + 1
+            set %colorednetcount %colorednetcount + 1
+            set %lootcount %lootcount + 1
+          }
+          else
+          {
+            set %netcount %netcount + 1
+            set %lootcount %lootcount + 1
+          }
+        }
+
+        set %lastloottime #SCNT - %loottime
+        set %loottime #SCNT
+        gosub CheckEndofProgram
+      }
+    }
+  }
+  ignoreitem reset 2
+return
+
+;-------------------------------------------------------------------------------
+sub CountItems
+  finditem WWS C_ , #BACKPACKID ; pearls
+  if #FINDKIND <> -1
+  {
+    set %pearlcount %pearlcount + #FINDSTACK
+  }
+countitemsloop:
+  finditem SVH_XVH_HTD_UDF_UVH C_ , #BACKPACKID
+  if #FINDKIND = -1
+  {
+    ignoreitem reset 1
+    return
+  }
+
+  if #FINDTYPE in XVH_SVH
+    set %tmapcount %tmapcount + 1
+  event property #FINDID
+  if #FINDTYPE in HTD_UVH
+  {
+    if message in #PROPERTY || waterstained in #PROPERTY ; verify this is a MIB and not an ale bottle
+    {
+      set %mibcount %mibcount + 1 ; count it as an MIB
+    }
+    if ancient in #PROPERTY
+    {
+      set %ancientcount %ancientcount + 1
+      set %mibcount %mibcount + 1 ; count it as an MIB
+    }
+    else
+    {
+      ignoreitem #FINDID 1 ; ale, so ignore
+      goto countitemsloop
+    }
+  }
+  if #FINDTYPE = UDF
+  {
+    set %netcount %netcount + 1
+    if #FINDCOL <> 2208 ; plain
+    {
+      set %colorednetcount %colorednetcount + 1
+    }
+  }
+
+  ignoreitem #FINDID 1
+  goto countitemsloop
+return
+;-------------------------------------------------------------------------------
+; %1 = input - Time to convert
+; #RESULT -  Time converted to ##:## format
+sub ConvertTimeMinSec
+  namespace push
+  namespace local ctime
+  set !minpart %1 / 60
+  set !secpart %1 % 60
+
+  set #RESULT !minpart , :
+  if !secpart < 10
+  {
+    set #RESULT #RESULT , 0
+  }
+  set #RESULT #RESULT , !secpart
+  namespace pop
+return #RESULT
+;-------------------------------------------------------------------------------
+; %1 = input - Time to convert
+; #RESULT -  Time converted to #:##:## format
+sub ConvertTimeHourMinSec
+  namespace push
+  namespace local ctime
+  set !hourpart %1 / 3600
+  set !secpart ( %1 % 3600 ) % 60
+  set !minpart ( ( %1 % 3600 ) / 60 )
+
+  set #RESULT !hourpart , :
+  if !minpart < 10
+  {
+    set #RESULT #RESULT , 0
+  }
+  set #RESULT #RESULT , !minpart , :
+  if !secpart < 10
+  {
+    set #RESULT #RESULT , 0
+  }
+  set #RESULT #RESULT , !secpart
+  namespace pop
+return #RESULT
+;-------------------------------------------------------------------------------
+sub cutfish
+  set !temp_LOBJECTID #LOBJECTID
+  set !temp_LTARGETID #LTARGETID
+  set !temp_LTARGETKIND #LTargetKind
+  menu Get EUOCheckBox13 ; carve fish?
+
+  if #MENURES = #TRUE
+  {
+    set #LTargetKind 1
+    finditem EQD_FQD_GQD_DQD_UYZ_ZYZ C_ , #BACKPACKID
+    if #FINDCNT > 0
+    {
+      for #FINDINDEX 1 #FINDCNT
+      {
+        event property #FINDID
+        if caught , #SPC , by in #PROPERTY
+        {
+          gosub TM_GetItemWeight #FINDID
+          menu get EUOEdit1
+          if #RESULT >= #MENURES
+            continue
+        }
+        set #LOBJECTID %blade
+        set #LTARGETID #FINDID
+        event macro 17 0
+        target 3s
+        event macro 22 0
+        wait 20
+      }
+    }
+  }
+  menu get EUOCheckCarveHighSeasFish
+  if #MENURES = #TRUE
+  {
+    set #LTargetKind 1
+    finditem WYZ_SMZ_OMZ_RMZ_UYZ_RMZ_ZYZ_TYZ_NMZ C_ , #BACKPACKID
+    if #FINDCNT > 0
+    {
+      for #FINDINDEX 1 #FINDCNT
+      {
+        set #LOBJECTID %blade
+        set #LTARGETID #FINDID
+        event macro 17 0
+        target 3s
+        event macro 22 0
+        wait 20
+      }
+    }
+  }
+  set #LOBJECTID !temp_LOBJECTID
+  set #LTARGETID !temp_LTARGETID
+  set #LTargetKind !temp_LTARGETKIND
+return
+;-------------------------------------------------------------------------------
+sub eatspecial
+  set #LTargetKind 1
+  finditem YDF 1
+  if #FindKind = -1
+    return
+  set #LOBJECTID #FINDID
+  event macro 17 0
+  wait 20
+return
+;-------------------------------------------------------------------------------
+sub HandleMenu
+  menu Get EUOCheckBox17 ; throw away junk on serpent?
+  set %pitchonserpent #MENURES
+  menu Get EUOCheckBox1 ; Footwear?
+  set %pitchshoes #MENURES
+  menu Get EUOCheckBox2 ; Fish steaks?
+  set %pitchsteaks #MENURES
+  menu Get EUOCheckBox3 ; Special Fish?
+  set %pitchspecialfish #MENURES
+  menu Get EUOCheckBox13 ; carve fish?
+  set %carvefish #MENURES
+
+  menu Get EUOCheckCarveHighSeasFish ; carve fish?
+  set %carve_new_fish #MENURES
+
+  menu Get EUOCheckBox9 ; autodefend?
+  set %autodefend #MENURES
+  menu Get EUOCheckBox11 ; need to do a bank run?
+  set %enablebankrun #MENURES
+  menu Get EUOCheckBox10 ; evaluate loot?
+  set %evaluateloot #MENURES
+  menu Get EUOCheckBox4 ; loot scales?
+  set %check_loot_scales #MENURES
+  menu Get EUOCheckBox5 ; loot hides?
+  set %check_loot_hides #MENURES
+  menu Get EUOCheckBox6 ; loot gold?
+  set %check_loot_gold #MENURES
+  menu Get EUOCheckBox7 ; loot tmaps?
+  set %check_loot_tmaps #MENURES
+  menu Get EUOCheckBox8 ; loot mibs?
+  set %check_loot_MIB #MENURES
+  menu Get EUOCheckBox12 ; loot nets?
+  set %check_loot_nets #MENURES
+  menu Get EUOCheckBox19 ; loot colored nets?
+  set %check_loot_cnets #MENURES
+  menu Get EUOCheckBox21 ; Ancient SOS?
+  set %check_loot_asos #MENURES
+  menu Get EUOCheckBox22 ; Enable trash run?
+  set %enabletrash #MENURES
+  menu Get EUOCheckBox24 ; Terminate?
+  set %terminate #MENURES
+  if %enabletrash = #TRUE && %trashcan = N/A
+  {
+    display yesno You do not have a trash location initialized.$Do you want to initialize one now?
+    if #DISPRES = yes
+    {
+      menu set EUOStatus Please target your trash container..
+      set #TARGCURS 1
+      repeat
+      until #TARGCURS = 0
+      set %trashcan #LTARGETID
+      menu set EUOStatus Trash setup complete.
+    }
+    else
+    {
+      menu set EUOCheckBox22 #FALSE
+      set %enabletrash #FALSE
+    }
+  }
+
+  menu Get EUOCheckBox15 ; logout after number of loot fished up?
+  set %check_logout_lootcnt #MENURES
+  menu Get EUOCheckBox16 ; logout after number of bankruns?
+  set %check_logout_bankrun #MENURES
+  menu Get EUOCheckBox14 ; logout after number of minutes?
+  set %check_logout_minutes #MENURES
+  menu get EUOCheckBox18 ; enable steak donation
+  set %donatesteaks #MENURES
+  menu get EUOCheckBox23 ; enable scale donation
+  set %donatescales #MENURES
+
+  menu Get EUOEdit5 ; Bank rune lower range
+  set %bankrune1 #MENURES
+  menu Get EUOEdit6 ; Bank rune upper range
+  set %bankrune2 #MENURES
+  menu Get EUOEdit7 ; inn rune lower range
+  set %innrune1 #MENURES
+  menu Get EUOEdit8 ; inn rune upper range
+  set %innrune2 #MENURES
+  menu Get EUOEdit11 ; donation rune lower range
+  set %donaterune1 #MENURES
+  menu Get EUOEdit13 ; donation rune upper range
+  set %donaterune2 #MENURES
+  menu Get EUOEdit14 ; trash rune lower range
+  set %trashrune1 #MENURES
+
+  menu Get EUOEdit1 ; big fish size to keep
+  set %keepfishsize #MENURES
+  menu Get EUOEdit9 ; # Ammo to load with
+  set %maxarrows #MENURES
+  menu Get EUOEdit10 ; # Bandages to load with
+  set %maxbandages #MENURES
+
+  menu get EUOComboOffence ; need to check if setup changes
+  if #MENURES in 4_5 && %currentcombooffence <> #MENURES
+  {
+    set %currentcombooffence #MENURES
+    if %archeryweapon <> N/A
+      gosub SetupWeapon %archeryweapon
+  }
+  menu get EUOComboOffence
+  if #MENURES in 2_3 && %currentcombooffence <> #MENURES
+  {
+    set %currentcombooffence #MENURES
+    if %slayerbook <> N/A
+      gosub SetupWeapon %slayerbook
+  }
+
+  if #MENUBUTTON = EUOButton3 ; Quit
+  {
+    set #MENUBUTTON N/A
+    gosub QuitProgram
+    stop
+  }
+  if #MENUBUTTON = EUOButton4 ; Bank
+  {
+    set #MENUBUTTON N/A
+    menu Get EUOCheckBox13 ; carve fish?
+    set !tempcarvefish #MENURES
+    menu set EUOCheckBox13 #TRUE  ; force fish to be carved for donation.
+    gosub cutfish
+    menu set EUOCheckBox13 !tempcarvefish
+    gosub BankItems
+    if %runenable = #TRUE
+      set #MENUBUTTON EUOButton1
+  }
+  if #MENUBUTTON = EUOButton5 ; Save setup
+  {
+    set #MENUBUTTON N/A
+    display yesno Are you sure you want to SAVE your setup file?
+    if #DISPRES = yes
+      gosub SaveSetup
+  }
+  if #MENUBUTTON = EUOButton2 ; Load setup
+  {
+    set #MENUBUTTON N/A
+    display yesno Are you sure you want to LOAD your setup file?
+    if #DISPRES = yes
+      gosub LoadSetup
+  }
+  if #MENUBUTTON = EUOButton6 ; Guided setup
+  {
+    set #MENUBUTTON N/A
+    display yesno Are you sure you want to run though guided setup?
+    if #DISPRES = yes
+      gosub GuidedSetup
+  }
+  if #MENUBUTTON = EUOButton8 ; Donate Steaks/Scales
+  {
+    set #MENUBUTTON N/A
+    gosub DonateItems
+    if %runenable = #TRUE
+      set #MENUBUTTON EUOButton1
+  }
+  if #MENUBUTTON = EUOButton9 ; Trash Footwear
+  {
+    set #MENUBUTTON N/A
+    gosub TM_RandomRunebookTravel %travelmethod %trashrune1 %trashrune1 %runebook
+    gosub TransferItems NULL CWI_AWI_NVI_OVI_PVI_QVI_ZVI_TVI -1 #BACKPACKID %trashcan
+    if %runenable = #TRUE
+      set #MENUBUTTON EUOButton1
+  }
+  if #MENUBUTTON = EUOButton7 ; Evaluate containter
+  {
+    set #MENUBUTTON N/A
+    display ok Feature not yet implemented.
+  }
+
+  if #MENUBUTTON = EUOButton1 ; Start
+  {
+    set #MENUBUTTON N/A
+
+    if %boatkey = N/A
+    {
+      display ok You need to setup your boat key through guided setup first.
+      goto HandleMenu_skip1
+    }
+
+    finditem GWX_DWX_DUX_SUX G_2
+    if #FINDKIND = -1 && %runenable = #FALSE
+    {
+      repeat
+        gosub TM_TravelFromObject %travelmethod %boatkey
+        if #RESULT = #TRUE
+        {
+          display ok Error in TM_TravelFromObject
+          stop
+        }
+        wait 20
+        gosub TM_StandCorrectly
+        finditem GWX_DWX_DUX_SUX G_2
+      until #FINDKIND <> -1
+    }
+
+    if %defencetype = 0 || %offencetype = 0
+    {
+      display OK Please select offence and defense type to begin
+      goto HandleMenu_skip1
+    }
+    menu Font Color WindowText
+    menu Font BGColor BtnFace
+    menu Font Size 10
+    menu Font Style b
+    if %runenable = #FALSE
+    {
+      set %runenable #TRUE
+      menu delete EUOButton1
+      menu Button EUOButton1 160 84 147 25 Pause
+    }
+    else
+    {
+      menu set EUOStatus Paused........
+      set %runenable #FALSE
+      menu delete EUOButton1
+      menu Button EUOButton1 160 84 147 25 Start
+    }
+  }
+
+
+HandleMenu_skip1:
+  menu Get EUOEdit3
+  set %loottologout #MENURES
+  menu Get EUOEdit4
+  set %bankrunmax #MENURES
+  menu Get EUOEdit2
+  set %minutestologout #MENURES
+  menu Get EUOComboOffence ; type of magic to use to dispatch foe
+  set %offencetype #MENURES
+  menu Get EUOComboHealing ; type of defence
+  set %defencetype #MENURES
+  menu Get EUOComboTravel
+  set %traveltype #MENURES
+  if %traveltype = 1
+    set %travelmethod RE  ; recall
+  if %traveltype = 2
+    set %travelmethod GA  ; gate travel
+  if %traveltype = 3
+    set %travelmethod SJ  ; Sacred journey
+
+return
+;-------------------------------------------------------------------------------
+sub CheckEndofProgram
+  set %endprogram #false
+  menu Get EUOCheckBox15
+  if #MENURES = #true
+  {
+    if %lootcount >= %loottologout
+      set %endprogram #true
+  }
+  menu Get EUOCheckBox14
+  if #MENURES = #true
+  {
+    set %temp (  ( #SCNT - %programstarttime ) / 60 )
+    if %temp >= %minutestologout
+    {
+      set %endprogram #true
+    }
+  }
+  menu Get EUOCheckBox16
+  if #MENURES = #true
+  {
+    if %bankruncount >= %bankrunmax
+      set %endprogram #true
+  }
+  if %durability_timer = N/A
+    set %durability_timer #SCNT
+  if #SCNT >= %durability_timer
+  {
+    gosub CheckItemDurability 5 #FALSE ; 5% down and automatically Quit
+    set %durability_timer #SCNT + 600
+  }
+  else
+  {
+    set #RESULT #FALSE
+  }
+  if %endprogram = #true || #RESULT = #TRUE
+  {
+    gosub QuitProgram
+  }
+return
+;-------------------------------------------------------------------------------
+sub QuitProgram
+  gosub DonateItems
+  gosub cutfish
+  gosub BankItems
+  wait 20
+  gosub TM_RandomRunebookTravel %travelmethod %innrune1 %innrune2 %runebook ; recall to Inn
+  wait 20
+  gosub SaveSetup
+  gosub ConvertDate #DATE
+  set %date #RESULT
+  gosub ConvertDailyTime #TIME
+  set %time #RESULT
+  execute cmd.exe /c echo >> %logfile Date %date Time %time Logout , #spc , -- , #spc , Runtime , #spc , %convertedprogramtime , #spc , %formattedskillgain , #SPC , DeadSerpents , : , #spc , %deadserpcount , #SPC , %formattedserpsperhour , #SPC , %formattedmibperhour
+  execute cmd.exe /c echo >> %logfile Date %date Time %time Loot , #spc , count: , #spc , MIB: , %mibcount  , #spc , Net: , %netcount , #spc , Tmap: , %tmapcount , #spc , Pearl: , %pearlcount , #SPC , ASOS: , %ancientcount , #SPC , CNets: , %colorednetcount
+  menu get EUOCheckBox24
+  if #MENURES = #TRUE
+    terminate uo
+return
+;-------------------------------------------------------------------------------
+; %1 = spell number
+; %2 = #TARGETID or SELF or NONE
+; %3 = retry count (-1 = cast until successful)
+; %4 = cast delay
+; %5 = recovery delay
+
+sub TM_NewCastSpell
+  namespace push
+  namespace local NCS
+  set !lpc #LPC
+  set #LPC 100
+  set !whichspell %1
+  set !whichtarget %2
+  set !castretrymax %3
+  set !waitdelay %4
+  set !recovery_delay %5
+
+  set !castretry 0
+  set !temp_ltargetid #LTARGETID
+  set !temp_ltargetkind #LTARGETKIND
+
+NewCastSpell_loop1:
+  if !castretrymax < 0
+    goto NewCastSpell_cont1
+  if !castretry > !castretrymax
+    goto NewCastSpell_end1
+NewCastSpell_cont1:
+  gosub TM_AdvJournalSync SPELLCAST
+  set #LTARGETKIND 1
+  set #LTARGETID !whichtarget
+  set !tempmana #MANA
+  event macro 15 !whichspell ; cast the spell
+  wait !waitdelay
+  set !targettimeout #SCNT + 7
+NewCastSpell_wait1:
+  gosub TM_AdvJournalScan SPELLCAST VALID spell_fizzles you_have_not_yet mana your_spirit more_reagents
+  if #RESULT = #TRUE || #SCNT > !targettimeout
+  {
+    set !casttimeout #SCNT2 + !recovery_delay
+    repeat
+    until #SCNT2 > !casttimeout     ; finish up cast delay
+    set !castretry !castretry + 1
+    goto NewCastSpell_loop1
+  }
+  if !whichtarget = NONE
+    goto NewCastSpell_skip1
+  if #TARGCURS = 1
+    goto NewCastSpell_targ1
+  goto NewCastSpell_wait1 ; wait for target cursor
+
+NewCastSpell_targ1:
+  if !whichtarget = SELF
+    event macro 23
+  else
+    event macro 22
+
+NewCastSpell_skip1:
+  wait 5
+  set !casttimeout #SCNT2 + !recovery_delay
+NewCastSpell_skip2:
+  if !whichspell >= 0 && !whichspell <= 63 ; Magery
+  {
+    gosub TM_AdvJournalScan SPELLCAST VALID spell_fizzles there_is_already mana your_spirit more_reagents
+  }
+  else
+  {
+    set !cont #FALSE  ; Chivalry, Necromancy, etc
+    finditem !whichtarget *
+    if !whichtarget in SELF_NONE || #FINDKIND <> -1
+      set !cont #TRUE
+
+    if #MANA >= !tempmana && !cont = #TRUE ; check if target is still there
+      set #RESULT #TRUE
+    else
+      set #RESULT #FALSE
+  }
+  repeat
+  until #SCNT2 > !casttimeout     ; finish up cast delay
+  if #RESULT = #TRUE
+  {
+    if !castretrymax > -1
+    {
+      set !castretry !castretry + 1 ; %castretrymax of -1 will cast until successful
+      if !castretry > !castretrymax
+        goto NewCastSpell_end1
+    }
+    goto NewCastSpell_loop1
+  }
+  if #SCNT2 <= !casttimeout     ; finish up cast delay
+    goto NewCastSpell_skip2
+NewCastSpell_end1:
+  set #LTARGETID !temp_ltargetid
+  set #LTARGETKIND !temp_ltargetkind
+  set #LPC !lpc
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1 = Method (RE, GA, SJ)
+; %2 = index location within runebook (1-16)
+; %3 = index location within runebook (1-16), try up to this point
+; %4 = runebook item id
+; returns #TRUE if error, #FALSE for no error
+sub TM_TravelFromRunebook
+  namespace push
+  namespace local RFR
+  set #LTARGETKIND 1
+  set !method %1
+  set !locindex %2
+  set !locindexend %3
+  set !rbook %4
+
+  finditem !rbook C_ , #BACKPACKID
+  if !method notin RE_GA_SJ || #FINDKIND = -1
+  {
+    namespace pop
+    return #TRUE
+  }
+  if !locindex notin 1_2_3_4_5_6_7_8_9_10_11_12_13_14_15_16
+  {
+    namespace pop
+    return #TRUE
+  }
+  if !locindexend notin 1_2_3_4_5_6_7_8_9_10_11_12_13_14_15_16
+  {
+    namespace pop
+    return #TRUE
+  }
+
+TravelFromRunebook_loop1:
+  set #LOBJECTID !rbook
+  set #LTARGETKIND 1
+  event macro 17 0
+  gosub GumpWait generic_gump generic_gump
+
+  set !runeclickx 140 ; page 1, rune 1
+  set !runeclickx ( #CONTPOSX + !runeclickx + ( 35 * ( ( !locindex - 1 ) / 2 ) ) )
+  if !locindex > 8
+  {
+    set !runeclickx 310 ; page 2, rune 1
+    set !runeclickx ( #CONTPOSX + !runeclickx + ( 35 * ( ( !locindex - 9 ) / 2 ) ) )
+  }
+  set !runeclicky #CONTPOSY + 196
+  click !runeclickx !runeclicky
+  wait 5
+
+  set !runeclicky #CONTPOSY + 24
+  set !runeclickx #CONTPOSX + 164 ; page 1 set to default
+  if !locindex % 2 = 0
+  {
+    set !runeclickx #CONTPOSX + 305 ; page 2 set to default
+  }
+  click !runeclickx !runeclicky
+  wait 5
+  set !oldx #CHARPOSX
+  set !oldy #CHARPOSY
+  if !method = RE
+    gosub TM_NewCastSpell 31 !rbook -1 10 10 ; recall until successful
+  if !method = GA
+  {
+    gosub TM_NewCastSpell 51 !rbook -1 10 20 ; gate until successful
+    set !temp_cnt #SCNT + 10
+    repeat
+      finditem KEF_OTF_JEF G_0
+    until #FINDKIND <> -1 || #SCNT > !temp_cnt
+    if #FINDKIND <> -1
+    {
+      set #LOBJECTID #FINDID
+      wait 10
+      event macro 17 0
+      wait 20
+      if #CONTNAME = generic_gump && #CONTSIZE = 420_280
+      {
+        set !clickx #CONTPOSX + 26
+        set !clicky #CONTPOSY + 261
+        click !clickx !clicky ; click ok
+      }
+    }
+  }
+
+  if !method = SJ
+    gosub TM_NewCastSpell 210 !rbook -1 10 30 ; sacred journey until successful
+  wait 30
+
+  set !tempscnt #SCNT + 10
+WaitforTravel_loop1:
+  gosub TM_AdvJournalScan SPELLCAST VALID location_is_blocked something_is_blocking your_spirit
+  if #RESULT = #TRUE
+  {
+    gosub TM_AdvJournalSync SPELLCAST
+    set !locindex !locindex + 1
+    if !locindex > !locindexend
+    {
+      namespace pop
+      return #TRUE
+    }
+    goto TravelFromRunebook_loop1
+  }
+
+  if ( ( #CHARPOSX = !oldx && #CHARPOSY = !oldy ) && #SCNT < !tempscnt )
+    goto WaitforTravel_loop1
+
+  if #CONTNAME = generic_gump && #CONTSIZE = 452_236 ; RunUO close runebook
+  {
+    set !clickx #CONTPOSX + 120
+    set !clicky #CONTPOSY + 60
+    click !clickx !clicky mc r
+    wait 5
+  }
+  namespace pop
+  click 401 254 n
+return #FALSE
+;-------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
+; %1 - Journal Name
+; %2 - #LPC setting (optional)
+; Brings !_jindex up to the most recent #journal entry
+sub TM_AdvJournalSync
+  namespace push
+  namespace local TM_AdvJS_ , %1
+  set !_jindex #jindex + 1
+  if %0 > 1
+    set !lpc_set %2
+  namespace pop
+  set !TM_FunctionCalled #TRUE
+return
+;-------------------------------------------------------------------------------
+; %1 - Journal Name
+; %2 - NONE, ADVANCE , ( _VALID ) - advances jindex pointer, anything else
+; %3, %4, %5, etc strings to match
+; returns #TRUE for match, #FALSE for no match
+;  Will not advance !_jindex pointer to allow for scanning journal history for more than one search.
+;  Also searches for : , #SPC in journal entry to be sure someone isn't spamming the text
+;  About %2 arguments:
+;    NONE: defaults to basic journal scan (no SPAM checking, no #jindex pointer copy advancing)
+;    ADVANCE: no spam checking, advances #jindex copy
+;    VALID: invokes SPAM filtering, no advance of #jindex copy
+;    VALID_ADVANCE, VALIDADVANCE, ADVANCE_VALID, etc.: invokes SPAM filtering, advances of #jindex copy
+sub TM_AdvJournalScan
+  namespace push
+  namespace local TM_AdvJS_ , %1
+  set !args %2
+  set !temp_lpc #LPC
+  if !lpc_set = N/A
+    set #LPC 1000
+  else
+    set #LPC !lpc_set
+  set !num_args %0
+  set !first_arg 3
+  if !_jindex = N/A
+    set !_jindex #jindex
+  if !charname = N/A
+  {
+    set !charname #CHARNAME
+AdvJournalScan_loop1:
+    str pos !charname #SPC
+    if #STRRES <> 0
+    {
+      set !val #STRRES - 1
+      str left !charname !val
+      set !left #STRRES
+      set !val !val + 1
+      str del !charname 1 !val
+      set !charname !left , _ , #STRRES
+      goto AdvJournalScan_loop1
+    }
+  }
+  set !index !first_arg
+  repeat
+    set !temp_jindex !_jindex
+    set !text % . !index
+    while !temp_jindex <= #jindex
+    {
+      scanjournal !temp_jindex
+      str pos #JOURNAL !charname 1
+      set !namepos #STRRES
+      str count #JOURNAL !charname
+      set !namecnt #STRRES
+      str pos #JOURNAL :_ 1
+      set !smcpos #STRRES
+      str pos #JOURNAL !text 1
+      set !textpos #STRRES
+      if !textpos < !smcpos && !smcpos <> 0 || !smcpos = 1 || :_ notin #JOURNAL || VALID notin !args
+        set !pass #TRUE
+      else
+        set !pass #FALSE
+      if ( !text in #journal && ( ( !namepos = 1 && !namecnt <= 1 ) || !pass ) )
+      {
+        set !temp_jindex !temp_jindex + 1
+        if ADVANCE in !args
+          set !_jindex !temp_jindex
+        set #LPC !temp_lpc
+        namespace pop
+        set !TM_FunctionCalled #TRUE
+        return #TRUE
+      }
+      set !temp_jindex !temp_jindex + 1
+    }
+    set !index !index + 1
+  until !index - !first_arg > !num_args - !first_arg
+  set #LPC !temp_lpc
+  namespace pop
+  set !TM_FunctionCalled #TRUE
+return #FALSE
+;-------------------------------------------------------------------------------
+; %1 = Gumpname 1
+; %2 = Gumpname 2
+; #TRUE gump occured before timeout
+sub GumpWait
+  namespace push
+  namespace local GW
+  wait 10
+  set !timedelay #SCNT
+  while #SCNT <= !timedelay + 7
+  {
+    if #CONTNAME = %1 || #CONTNAME = %2
+    {
+      namespace pop
+      return #TRUE
+    }
+  }
+  namespace pop
+return #FALSE
+;-------------------------------------------------------------------------------
+; %1 = TransferItems
+; %2 = list of items
+; %3 = quantity, -1 for all
+; %4 = from bag ID ID to open,
+; %5 = to bag ID  ID to open, "
+
+sub TransferItems
+  namespace push
+  namespace local TI
+
+  set !itemlist %2
+  set !quantity %3
+  set !frombag %4
+  set !tobag %5
+
+  set #LOBJECTID !frombag
+  event macro 17 0
+  wait 20
+
+TransferItems_loop1:
+  findItem !itemlist C_ , !frombag
+  if #FINDKIND <> -1
+  {
+    if !quantity <= 0
+      exevent drag #FINDID #FINDSTACK
+    else
+      exevent drag #FINDID !quantity
+    wait 10
+    exevent dropc !tobag
+    wait 20
+    ignoreitem #FINDID 1
+    goto TransferItems_loop1
+  }
+
+  ignoreitem reset 1
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1 = Defend
+; %2 = specific enemy
+; %3 = offence type 1=necro, 2=magery, 3=both
+; %4 = defence kind
+; %5 = Range
+
+sub Defend
+  namespace push
+  namespace local Def
+  if !enemy_list = N/A
+    set !enemy_list
+  set !specificenemy %2
+  set !offencekind _ , %3 , _
+  set !defencekind _ , %4 , _
+  set !range %5
+
+  set !oldlasttarget #LTARGETID
+  set !oldltargetkind #LTARGETKIND
+
+  if !castcount = N/A
+    set !castcount -1
+
+Defend_scan1:
+  if #CHARGHOST = yes
+  {
+    gosub SendMail %sub %bod
+    stop
+  }
+  set !underattack #false
+  finditem !specificenemy G_ , !range ; enemy type or ID
+  if #FINDKIND <> -1
+  {
+    set !underattack #TRUE
+    set !newenemy #FINDID
+    if !newenemy notin !enemy_list
+    {
+      set !enemy_list !enemy_list , _ , #FINDID
+      set %serpent_count %serpent_count + 1
+    }
+    goto Defend_loop1
+  }
+  else
+  {
+    if #ENEMYID <> N/A && #ENEMYHITS <> N/A && #ENEMYID notin !enemy_list
+    {
+      set !underattack #TRUE
+      set !newenemy #ENEMYID
+      set !enemy_list !enemy_list , _ , #FINDID
+      set %serpent_count %serpent_count + 1
+    }
+  }
+
+Defend_loop1:
+  if !underattack = #TRUE
+  {
+    set %new_body #TRUE
+    set !castcount !castcount + 1
+    set #LTARGETID !newenemy  ; make'em last target
+    set #LTARGETKIND 1
+
+Defend_loop2:
+    set !castcount !castcount + 1
+    gosub MonitorHealth NULL !defencekind #FALSE
+    if !offencekind in _1_3_ ; necromancy used
+    {
+      gosub MonitorHealth NULL !defencekind #FALSE
+      if !castcount % 5 = 1   ; cast Corpse Skin every 3 iterations
+      {
+        finditem !newenemy G
+        if #FINDKIND <> -1
+          gosub TM_NewCastSpell 103 !newenemy -1 10 10 ; Corpse Skin
+      }
+      if !castcount % 3 = 1   ; cast Strange every 3 iterations
+      {
+        gosub MonitorHealth NULL !defencekind #FALSE
+        finditem !newenemy G
+        if #FINDKIND <> -1
+          gosub TM_NewCastSpell 111 !newenemy -1 10 20 ; Strangle
+      }
+    }
+    if !offencekind in _2_3_ ; magery used
+    {
+      if %slayerbook <> N/A
+        gosub ArmWeapon %slayerbook
+      gosub MonitorHealth NULL !defencekind #FALSE
+      finditem !newenemy G
+      if #FINDKIND <> -1
+        gosub TM_NewCastSpell %magery_offense !newenemy -1 10 10 ;  Ebolt or Mind Blast
+    }
+    if !offencekind in _4_5_ ; Archery and Chivalry
+    {
+      if G notin #CHARSTATUS
+        event macro 6 0 ; toggle war mode on
+      gosub ArmWeapon %archeryweapon
+      event macro 27 0 ; attack last
+      wait 10
+      if !offencekind = _5_ ; Chivalry buffing
+      {
+        if !consecrate_timer = N/A || #SCNT > !consecrate_timer
+        {
+          set !consecrate_timer #SCNT + 20
+          gosub TM_NewCastSpell 203 NONE -1 10 30 ;  Consecrate weapon
+        }
+        if !EOO_timer = N/A || #SCNT > !EOO_timer
+        {
+          set !EOO_timer #SCNT + 170 ; 2:50 timer for next EOO
+          gosub TM_NewCastSpell 206 NONE -1 10 30 ;  Enemy of one
+        }
+      }
+    }
+    finditem !specificenemy G_ , !range ; enemy type or ID
+    if #ENEMYID = N/A || #FINDCNT = 0
+    {
+      wait 20
+      if G in #CHARSTATUS
+        event macro 6 0 ; toggle war mode off
+      menu get EUOComboOffence
+      if #MENURES in 2_3
+        gosub DisarmWeapon %slayerbook
+      if #MENURES in 4_5
+        gosub DisarmWeapon %archeryweapon
+      set !castcount N/A
+      goto Defend_scan1
+    }
+    goto Defend_loop2
+  }
+
+Defend_cont1:
+  if #AR <> %AR
+  {
+    gosub TM_NewCastSpell 14 NONE -1 10 10 ;  protection
+    wait 20
+  }
+  set #LTARGETID !oldlasttarget
+  set #LTARGETKIND !oldltargetkind
+  set #RESULT !underattack
+  namespace pop
+return #RESULT
+
+;-------------------------------------------------------------------------------
+; %1 = MonitorHealth
+; %2 = heal type
+; globals------------>
+; 	%bandaidinuse
+; 	%baindaidcounter
+; 	%healingdelay
+; 	%forceheal
+;
+sub MonitorHealth
+  namespace push
+  namespace local MH
+  set !healtype %2
+  set !forceheal %3
+  if !bandaidinuse = N/A
+    set !bandaidinuse #FALSE
+
+healthloop:
+  if #HITS = N/A
+  {
+    gosub OpenStatusBar
+    wait 30
+  }
+  if C in #CHARSTATUS
+  {
+    if !healtype in _1_5_8_9_ ; magery
+    {
+      gosub TM_NewCastSpell 10 SELF -1 20 20 ;  cast cure until successful
+      goto healthloop
+    }
+    if !healtype in _3_7_9_ ; chivalry
+    {
+      gosub TM_NewCastSpell 201 SELF -1 20 20 ;  cast cleans by fire until successful
+      goto healthloop
+    }
+    chooseskill heal
+    if #SKILL >= 600
+    {
+      if !healtype in _4_5_6_ ; bandages
+      {
+        if !bandaidinuse = #FALSE
+        {
+          gosub UseBandages NULL #BACKPACKID
+          set !baindaidcounter #SCNT
+          set !bandaidinuse #TRUE
+          namespace pop
+          return ; allow bandaid time to cure, attack until cured, since we can't heal further
+        }
+        if #SCNT > !baindaidcounter + %healingdelay
+          set !bandaidinuse #FALSE
+        goto healthloop
+      }
+    }
+  }
+
+  if #HITS < ( #MAXHITS - 5 ) || !forceheal = #TRUE
+  {
+    if !healtype in _2_6_8_ ; necromancy
+    {
+      event macro 13 32 ; Spirit speak
+      set !forceheal #FALSE
+      wait 80
+    }
+  }
+
+  if #HITS < ( #MAXHITS - 20 ) || !forceheal = #TRUE
+  {
+    if !healtype in _1_5_8_9_ ; magery
+    {
+      gosub TM_NewCastSpell 28 SELF -1 20 20 ; cast greater heal
+      set !forceheal #FALSE
+    }
+  }
+  else
+  {
+    if #HITS < ( #MAXHITS - 8 ) || !forceheal = #TRUE
+    {
+      if !healtype in _1_5_8_9_ ; magery
+      {
+        gosub TM_NewCastSpell 3 SELF -1 10 10 ; cast heal
+        set !forceheal #FALSE
+      }
+    }
+  }
+
+  if #HITS < ( #MAXHITS - 20 ) || !forceheal = #TRUE
+  {
+    if !healtype in  _3_7_9_ ; chivalry
+    {
+      gosub TM_NewCastSpell 202 SELF -1 20 20 ; close wounds
+      set !forceheal #FALSE
+    }
+  }
+
+  if #HITS < ( #MAXHITS - 10 ) || !forceheal = #TRUE
+  {
+    if !healtype in _4_5_6_ ; bandages
+    {
+      if !bandaidinuse = #FALSE
+      {
+        gosub UseBandages NULL #BACKPACKID
+        set !baindaidcounter #SCNT
+        set !bandaidinuse #TRUE
+        set !forceheal #FALSE
+      }
+      if #SCNT > !baindaidcounter + %healingdelay
+        set !bandaidinuse #FALSE
+    }
+  }
+  if #HITS < ( #MAXHITS - 10 ) && !bandaidinuse = #FALSE
+    goto healthloop
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1 = UseBandages
+; %2 = container to look in
+sub UseBandages
+  namespace push
+  namespace local UBan
+  findItem ZLF C_ , %2 ; look for the bandages.
+  if #FINDKIND <> -1
+  {
+    set !templobjectid #LOBJECTID
+    set !templtargetid #LTARGETID
+    set #LOBJECTID #FINDID
+    event macro 17 0 ; last object
+    target 3s
+    event macro 23 0 ; target self
+    set  #LOBJECTID !templobjectid
+    set  #LTARGETID !templtargetid
+  }
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1 = OpenPaperdoll
+;
+; return %mypaperdoll
+sub OpenPaperdoll
+  event macro 8 1 ; open paperdoll
+  gosub GumpWait NULL paperdoll_gump NULL
+  contpos 750 0
+  set %mypaperdoll #CONTID
+return
+;-------------------------------------------------------------------------------
+; %1 = OpenStatusBar
+sub OpenStatusBar
+  event macro 8 2 ; open status
+  gosub GumpWait NULL status_gump NULL
+  contpos 0 600
+return
+;-------------------------------------------------------------------------------
+; %1 = OpenBackPack
+sub OpenBackPack
+  event macro 8 7 ; open backpack
+  gosub GumpWait NULL container_gump NULL
+  contpos 750 330
+return
+;-------------------------------------------------------------------------------
+; %1 = SetupGumps
+; Globals -------->
+; 	%mypack = container ID of personal backpack
+sub SetupGumps
+  gosub OpenPaperdoll
+  gosub OpenStatusBar
+  gosub OpenBackPack
+return
+;-------------------------------------------------------------------------------
+;================================ File System ==================================
+;-------------------------------------------------------------------------------
+; %1 - TM_FileSystem_CreateFile
+; %2 - Name of file handle name to create
+sub TM_FileSystem_CreateFileHandle
+  namespace push
+  namespace local TM_FileSystem
+  set ! . %2 ; clear the variable.
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1 = TM_FileSystem_SaveVariable
+; %2 = namespace location (local, global)
+; %3 = namespace name
+; %4 = file handle name
+; %5 = variable name
+sub TM_FileSystem_SaveVariable
+  namespace push
+  namespace local TM_FileSystem
+  set !ns_loc %2
+  set !ns_name %3
+  set !handle %4
+  set !var %5
+  set !sep 
+  if ! . !handle = N/A
+    set ! . !handle ; assume new variable
+  if !ns_loc = local && !ns_name = std
+    set !value % . !var
+  else
+  {
+    namespace copy !var from !ns_loc !ns_name
+    set !value ! . !var
+  }
+  gosub AddUnderscore !value ; must not have spaces in stored variables!!!
+  set ! . !handle ! . !handle , !ns_loc , !sep , !ns_name , !sep , !var , !sep , #RESULT , !sep
+  set !value
+  namespace pop
+return
+
+;-------------------------------------------------------------------------------
+; %1 = TM_FileSystem_SaveFile
+; %2 = file handle name
+; %3 = file name
+sub TM_FileSystem_SaveFile
+  namespace push
+  namespace local TM_FileSystem
+  set !temp_LPC #LPC
+  set #LPC 10000
+  set !LINE_LENGTH 2000 ; near DOS maximum
+  set !handle %2
+  set !filename %3
+  set !file_ptr 0
+  set !tempfile ! . !handle
+
+TM_FileSystem_SaveFile_loop1:
+  str len !tempfile
+  set !len #STRRES
+  if !len > !LINE_LENGTH
+    str left !tempfile !LINE_LENGTH
+  else
+    set #STRRES !tempfile
+  if !file_ptr = 0
+    execute cmd.exe /c echo set , #spc , ! , fileout , !file_ptr ,  #spc , #STRRES > !filename
+  else
+    execute cmd.exe /c echo set , #spc , ! , fileout , !file_ptr , #spc , #STRRES >> !filename
+  str del !tempfile 1 !LINE_LENGTH
+  set !tempfile #STRRES
+  set !file_ptr !file_ptr + 1
+  if !len > !LINE_LENGTH
+    goto TM_FileSystem_SaveFile_loop1
+
+  set #LPC !temp_LPC
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1 - file line variable
+sub TM_ReadVariables
+  set !temp %1
+
+TM_ReadVariables_loop1:
+  str pos !temp 
+  if #STRRES = 0
+    goto TM_ReadVariables_skip1
+  set !len #STRRES
+  set #STRRES #STRRES - 1
+  str left !temp #STRRES
+  set !ns_loc #STRRES
+  str del !temp 1 !len
+  set !temp #STRRES
+
+  str pos !temp 
+  if #STRRES = 0
+    goto TM_ReadVariables_skip1
+  set !len #STRRES
+  set #STRRES #STRRES - 1
+  str left !temp #STRRES
+  set !ns_name #STRRES
+  str del !temp 1 !len
+  set !temp #STRRES
+
+  str pos !temp 
+  if #STRRES = 0
+    goto TM_ReadVariables_skip1
+  set !len #STRRES
+  set #STRRES #STRRES - 1
+  str left !temp #STRRES
+  set !var #STRRES
+  str del !temp 1 !len
+  set !temp #STRRES
+
+  str pos !temp 
+  if #STRRES = 0
+    goto TM_ReadVariables_skip1
+  set !len #STRRES
+  set #STRRES #STRRES - 1
+  str left !temp #STRRES
+  set !value #STRRES
+  str del !temp 1 !len
+  set !temp #STRRES
+
+  if !ns_loc in local && !ns_name in std
+    set % . !var !value
+  else
+  {
+    set ! . !var !value
+    namespace copy !var to !ns_loc !ns_name
+  }
+  goto TM_ReadVariables_loop1
+
+TM_ReadVariables_skip1:
+return
+;-------------------------------------------------------------------------------
+; %1 - TM_FileSystem_LoadFile
+; %2 - file name
+sub TM_FileSystem_LoadFile
+  namespace push
+  namespace local TM_FileSystem
+  set !lpc #LPC
+  set #LPC 10000
+  set !filename %2
+
+  for !i 0 1000
+    set !fileout . !i N/A
+
+  call !filename
+  if !fileout0 = N/A
+  {
+    set #LPC !lpc
+    namespace pop
+    return #TRUE ; error
+  }
+
+  set !index 0
+  set !fileout
+  while !fileout . !index <> N/A
+  {
+    set !fileout !fileout , !fileout . !index ; assemble the string
+    set !fileout . !index ; clear it
+    set !index !index + 1
+  }
+  gosub TM_ReadVariables !fileout ; assumes namespace TM_FileSystem
+
+  set #LPC !lpc
+  namespace pop
+return #FALSE
+;-------------------------------------------------------------------------------
+; %1 - string to mung
+sub AddUnderscore
+  namespace push
+  namespace local AU
+  set !tempstring %1
+AddUnderscore_loop1:
+  str pos !tempstring #SPC
+  if #STRRES <> 0
+  {
+    set !val #STRRES - 1
+    str left !tempstring !val
+    set !left #STRRES
+    set !val !val + 1
+    str del !tempstring 1 !val
+    set !tempstring !left , _ , #STRRES
+    goto AddUnderscore_loop1
+  }
+  set #RESULT !tempstring
+  namespace pop
+return #RESULT
+;-------------------------------------------------------------------------------
+;============================= TM_CLAw Interface ===============================
+;-------------------------------------------------------------------------------
+sub TM_SetupLooter
+  namespace push
+  namespace global TM_LOOT
+  set !mode %1
+  set !arg %2
+  set !TM_MODE !mode
+  set !TM_ARG1 !arg
+  repeat
+  until !TM_MODE = N/A
+  namespace pop
+return
+;-------------------------------------------------------------------------------
+; sub TM_LootingAssistantInitialized
+; return:
+;   #TRUE if looting assistant is initialized
+;   #FALSE if looting assistant not initialized
+sub TM_LootingAssistantInitialized
+  namespace push
+  namespace global TM_loot
+  set #RESULT !TM_initialized
+  if #RESULT <> #TRUE
+    set #RESULT #FALSE
+  namespace pop
+return #RESULT
+;------------------------------------------------------------
+; sub TM_InitializeLootingAssistant
+; return:
+;   #TRUE if looting assistant is initialized
+;   #FALSE if looting assistant not initialized
+sub TM_InitializeLootingAssistant
+  namespace push
+  namespace global TM_loot
+  set !TM_artifact_index 0
+  namespace pop
+return
+;------------------------------------------------------------
+; sub TM_PingLootingAssistant
+; return:
+;   PING if Looting Assistant not running, but memory space is initialized
+;   PONG if Looting assistant is active and running.
+sub TM_PingLootingAssistant
+  namespace push
+  namespace global TM_loot
+  set !TM_ping PING
+  wait 60
+  set #RESULT !TM_ping
+  namespace pop
+return #RESULT
+;------------------------------------------------------------
+; sub TM_LootInProgress
+; return:
+;   #TRUE if Looting is in progress, wait until #FALSE
+;   #FALSE looting is idle.
+sub TM_LootInProgress
+  namespace push
+  namespace global TM_loot
+  set #RESULT !TM_loot_in_progress
+  namespace pop
+return #RESULT
+;------------------------------------------------------------
+; sub TM_EvaluateContainer
+; %1 - source container to evaluate
+; %2 - destination container ID to place items passing evaluation
+; return:
+;   none
+sub TM_EvaluateContainer
+  namespace push
+  namespace global TM_loot
+  set !TM_loot_artifact_success #FALSE
+  set !TM_loot_success #FALSE
+  set !TM_eval_source %1
+  set !TM_eval_destination %2
+  set !TM_eval_request #TRUE
+  set !TM_loot_in_progress #TRUE ; needed??? probably, due to time taken to start looter.
+  namespace pop
+return
+;--------- EasyUO Menu Designer Code Begin ---------
+sub showEUOMenu1
+	menu Clear
+	menu Window Title TrailMyx's Full-Auto Fisherman , %version
+	menu Window Color BtnFace
+	menu Window Size 499 394
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Shape EUOShape1 232 168 265 201 3 7 1 Black 7 White
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style b
+	menu Font Color WindowText
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Text EUOLabel1 316 8 Throw Away Using
+	menu Text EUOLabel2 432 8 Loot
+	menu Text EUOLabel5 4 4 Offense
+	menu Text EUOLabel6 4 44 Healing
+	menu Font Style
+	menu Font BGColor White
+	menu Text EUOLabel8 280 284 TotalSerp:
+	menu Font Style b
+	menu Font BGColor BtnFace
+	menu Text EUOLabel9 4 128 Setup Filename:
+	menu Font Style
+	menu Font BGColor White
+	menu Text EUOLabel10 270 188 Online Time:
+	menu Text EUOLabel11 258 200 Last MIB Time:
+	menu Text EUOLabel12 244 212 Current MIB Time:
+	menu Font Style b
+	menu Text EUOLabel7 240 172 Statistics (current):
+	menu Font Style
+	menu Font BGColor BtnFace
+	menu Text EUOLabel13 60 196 Bank Runes
+	menu Text EUOLabel14 60 172 Inn Runes
+	menu Text EUOLabel3 4 376 Status:
+	menu Font BGColor White
+	menu Text EUOLabel15 294 224 Tmaps:
+	menu Text EUOLabel16 302 236 MIBs:
+	menu Text EUOLabel17 304 248 Nets:
+	menu Text EUOLabel18 291 260 C_Nets:
+	menu Text EUOLabel19 297 272 Pearls:
+	menu Font Style b
+	menu Text EUOLabel20 364 172 Statistics (overall):
+	menu Font Style
+	menu Text EUOLabel21 380 188 Online Time:
+	menu Text EUOLabel22 416 224 Tmaps:
+	menu Text EUOLabel23 424 236 MIBs:
+	menu Text EUOLabel24 426 248 Nets:
+	menu Text EUOLabel25 413 260 C_Nets:
+	menu Text EUOLabel26 419 272 Pearls:
+	menu Text EUOLabel27 404 284 TotalSerp:
+	menu Font Style b
+	menu Font BGColor BtnFace
+	menu Text EUOLabel4 4 84 Travel Method
+	menu Font Style
+	menu Text EUOLabel28 176 304 (0/0)
+	menu Text EUOLabel29 176 324 (0/0)
+	menu Text EUOLabel30 176 348 (0/0)
+	menu Text EUOLabel31 176 172 Big Fish
+	menu Text EUOLabel32 176 196 Ammo
+	menu Text EUOLabel33 176 220 Bandages
+	menu Font BGColor White
+	menu Text EUOLabel34 290 296 MIB/hr.:
+	menu Text EUOLabel35 287 308 Serp/hr.:
+	menu Text EUOLabel36 243 336 Ammo: 0 Bandages: 0
+	menu Text EUOLabel37 414 296 MIB/hr.:
+	menu Text EUOLabel38 411 308 Serp/hr.:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel39 60 220 Donate Runes
+	menu Font BGColor White
+	menu Text EUOLabel40 295 320 ASOS:
+	menu Text EUOLabel41 419 320 ASOS:
+	menu Text EUOLabel42 383 336 Steak Points: 0
+	menu Text EUOLabel43 243 348 Skill: 0.0 (+0.0)
+	menu Text EUOLabel44 383 348 Scale Points: 0
+	menu Font BGColor BtnFace
+	menu Check EUOCheckCarveHighSeasFish 316 100 113 17 #true Carve HiSeas Fish
+	menu Font BGColor Window
+	menu Edit EUOEdit2 4 344 37 120
+	menu Font BGColor BtnFace
+	menu Check EUOCheckBox1 336 40 81 17 #true Footwear
+	menu Check EUOCheckBox2 336 56 81 17 #true Fish steaks
+	menu Check EUOCheckBox3 336 72 81 17 #true Special fish
+	menu Check EUOCheckBox4 432 24 57 17 #true Scales
+	menu Check EUOCheckBox5 432 40 57 17 #true Hides
+	menu Check EUOCheckBox6 432 56 57 17 #true Gold
+	menu Check EUOCheckBox7 432 72 57 17 #false TMaps
+	menu Check EUOCheckBox8 432 88 57 17 #true MIBs
+	menu Check EUOCheckBox12 432 104 57 17 #false Nets
+	menu Check EUOCheckBox13 316 112 97 17 #true Carve Fish
+	menu Check EUOCheckBox9 316 124 97 17 #true Auto-defend
+	menu Font Size 10
+	menu Font Style b
+	menu Button EUOButton1 160 84 147 25 Start
+	menu Font Size 8
+	menu Font Style
+	menu Button EUOButton4 160 36 71 25 Bank
+	menu Button EUOButton3 236 36 71 25 Quit
+	menu Font BGColor Window
+	menu Combo Create EUOComboOffence 4 20 145
+	menu Combo Add EUOComboOffence Necromancy
+	menu Combo Add EUOComboOffence Magery
+	menu Combo Add EUOComboOffence Magery+Necromancy
+	menu Combo Add EUOComboOffence Archery
+	menu Combo Add EUOComboOffence Archery+Chivalry
+	menu Combo Create EUOComboHealing 4 60 145
+	menu Combo Add EUOComboHealing Magery
+	menu Combo Add EUOComboHealing Necromancy
+	menu Combo Add EUOComboHealing Chivalry
+	menu Combo Add EUOComboHealing Bandages
+	menu Combo Add EUOComboHealing Magery+Bandages
+	menu Combo Add EUOComboHealing Necromancy+Bandages
+	menu Combo Add EUOComboHealing Chivalry+Bandages
+	menu Combo Add EUOComboHealing Magery+Necromancy
+	menu Combo Add EUOComboHealing Magery+Chivalry
+	menu Font BGColor BtnFace
+	menu Check EUOCheckBox11 316 136 97 17 #true Enable Bankrun
+	menu Check EUOCheckBox14 44 348 125 17 #true Logout after minutes
+	menu Font BGColor Window
+	menu Edit EUOEdit3 4 300 37 12
+	menu Font BGColor BtnFace
+	menu Check EUOCheckBox15 44 304 125 17 #true Logout after Loot Cnt
+	menu Check EUOCheckBox16 44 324 125 17 #true Logout bankrun cnt
+	menu Check EUOCheckBox17 316 24 97 17 #true Serpent Corpse
+	menu Check EUOCheckBox19 432 120 57 17 #true CNets
+	menu Font BGColor ScrollBar
+	menu Edit EUOStatus 40 372 457 Status..
+	menu Font BGColor BtnFace
+	menu Button EUOButton2 160 8 71 25 Load Setup
+	menu Button EUOButton5 236 8 71 25 Save Setup
+	menu Font BGColor Window
+	menu Edit EUOEdit12 4 144 145 fishing_setup.txt
+	menu Font BGColor BtnFace
+	menu Button EUOButton6 160 112 103 25 Guided Setup
+	menu Check EUOCheckBox10 316 148 97 17 #true Evaluate Loot
+	menu Font BGColor Window
+	menu Edit EUOEdit4 4 320 37 3
+	menu Font BGColor BtnFace
+	menu Button EUOButton7 160 140 103 25 Evaluate Container
+	menu Font BGColor Window
+	menu Edit EUOEdit5 4 192 25 3
+	menu Edit EUOEdit6 32 192 25 4
+	menu Edit EUOEdit7 4 168 25 1
+	menu Edit EUOEdit8 32 168 25 2
+	menu Font BGColor BtnFace
+	menu Check EUOCheckBox20 268 116 21 17 #false
+	menu Font BGColor Window
+	menu Combo Create EUOComboTravel 4 100 145
+	menu Combo Add EUOComboTravel Recall
+	menu Combo Add EUOComboTravel Gate
+	menu Combo Add EUOComboTravel Sacred Journey
+	menu Edit EUOEdit1 136 168 37 190
+	menu Edit EUOEdit9 136 192 37 500
+	menu Edit EUOEdit10 136 216 37 500
+	menu Edit EUOEdit11 4 216 25 5
+	menu Edit EUOEdit13 32 216 25 6
+	menu Font BGColor BtnFace
+	menu Check EUOCheckBox18 4 264 133 17 #false Donate Fish Steaks?
+	menu Button EUOButton8 144 272 75 21 Donate Now
+	menu Check EUOCheckBox21 432 136 57 17 #false ASOS
+	menu Font BGColor Window
+	menu Edit EUOEdit14 4 240 25 7
+	menu Font BGColor BtnFace
+	menu Check EUOCheckBox22 36 244 89 17 #false Trash Enable?
+	menu Button EUOButton9 144 240 75 21 Trash Now
+	menu Check EUOCheckBox23 4 280 133 17 #false Donate Scales?
+	menu Check EUOCheckBox24 240 64 69 17 #true Terminate
+	menu Show 421 270
+return
+;--------- EasyUO Menu Designer Code End ---------
+
+
+
+
+
+

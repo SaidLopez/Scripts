@@ -1,0 +1,2829 @@
+;==================================
+; Script Name:   Archangel's Serpent Hunter
+; Author: sgazaway
+; Version: 2.02
+; Client Tested with: 4.0.5b
+; EUO version tested with: 1.5.118
+; Shard OSI / FS: OSI
+; Revision Date: 7/8/2007
+; Public Release: 10/26/2004
+; Global Variables Used: *ArchangelSerpHunter_*
+; Purpose: Fishing for serpents with antiblock. Kill then loot.
+;==================================
+;
+;****************************************************************************************************************
+; Items required to use this script:
+; 1. A Boat (small boat)
+; 2. A fishing pole (Place in your main pack, not in any bags within your main pack)
+; 3. A Bow (Place in your main pack (see #2)) or 75+ Magery
+; 4. Reagents to cast Energy Bolt or Mind Blast or Arrows
+; 5. Reagents, Tithing Points, or Bandages to heal with
+; 6. Reagents or Tithing Points to recall with
+;
+; Instructions:
+;     Place boat east of Moonglow in the 8x8 alley. Get in the middle of the boat (I suggest the recall spot just behind the mast)
+; Start the script and configure the settings. Click Start and let it run! Please note that you must have at least 75 magery to
+; use that option
+;****************************************************************************************************************
+;****************************************************************************************************************
+; Change Log
+;
+7; 2.03 - Added Uninstall button to setup menu for removing registry entries (saved settings)
+;
+; 2.02 - Added the option to move fish to boat (in case you don't have UO Assist)
+; Added couting White Pearls in the running menu
+; Tweaked the delays to make things faster and added the ability to easily change
+; Added the option to 'Fish Out' where you pull up a serpent
+; Added in error trapping if original safe runebook, boat key or bladed weapon no longer in backpack
+; Corrected boat key types for missing types
+;
+; 2.01 - Fixed Big Fish Weight detection
+;
+; 2.00 - After a few years of no changes, updated things for current in game options
+; Added in support for saving settings!!!
+;
+; 1.14-1.99 - Skipped these due to length of time since last update
+;
+; 1.13 - Corrected a miss to support all bow types.
+; Added another second in timer to wait after fishing to verify you did not pull up a serp.
+;
+; 1.12 - Changed the tillerman controls to being a "Talk" rather then a "Whisper" for those that are on RunUO shards.
+; Added support for all known bow types (facing both directions).
+; Cleaned up some usless code.
+;
+; 1.11 - Added support for quivers. Now you do not need arrows in your pack.
+;
+; 1.10 - Updated code to correct many things that broke due to UO client updates.
+; Added support for the new Butcher's War Cleaver when carving hides
+; Added support for other types of bows (make sure you only have the bow(s) you want to use in your main pack)
+;
+; 1.07-1.09 - Skipped these due to length of time since last update
+;
+; 1.06 -	Added in code to open your backpack if it is unable to find a fishing pole due to it being closed
+;	Added in the ability to gather resources from the serpents (hides and scales)
+;	Added in the ability to do 8x8 fishing. You will fish out a spot and then move 8 spaces forward then fish that spot out.
+;	Added the ability to choose which method of boat control you want to start with
+;
+; 1.05b -	Corrected code for recalling to safe spot when using a bow
+;
+; 1.05 -	Corrected code for using magery
+;	Added code to allow LRC suits
+;
+; v1.04 -	Added the ability to use magery to kill serps
+;	Added code to keep the biggest fish caught of at least a certain weight
+;
+; v1.03 -	Modified code for new instance corpses
+;
+; v1.02 -	Modified code to have dynamic gumps for backpack and paperdoll
+;	Added code to open backpack when crossing server lines that cause it to close (when anti-block is going)
+;	Added code for manual or automatic control of the boat
+;	Adjusted code to respond to menu buttons faster
+;
+; v1.01 -	Reworked code to adjust boat for dead serp better.
+;	Inserted code to auto face boat north at start
+;	Tweaked time for recall to safe spot. It should be a little faster now.
+;
+; v1.00 -	Initial Release
+;
+;****************************************************************************************************************
+;****************************************************************************************************************
+; USER CONFIGURED VARIABLES
+;
+; Set this to #True to not hide the EasyUO main screen
+set %debug #false
+;
+; Change this to increase or reduce the wait for you to finish fishing (Default 130)
+set %fishingDelay 130
+;
+; You can cross server lines. #true of #false? OSI made them impassable at one time.
+set %crossServerLine #true
+;
+; Update these when OSI issues a patch (Item Type)
+set %quiverType KKQ_JES ; Quiver of Infinity, Other Quivers,
+set %poleType XHF_KDF ; Fishing Pole
+set %orangeFish FQD ; Orange Normal Fish
+set %greenFish EQD ; Green Normal Fish
+set %purpleFish GQD ; Purple Normal Fish
+set %greyFish DQD ; Grey Normal Fish
+set %fishTypes %orangeFish , _ , %greenFish , _ , %purpleFish , _ , %greyFish ; Normal Fish
+set %specfishType YDF ; Special and Rare Fish
+set %shoeTypes CWI_AWI_NVI_OVI_PVI_QVI_ZVI_TVI ; Shoes
+set %serpType KI ; Sea Serpent
+set %serpCorpseType YFM ; Sea Serpent Corpse
+set %bowType WOH_TOH ; Bows
+set %crossbowType JSF_USF ; Crossbows
+set %heavyCrosbowType MMH_LMH ; Heavy Corssbows
+set %repeaterType PPO_RPO ; Repeaters
+set %compositeBowType SPO_QPO ; Composite Bows
+set %magicalShortbowType VER_PFR ; Magical Shortbows
+set %elvenCompositeLongbowType QFR_WER ; Elven Composite Longbows
+set %yumiType XCP ; Yumi
+set %allBowTypes %bowType , _ , %crossbowType , _ , %heavyCrosbowType , _ , %repeaterType , _ , %compositeBowType , _ , %magicalShortbowType , _ , %elvenCompositeLongbowType , _ , %yumiType
+set %righthandbowType %bowType , _ , %crossbowType , _ , %heavyCrosbowType
+set %lefthandbowType %repeaterType , _ , %compositeBowType , _ , %magicalShortbowType , _ , %elvenCompositeLongbowType , _ , %yumiType
+set %netType UDF ; Special Fishing Nets
+set %mibType HTD ; Messages in a Bottle
+set %arrowType RWF_LNK ; Arrows, Bolts
+set %mapType XVH_SVH ; Treasure Maps
+set %bandageType ZLF ; Bandages
+set %jewleryType CWL_LWL_UJG_IJG ; Jewlery
+set %goldType POF ; Gold
+set %RegBPType JUF ; Black Pearl
+set %RegBMType MZF ; Bloodmoss
+set %RegGLType KUF ; Garlic
+set %RegGSType WZF ; Gensing
+set %RegMRType SZF ; Mandrake Root
+set %RegNSType JZF ; Nightshade
+set %RegSSType KZF ; Spider Silk
+set %RegSAType RZF ; Sulfuric Ash
+set %keyType SEG_CFG_REG_DFG ; Boat Key
+set %scaleType STO ; Scales
+set %hideType EEG ; Hides
+set %leather JJG ; Cut Leather
+set %war_cleaver HFR ; Butcher's War Cleaver
+set %whitePearlType WWS ; White Pearls
+;
+;****************************************************************************************************************
+;****************************************************************************************************************
+; DO NOT EDIT THE SCRIPT BELOW !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+;****************************************************************************************************************
+;****************************************************************************************************************
+
+set %aidsCureWait ( ( 11 - ( #DEX / 20 ) ) * 20 )
+set %aidsHealWait ( ( 11 - ( #DEX / 20 ) ) * 20 )
+
+set %shard #shard
+if *ArchangelSerpHunter_BackpackPOS_X = N/A
+{
+  display OK Please position your backpack. You have 10 seconds
+  event macro 8 7
+  wait 10s
+  set *ArchangelSerpHunter_BackpackPOS_X #contposX
+  set *ArchangelSerpHunter_BackpackPOS_Y #contposY
+}
+else
+{
+  event macro 8 7
+  wait 10
+  contPos *ArchangelSerpHunter_BackpackPOS_X *ArchangelSerpHunter_BackpackPOS_Y
+  wait 10
+}
+if *ArchangelSerpHunter_PaperdollPOS_X = N/A
+{
+  display OK Please position your paperdoll. You have 10 seconds.
+  event macro 8 1
+  wait 10s
+  set *ArchangelSerpHunter_PaperdollPOS_X #contposX
+  set *ArchangelSerpHunter_PaperdollPOS_Y #contposY
+}
+else
+{
+  event macro 8 1
+  wait 10
+  contPos *ArchangelSerpHunter_PaperdollPOS_X *ArchangelSerpHunter_PaperdollPOS_Y
+  wait 10
+}
+if *ArchangelSerpHunter_RunebookSafe = N/A
+{
+  display OK Target your runebook that has your safe rune now.
+  set #targcurs 1
+  target 4s
+  while #targcurs = 1
+  {
+   wait 0
+  }
+  set *ArchangelSerpHunter_RunebookSafe #ltargetid
+}
+else
+{
+  finditem *ArchangelSerpHunter_RunebookSafe C_ , #BACKPACKID
+  if #FINDKIND = -1
+  {
+    display OK Previous safe runebook not found!$$Target your runebook that has your safe rune now.
+    set #targcurs 1
+    target 4s
+    while #targcurs = 1
+    {
+     wait 0
+    }
+    set *ArchangelSerpHunter_RunebookSafe #ltargetid
+  }
+}
+if *ArchangelSerpHunter_BoatKey = N/A
+{
+  display OK Target your boat key now.
+  getKeyID:
+  set #targcurs 1
+  target 4s
+  while #targcurs = 1
+  {
+   wait 0
+  }
+  finditem #ltargetid C_ , #backpackid
+  if #findtype notin %keyType
+  {
+    display OK That is not a boat key! Target your boat key now.
+    goto getKeyID
+  }
+  set *ArchangelSerpHunter_BoatKey #ltargetid
+}
+else
+{
+  finditem *ArchangelSerpHunter_BoatKey C_ , #BACKPACKID
+  if #FINDKIND = -1
+  {
+    display OK Previous boat key not found!$$Target your boat key now.
+    set #targcurs 1
+    target 4s
+    while #targcurs = 1
+    {
+     wait 0
+    }
+    set *ArchangelSerpHunter_BoatKey #ltargetid
+  }
+}
+set %mapBank N/A
+set %netBank N/A
+set %mibBank N/A
+set %resBank N/A
+set %sailDirection Forward
+set %halfHP ( ( #maxhits / 4 ) * 3 )
+set %reagentType %RegBPType , _ , %RegBMType , _ , %RegGLType , _ , %RegGSType , _ , %RegMRType , _ , %RegNSType , _ , %RegSSType , _ , %RegSAType
+
+gosub showSetup
+
+;****************************************************************************************************************
+
+WaitForStart:
+if #menubutton = Start
+{
+	event sysMessage Loading...
+	set #menubutton N/A
+	event sysMessage Validating Settings...
+	menu get HealMeth
+	if #menures = 0
+	{
+		display Ok You must choose your heal method!
+		goto WaitForStart
+	}
+	menu get HealAt
+	if #menures < #maxhits / 2
+	{
+		display Ok You must heal at no less then half your max life
+		goto WaitForStart
+	}
+	menu get CureMeth
+	if #menures = 0
+	{
+		display Ok You must choose your cure method!
+		goto WaitForStart
+	}
+	menu get RecallMeth
+	if #menures = 0
+	{
+		display Ok You must choose your recall method!
+		goto WaitForStart
+	}
+	menu get RuneNo
+	if #menures = 0
+	{
+		display Ok You must choose a vaild rune number (1-16)
+		goto WaitForStart
+	}
+	menu get boatControls
+	if #menures = 0
+	{
+		display Ok You must choose the starting boat control method!
+		goto WaitForStart
+	}
+	menu get killllMeth
+	if #menures = 0
+	{
+		display Ok You must choose your kill method!
+		goto WaitForStart
+	}
+	menu get serverType
+	if #menures = 0
+	{
+		display Ok You must choose your server type!
+		goto WaitForStart
+	}
+;	if %mapBank = N/A
+;	{
+;		event SysMessage You must set your bank first!
+;		goto WaitForStart:
+;	}
+;	if %netBank = N/A
+;	{
+;		event SysMessage You must set your bank first!
+;		goto WaitForStart:
+;	}
+;	if %mibBank = N/A
+;	{
+;		event SysMessage You must set your bank first!
+;		goto WaitForStart:
+;	}
+;	if %resBank = N/A
+;	{
+;		event SysMessage You must set your bank first!
+;		goto WaitForStart:
+;	}
+	menu get lootHides
+	if #menures = -1
+  {
+    if *ArchangelSerpHunter_Blade = N/A
+	  {
+  		display OK Target your bladed weapon to skin the corpse with
+  		set #targcurs 1
+  		target 4s
+  		while #targcurs = 1
+  		{
+        wait 0
+  		}
+  		set *ArchangelSerpHunter_Blade #ltargetid
+  		finditem #LTARGETID C_ , #BACKPACKID
+  		if #FINDKIND <> -1
+  		{
+        if #FINDTYPE in %war_cleaver
+          display OK Butcher's War Cleaver targeted! Hides will be auto cut into leather and piled on boat.
+      }
+    }
+    else
+    {
+      finditem *ArchangelSerpHunter_Blade C_ , #BACKPACKID
+      if #FINDKIND = -1
+      {
+        display OK Previous bladed weapon not found!$$Target your bladed weapon to skin the corpse with
+        set #targcurs 1
+        target 4s
+        while #targcurs = 1
+        {
+         wait 0
+        }
+    		set *ArchangelSerpHunter_Blade #ltargetid
+    		finditem #LTARGETID C_ , #BACKPACKID
+    		if #FINDKIND <> -1
+    		{
+          if #FINDTYPE in %war_cleaver
+            display OK Butcher's War Cleaver targeted! Hides will be auto cut into leather and piled on boat.
+        }
+      }
+    }
+	}
+	menu get lootScales
+	if #menures = -1
+  {
+    if *ArchangelSerpHunter_Blade = N/A
+	  {
+  		display OK Target your bladed weapon to skin the corpse with
+  		set #targcurs 1
+  		target 4s
+  		while #targcurs = 1
+  		{
+        wait 0
+  		}
+  		set *ArchangelSerpHunter_Blade #ltargetid
+  		finditem #LTARGETID C_ , #BACKPACKID
+  		if #FINDKIND <> -1
+  		{
+        if #FINDTYPE in %war_cleaver
+          display OK Butcher's War Cleaver targeted! Hides will be auto cut into leather and piled on boat.
+      }
+    }
+    else
+    {
+      finditem *ArchangelSerpHunter_Blade C_ , #BACKPACKID
+      if #FINDKIND = -1
+      {
+        display OK Previous bladed weapon not found!$$Target your bladed weapon to skin the corpse with
+        set #targcurs 1
+        target 4s
+        while #targcurs = 1
+        {
+         wait 0
+        }
+    		set *ArchangelSerpHunter_Blade #ltargetid
+    		finditem #LTARGETID C_ , #BACKPACKID
+    		if #FINDKIND <> -1
+    		{
+          if #FINDTYPE in %war_cleaver
+            display OK Butcher's War Cleaver targeted! Hides will be auto cut into leather and piled on boat.
+        }
+      }
+    }
+	}
+	menu get killUsing
+	if #menures = 2 || #menures = 3
+  {
+    chooseSkill mage
+    if #skill < 750
+    {
+    	display Ok You must have at least 75 Magery to use that method to kill!
+      goto WaitForStart
+    }
+	}
+	event sysMessage Checking items in your backpack...
+	finditem %whitePearlType C_ , #backpackid
+	if #findkind <> -1
+	{
+		set %whitePearls #findcnt
+	}
+	else
+	{
+		set %whitePearls 0
+	}
+	finditem %netType C_ , #backpackid
+	if #findkind <> -1
+	{
+		set %nets #findcnt
+	}
+	else
+	{
+		set %nets 0
+	}
+	finditem %mapType C_ , #backpackid
+	if #findkind <> -1
+	{
+		set %maps #findcnt
+	}
+	else
+	{
+		set %maps 0
+	}
+	finditem %mibType C_ , #backpackid
+	if #findkind <> -1
+	{
+		set %mibs #findcnt
+	}
+	else
+	{
+		set %mibs 0
+	}
+	finditem %goldType C_ , #backpackid
+	if #findkind <> -1
+	{
+		set %gold #findstack
+	}
+	else
+	{
+		set %gold 0
+	}
+	set %bigFishWeight 0
+	set %bigFishWeightPack 0
+	bigFishPackStart:
+	finditem %fishTypes C_ , #backpackid
+	if #findkind <> -1
+	{
+		ignoreitem #findid
+		event property #findid
+		if Big in #property
+		{
+			set %bigFish #property
+			str pos %bigFish $
+			set %weight #STRRES + 3
+			str mid %bigFish %weight 1
+			if #STRRES > -1
+			{
+				str pos %bigFish $
+				set %weight #STRRES + 1
+				str mid %bigFish %weight 3
+			}
+			else
+			{
+				str pos %bigFish $
+				set %weight #STRRES + 1
+				str mid %bigFish %weight 2
+			}
+			set %bigFishWeight #strres
+		}
+		goto bigFishPackStart
+	}
+	ignoreitem reset
+	menu get minWeight
+	if #menures > 0
+	{
+		set *ArchangelSerpHunter_bigFishMin #menures
+	}
+	else
+	{
+		set %bigFishMin 0
+	}
+	set %onSide 0
+	set %boatStopped 0
+	set %serverLine 0
+	set %goLeft 0
+	set %serpLootType N/A
+	event sysMessage Determining heal method...
+	menu get HealMeth
+	if #menures = 1
+	{
+		set *ArchangelSerpHunter_HealMeth Chiv
+	}
+	if #menures = 2
+	{
+		set *ArchangelSerpHunter_HealMeth Aids
+	}
+	if #menures = 3
+	{
+		set *ArchangelSerpHunter_HealMeth Magery
+	}
+	if #menures = 4
+	{
+		set *ArchangelSerpHunter_HealMeth SS
+	}
+	event sysMessage Determining cure method...
+	menu get CureMeth
+	if #menures = 1
+	{
+		set *ArchangelSerpHunter_CureMeth Chiv
+	}
+	if #menures = 2
+	{
+		set *ArchangelSerpHunter_CureMeth Aids
+	}
+	if #menures = 3
+	{
+		set *ArchangelSerpHunter_CureMeth Magery
+	}
+	event sysMessage Determining recall method...
+	menu get RecallMeth
+	if #menures = 1
+	{
+		set *ArchangelSerpHunter_RecallMeth Chiv
+	}
+	if #menures = 2
+	{
+		set *ArchangelSerpHunter_RecallMeth Magery
+	}
+	if #menures = 3
+	{
+		set *ArchangelSerpHunter_RecallMeth Runebook
+	}
+	event sysMessage Determining kill method...
+	menu get killUsing
+	if #menures = 1
+	{
+		set *ArchangelSerpHunter_KillMeth Bow
+	}
+	if #menures = 2
+	{
+		set *ArchangelSerpHunter_KillMeth Magery
+		set *ArchangelSerpHunter_KillSpell EB
+	}
+	if #menures = 3
+	{
+		set *ArchangelSerpHunter_KillMeth Magery
+		set *ArchangelSerpHunter_KillSpell MB
+	}
+	event sysMessage Determining starting boat control method...
+	menu get boatControls
+	if #menures = 1
+	{
+		set *ArchangelSerpHunter_ControlsAutomatic 0
+	}
+	if #menures = 2
+	{
+		set *ArchangelSerpHunter_ControlsAutomatic 1
+	}
+	if #menures = 3
+	{
+		set *ArchangelSerpHunter_ControlsAutomatic 2
+	}
+	event sysMessage Determining server type...
+	menu get serverType
+	set *ArchangelSerpHunter_SerpDist #menures
+	event sysMessage Gathering miscelanious settings...
+	menu get RuneNo
+	set *ArchangelSerpHunter_RuneNo #menures
+	menu get HealAt
+	set *ArchangelSerpHunter_HealAt #menures
+	menu get LRCSuit
+	set *ArchangelSerpHunter_UseLRC #menures
+	menu get moveFishToBoat
+  set *ArchangelSerpHunter_moveFishToBoat #menures
+	menu get fishOut
+  set *ArchangelSerpHunter_FishOut #menures
+
+	event sysMessage Determining what to loot...
+	set *ArchangelSerpHunter_SerpLootType N/A
+	menu get LootMIBs
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %mibType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %mibType
+		}
+	}
+	menu get LootNets
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %netType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %netType
+		}
+	}
+	menu get LootMaps
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %mapType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %mapType
+		}
+	}
+	menu get LootArrows
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %arrowType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %arrowType
+		}
+	}
+	menu get LootJewlery
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %jewleryType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %jewleryType
+		}
+	}
+	menu get LootReagents
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %reagentType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %reagentType
+		}
+	}
+	menu get LootGold
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %goldType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %goldType
+		}
+	}
+	menu get LootHides
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %hideType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %hideType
+		}
+	}
+	menu get LootScales
+	if #menures = -1
+	{
+		if *ArchangelSerpHunter_SerpLootType <> N/A
+		{
+			set *ArchangelSerpHunter_SerpLootType *ArchangelSerpHunter_SerpLootType , _ , %scaleType
+		}
+		else
+		{
+			set *ArchangelSerpHunter_SerpLootType %scaleType
+		}
+	}
+	event sysMessage Starting...
+	if *ArchangelSerpHunter_ControlsAutomatic = 0
+		gosub showRunningManual
+	if *ArchangelSerpHunter_ControlsAutomatic = 1
+		gosub showRunningAutomatic
+	if *ArchangelSerpHunter_ControlsAutomatic = 2
+		gosub showRunning8x8
+	gosub Begin
+}
+;if #menubutton = SetupBank
+;{
+;	set #menubutton N/A
+;	menu get RecallMeth
+;	wait 10
+;	if #menures = 0
+;	{
+;		display Ok You must choose your recall method!
+;		goto WaitForStart
+;	}
+;	if #menures = 1
+;	{
+;		set %recallMeth Chiv
+;	}
+;	if #menures = 2
+;	{
+;		set %recallMeth Magery
+;	}
+;	if #menures = 3
+;	{
+;		set %recallMeth Runebook
+;	}
+;	set #lobjectid %bankRunebook
+;	wait 20
+;	event macro 17 0
+;	wait 2s
+;	contpos 150 200
+;	set %travelCastSpellX 288
+;	if ( %RuneNo % 2 ) = 0
+;	{
+;		Set %travelCastSpellX 448
+;	}
+;	if %recallMeth = Chiv
+;	{
+;		WaitForManaRecallChiv1:
+;		if #mana = N/A
+;		{
+;			event macro 8 2
+;			goto WaitForManaRecallChiv1
+;		}
+;		if #mana < 10
+;		{
+;			goto WaitForManaRecallChiv1
+;		}
+;		Set %travelCastSpellY 380
+;	}
+;	if %recallMeth = Magery
+;	{
+;		WaitForManaRecallMage1:
+;		if #mana = N/A
+;		{
+;			event macro 8 2
+;			goto WaitForManaRecallMage1
+;		}
+;		if #mana < 12
+;		{
+;			goto WaitForManaRecallMage1
+;		}
+;		Set %travelCastSpellY 344
+;	}
+;	if %recallMeth = Runebook
+;	{
+;		WaitForManaRecallRuneBook:
+;		if #mana = N/A
+;		{
+;			event macro 8 2
+;			goto WaitForManaRecallRuneBook
+;		}
+;		if #mana < 12
+;		{
+;			goto WaitForManaRecallRuneBook
+;		}
+;		set %travelCastSpellX 283
+;		if ( %RuneNo % 2 ) = 0
+;		{
+;			Set %travelCastSpellX 443
+;		}
+;		Set %travelCastSpellY 269
+;	}
+;	set %pagex 253 + ( ( ( %RuneNo + 1 ) / 2 ) * 34 )
+;	if ( ( %RuneNo + 1 ) / 2 ) > 4
+;	{
+;		Set %pagex %pagex + 31
+;	}
+;	wait 10
+;	click %pagex 394 F
+;	wait 5
+;	deleteJournal
+;	click %travelCastSpellX %travelCastSpellY F
+;	wait 5s
+;	event macro 3 0 Bank
+;	gosub SetupBank
+;}
+
+goto WaitForStart
+;****************************************************************************************************************
+
+sub Begin
+
+gosub FaceBoatNorth
+if *ArchangelSerpHunter_ControlsAutomatic = 1
+{
+	if %sailDirection = Forward
+	{
+		event macro 1 0 Slow Forward
+		set %moving #true
+	}
+	else
+	{
+		event macro 1 0 Back
+		set %moving #true
+	}
+}
+startFish:
+gosub Fish
+set %jIndex ( #jindex + 1 )
+wait %fishingDelay
+set %stopped #CharPosy
+wait 2s
+finditem %serpType G
+if #findkind <> -1
+{
+  set %fishOut *ArchangelSerpHunter_FishOut
+	gosub KillSerp
+  gosub CheckGumps
+	gosub LootSerp
+	gosub CheckBandages
+	gosub CheckTithing
+	gosub CheckRegs
+	gosub CheckArrows
+}
+if *ArchangelSerpHunter_ControlsAutomatic = 1
+{
+  if %fishOut
+  {
+    for %scanJournal %jIndex #jindex
+    {
+    	scanJournal %scanJournal
+    	if THE_FISH_DON'T_SEEM_TO_BE_BITING_HERE. in #journal
+        set %fishOut #false
+    }
+    else
+    {
+      goto fishOutSkip
+    }
+  }
+	set %stopped #CharPosy
+	wait 1s
+	gosub IsBoatStopped
+	if %boatStopped
+		gosub FixBoatStopped
+}
+if *ArchangelSerpHunter_ControlsAutomatic = 2
+{
+	for %scanJournal %jIndex #jindex
+	{
+		scanJournal %scanJournal
+		if THE_FISH_DON'T_SEEM_TO_BE_BITING_HERE. in #journal
+		{
+			set %stopped #CharPosy
+			event macro 1 0 Forward One
+			wait 30
+			gosub IsBoatStopped
+			if %boatStopped
+			{
+				gosub FixBoatStopped
+			}
+			else
+			{
+				for %moveBoat8 1 7
+				{
+					wait 20
+					if %sailDirection = Forward
+					{
+						event macro 1 0 Forward One
+					}
+					else
+					{
+						event macro 1 0 Back One
+					}
+				}
+			}
+		}
+	}
+}
+fishOutSkip:
+gosub checkCought
+gosub CheckWeight
+gosub CheckMenu
+gosub CheckOnline
+gosub CheckGumps
+
+goto startFish
+;****************************************************************************************************************
+
+sub KillSerp
+
+if %moving
+	event macro 1 0 Stop
+	set %moving #false
+if *ArchangelSerpHunter_killMeth = Bow
+{
+	event macro 6 0
+	wait 1s
+	disarmPole:
+	event macro 24 1
+	wait 1s
+	finditem %poleType C_ , #CHARID
+	if #FINDKIND <> -1
+		goto disarmPole
+	wait 1s
+	armBow:
+	finditem %allBowTypes C_ , #BACKPACKID
+	if #FINDKIND = -1
+		gosub recallBank
+	if #FINDTYPE in %righthandbowType
+	{
+		set #RHANDID #FINDID
+		wait 10
+		event macro 24 2
+	}
+	else
+	{
+		set #LHANDID #FINDID
+		wait 10
+		event macro 24 1
+	}
+	wait 1s
+	finditem %allBowTypes C_ , #CHARID
+	if #FINDKIND = -1
+		goto armBow
+	CheckforSerpBow:
+	finditem %serpType G
+	if #findkind <> -1
+	{
+		set #lobjectid #findid
+		wait 20
+		event macro 17 0
+		gosub CheckHealth
+		goto CheckforSerpBow
+	}
+	event macro 6 0
+}
+if *ArchangelSerpHunter_killMeth = Magery
+{
+	CheckforSerpMagery:
+	WaitForManaKill:
+	if #mana = N/A
+	{
+		event macro 8 2
+		goto WaitForManaKill
+	}
+	if #mana < 20
+		goto WaitForManaKill
+	finditem %serpType G
+	if #FINDKIND <> -1
+	{
+		set #LTARGETID #FINDID
+		set #LTARGETKIND 1
+		if *ArchangelSerpHunter_killSpell = EB
+			event macro 15 41
+		if *ArchangelSerpHunter_killSpell = MB
+			event macro 15 36
+		target 4s
+		wait 20
+		event macro 22 0
+		wait 40
+		gosub CheckHealth
+		goto CheckforSerpMagery
+	}
+}
+
+return
+;****************************************************************************************************************
+
+sub LootSerp
+
+RecheckforSerp:
+finditem %serpType G
+if #FINDKIND <> -1
+{
+	gosub KillSerp
+	goto RecheckforSerp
+}
+checkForAnotherSerpCorpse:
+finditem %serpCorpseType G
+if #FINDKIND <> -1
+{
+	ignoreItem #FINDID
+	set %serpCorpseCont #FINDID
+	if %ONSIDE = 0
+	{
+		set %RETURNX #CHARPOSX
+		set %RETURNY #CHARPOSY
+		MoveToSideOfBoat:
+		event macro 5 3
+		wait 20
+		if #CHARPOSX = %RETURNX
+			goto MoveToSideOfBoat
+		set %ONSIDE 1
+	}
+	gosub AdjustBoatForLoot #FINDX #FINDY
+	if %hideType in *ArchangelSerpHunter_serpLootType || %scaleType in *ArchangelSerpHunter_serpLootType
+	{
+		set #LOBJECTID *ArchangelSerpHunter_Blade
+		set #LTARGETID %serpCorpseCont
+		set #LTARGETKIND 1
+		wait 10
+		event macro 17 0
+		target
+		event macro 22 0
+	}
+  finditem %leather C_ , #BACKPACKID
+  if #findkind <> -1
+  {
+    exevent dropc #findid
+  }
+  else
+  {
+  	set %boatHidesX ( #CHARPOSX - 1 )
+  	set %boatHidesY ( #CHARPOSY - 2 )
+    exevent dropg %boatHidesX %boatHidesY
+  }
+	set %openTry 0
+	openCorpse:
+	set %openTry ( %openTry + 1 )
+	if %openTry > 5
+		goto skipLoot
+	set #LOBJECTID %serpCorpseCont
+	wait 20
+	event macro 17 0
+	wait 20
+	if #CONTTYPE <> %serpCorpseType
+		goto openCorpse
+	set %instanceCorpsID #CONTID
+	wait 10
+	shoes:
+	if #LLIFTEDKIND = 1
+    exevent dropc #BACKPACKID
+	finditem %shoeTypes C_ , #BACKPACKID
+	if #findkind <> -1
+	{
+		wait 10
+		exevent drag #FINDID #FINDSTACK
+		wait 10
+		exevent dropc %instanceCorpsID
+		ignoreItem #FINDID
+		goto shoes
+	}
+	loot:
+	wait 10
+	if #LLIFTEDKIND = 1
+    exevent dropc #BACKPACKID
+	finditem *ArchangelSerpHunter_serpLootType C_ , %instanceCorpsID
+	if #FINDKIND = -1
+		goto skipLoot
+	ignoreItem #FINDID
+	if #FINDTYPE = %mibType
+	{
+		event property #FINDID
+		if message in #PROPERTY
+			goto PassMIBTest
+		goto loot
+	}
+	PassMIBTest:
+	RetryDrag:
+	deleteJournal
+	exevent drag #FINDID #FINDSTACK
+	wait 10
+	scanjournal 1
+	if is_out_of in #JOURNAL
+		goto skipLoot
+	set %retryOpenCorpse 0
+	if #FINDTYPE = %hideType || #FINDTYPE = %scaleType
+	{
+  	if #FINDTYPE = %hideType
+  	{
+      finditem %hideType G_2
+      if #findkind <> -1
+      {
+        exevent dropc #findid
+      }
+      else
+      {
+      	set %boatHidesX ( #CHARPOSX - 1 )
+      	set %boatHidesY ( #CHARPOSY - 2 )
+  		  exevent dropg %boatHidesX %boatHidesY
+      }
+    }
+    else
+  	{
+      finditem %scaleType G_2
+      if #findkind <> -1
+      {
+        exevent dropc #findid
+      }
+      else
+      {
+      	set %boatHidesX ( #CHARPOSX - 1 )
+      	set %boatHidesY ( #CHARPOSY - 2 )
+  		  exevent dropg %boatHidesX %boatHidesY
+      }
+    }
+	}
+	else
+	{
+    exevent dropc #BACKPACKID
+	}
+	if #FINDTYPE = %mapType
+	{
+		set %maps %maps + 1
+		menu Set EUOLabel4 %maps
+	}
+	if #FINDTYPE = %netType
+	{
+		set %nets %nets + 1
+		menu Set EUOLabel5 %nets
+	}
+	if #FINDTYPE = %mibType
+	{
+		set %mibs %mibs + 1
+		menu Set EUOLabel6 %mibs
+	}
+	if #FINDTYPE = %goldType
+	{
+		set %gold %gold + #FINDSTACK
+		menu Set EUOLabel10 %gold
+	}
+	goto loot
+	skipLoot:
+	hideitem %serpCorpseCont
+	goto checkForAnotherSerpCorpse
+}
+ignoreItem reset
+MoveToMiddleOfBoat:
+set %ONSIDE 0
+set %charPosX #CHARPOSX
+event macro 5 7
+wait 10
+if #CHARPOSX = %charPosX
+	goto MoveToMiddleOfBoat
+gosub FillHealth
+gosub ReturnBoatLoot
+
+return
+;****************************************************************************************************************
+
+sub AdjustBoatForLoot
+
+if %1 < #CHARPOSX && %2 < #CHARPOSY ; Serp is to the North West
+{
+	set %move abs ( 11 - ( #CHARPOSY - %2 ) )
+	for %moveBack 1 %move
+	{
+		event macro 1 0 Back One
+		wait 1s
+	}
+	set %move abs ( ( #CHARPOSX - %1 ) + 4 )
+	for %moveLeft 1 %move
+	{
+		event macro 1 0 Left One
+		wait 1s
+	}
+}
+if %1 < #CHARPOSX && %2 = #CHARPOSY ; Serp is on West
+{
+	for %moveForward 1 6
+	{
+		event macro 1 0 Forward One
+		wait 1s
+	}
+	set %move abs ( ( #CHARPOSX - %1 ) + 4 )
+	for %moveLeft 1 %move
+	{
+		event macro 1 0 Left One
+		wait 1s
+	}
+}
+if %1 < #CHARPOSX && %2 > #CHARPOSY ; Serp is on South West
+{
+	set %move abs ( 6 - ( #CHARPOSY - %2 ) )
+	for %moveForward 1 %move
+	{
+		event macro 1 0 Forward One
+		wait 1s
+	}
+	set %move abs ( ( #CHARPOSX - %1 ) + 4 )
+	for %moveLeft 1 %move
+	{
+		event macro 1 0 Left One
+		wait 1s
+	}
+}
+AdjustXAxis:
+if #CHARPOSX <> ( %1 - *ArchangelSerpHunter_serpDist )
+{
+	if #CHARPOSX > ( %1 - *ArchangelSerpHunter_serpDist )
+	{
+		event macro 1 0 Left One
+		wait 1s
+		goto AdjustXAxis
+	}
+	else
+	{
+		event macro 1 0 Right One
+		wait 1s
+		goto AdjustXAxis
+	}
+}
+AdjustYAxis:
+if #CHARPOSY <> ( %2 - 1 )
+{
+	if #CHARPOSY > ( %2 - 1 )
+	{
+		event macro 1 0 Forward One
+		wait 1s
+		goto AdjustYAxis
+	}
+	else
+	{
+		event macro 1 0 Back One
+		wait 1s
+		goto AdjustYAxis
+	}
+}
+
+return
+;****************************************************************************************************************
+
+sub ReturnBoatLoot
+
+set %returnTry 0
+if #CHARPOSX < %RETURNX && %serpDist = 2
+{
+	for %moveBoat 1 6
+	{
+		event macro 1 0 Forward One
+		wait 1s
+	}
+}
+ReturnAdjustXAxis:
+set %returnTry ( %returnTry + 1 )
+if %returnTry > 15
+	return
+if #CHARPOSX <> %RETURNX
+{
+	if #CHARPOSX > %RETURNX
+	{
+		event macro 1 0 Left One
+		wait 2s
+		goto ReturnAdjustXAxis
+	}
+	else
+	{
+		event macro 1 0 Right One
+		wait 2s
+		goto ReturnAdjustXAxis
+	}
+}
+set %returnTry 0
+ReturnAdjustYAxis:
+set %returnTry ( %returnTry + 1 )
+if %returnTry > 15
+	return
+if #CHARPOSY <> %RETURNY
+{
+	if #CHARPOSY > %RETURNY
+	{
+		event macro 1 0 Forward One
+		wait 2s
+		goto ReturnAdjustYAxis
+	}
+	else
+	{
+		event macro 1 0 Back One
+		wait 2s
+		goto ReturnAdjustYAxis
+	}
+}
+
+return
+
+;****************************************************************************************************************
+sub CheckGumps
+for %scanJournalLineServerLine %jIndex #JINDEX
+{
+  scanjournal %scanJournalLineServerLine
+  if DID_I_EVER_TELL_THEE in #JOURNAL || AR,_TURBULENT_WATER! in #JOURNAL
+    gosub fixGumps
+}
+
+return
+
+;****************************************************************************************************************
+sub fixGumps
+
+event macro 8 1
+wait 10
+contpos *ArchangelSerpHunter_PaperdollPOS_X *ArchangelSerpHunter_PaperdollPOS_Y
+wait 10
+event macro 8 7
+wait 10
+contpos *ArchangelSerpHunter_BackpackPOS_X *ArchangelSerpHunter_BackpackPOS_Y
+wait 10
+
+return
+
+;****************************************************************************************************************
+sub Fish
+
+finditem %poleType
+if #findkind = -1
+{
+	gosub fixGumps
+	finditem %poleType
+	if #findkind = -1
+	{
+		display Ok Fishing pole not found! Script halting.
+		stop
+	}
+}
+set %timebefore #SCNT
+set #lobjectid #findid
+wait 20
+event macro 17 0
+set #ltargetkind 2
+set #ltargetx #charposx + 4
+set #ltargety #charposy
+set #ltargetz #charposz
+target 4s
+event macro 22 0
+
+return
+;****************************************************************************************************************
+
+sub checkBigFish
+
+finditem %fishTypes G_0
+if #findkind <> -1
+{
+	ignoreitem #findid
+	event property #findid
+	if A , #spc , Big , #spc , Fish in #property
+	{
+		set %oldbigFishWeight %bigFishWeight
+		set %bigFishIDBoat #findid
+		set %bigFish #property
+		str pos %bigFish :
+		set %weight #STRRES + 2
+		str pos %bigFish Stones
+		set %weightEnd #STRRES
+    set %weightLen ( ( %weightEnd - %weight ) - 1 )
+		str mid %bigFish %weight %weightLen
+		set %bigFishWeight #STRRES
+		bigFishPack:
+		finditem %fishTypes C_ , #BACKPACKID
+		if #findkind <> -1
+		{
+			ignoreitem #findid
+			event property #findid
+    	if A , #spc , Big , #spc , Fish in #property
+    	{
+				set %bigFishIDPack #findid
+				set %bigFish #property
+				str pos %bigFish :
+				set %weight #STRRES + 2
+    		str pos %bigFish Stones
+    		set %weightEnd #STRRES
+        set %weightLen ( ( %weightEnd - %weight ) - 1 )
+    		str mid %bigFish %weight %weightLen
+				set %bigFishWeightPack #STRRES
+				if %bigFishWeight > %bigFishWeightPack
+				{
+					event macro 1 0 Stop
+					exevent drag %bigFishIDPack
+					wait 10
+					set %bigFishDropY ( #CHARPOSX + 1 )
+					exevent dropg #CHARPOSX %bigFishDropY #CHARPOSZ
+					wait 10
+					menu Set EUOLabel11 %bigFishWeight
+					exevent drag %bigFishIDBoat
+					wait 10
+					exevent dropc #BACKPACKID
+					wait 10
+				}
+        ignoreitem reset
+        return
+			}
+			goto bigFishPack
+		}
+		if %bigFishWeightPack = 0
+		{
+			if %bigFishWeight > %oldbigFishWeight
+				menu Set EUOLabel11 %bigFishWeight
+			if %bigFishWeight > ( *ArchangelSerpHunter_bigFishMin - 1 )
+			{
+				exevent drag %bigFishIDBoat
+				wait 10
+				exevent dropc #BACKPACKID
+				wait 10
+        ignoreitem reset
+        return
+			}
+		}
+	}
+  exevent drag %bigFishIDBoat
+  wait 10
+  set %boatDrop_Y ( #CHARPOSY + 1 )
+  if %moving
+    set %boatDrop_Y ( %boatDrop_Y - 1 )
+  exevent dropg #CHARPOSX %boatDrop_Y
+  wait 10
+  ignoreitem reset
+}
+return
+
+;****************************************************************************************************************
+sub checkCought
+  finditem %fishTypes C_ , #BACKPACKID
+  if #FINDKIND <> -1
+    gosub moveFishToBoat
+  finditem %whitePearlType C_ , #BACKPACKID
+  if #FINDKIND <> -1
+  {
+    set %whitePearls #findstack
+    menu set EUOLabel91 %whitePearls
+  }
+  finditem %specfishType C_ , #BACKPACKID
+  if #findkind <> -1
+  {
+  	set #lobjectid #findID
+  	wait 10
+  	event macro 17 0
+  	wait 10
+  }
+  gosub checkBigFish
+return
+
+;****************************************************************************************************************
+sub moveFishToBoat
+  if ! *ArchangelSerpHunter_moveFishToBoat
+    return
+  SearchFish:
+  finditem %fishTypes C_ , #BACKPACKID
+  if #FINDKIND <> -1
+  {
+    set %backpackFish #FINDID
+    set %backpackFishStack #FINDSTACK
+    set %backpackFishType #FINDTYPE
+    finditem #FINDTYPE G_1
+    if #FINDKIND <> -1
+    {
+      event property #FINDID
+      if A , #spc , Big , #spc , Fish in #property
+      {
+        ignoreitem #FINDID
+        goto SearchFish
+      }
+      exevent drag %backpackFish %backpackFishStack
+      wait 10
+      exevent dropc #FINDID
+      wait 10
+      event sysmessage Fish moved to a pile near feet.
+      return
+    }
+    if %backpackFishType = %orangeFish
+    {
+      set %boatDrop_X ( #CHARPOSX - 1 )
+      set %boatDrop_Y ( #CHARPOSY - 1 )
+    }
+    if %backpackFishType = %greenFish
+    {
+      set %boatDrop_X ( #CHARPOSX - 1 )
+      set %boatDrop_Y #CHARPOSY
+    }
+    if %backpackFishType = %purpleFish
+    {
+      set %boatDrop_X ( #CHARPOSX + 1 )
+      set %boatDrop_Y #CHARPOSY
+    }
+    if %backpackFishType = %greyFish
+    {
+      set %boatDrop_X ( #CHARPOSX + 1 )
+      set %boatDrop_Y ( #CHARPOSY - 1 )
+    }
+    if %moving
+      set %boatDrop_Y ( %boatDrop_Y - 1 )
+    exevent drag %backpackFish %backpackFishStack
+    wait 10
+    exevent dropg %boatDrop_X %boatDrop_Y
+    wait 10
+    event sysmessage Fish moved to boat deck.
+  }
+return
+
+;****************************************************************************************************************
+sub FaceBoatNorth
+
+set %tempX #CHARPOSX
+set %tempY #CHARPOSY
+
+event macro 1 0 Raise Anchor
+wait 10
+event macro 1 0 Forward One
+wait 30
+if #CHARPOSY <> %tempY - 1
+{
+	if #CHARPOSY = %tempY + 1
+	{
+		event macro 1 0 Come About
+		wait 30
+		return
+	}
+	if #CHARPOSX = %tempX + 1
+	{
+		event macro 1 0 Turn Left
+		wait 30
+		return
+	}
+	if #CHARPOSX = %tempX - 1
+	{
+		event macro 1 0 Turn Right
+		wait 30
+		return
+	}
+}
+return
+;****************************************************************************************************************
+
+sub IsBoatStopped
+
+if #CHARPOSY = %stopped
+{
+	set %jIndex ( #JINDEX + 1 )
+	if *ArchangelSerpHunter_controlsAutomatic = 1
+	{
+		if %sailDirection = Forward
+		{
+			event macro 1 0 Slow Forward
+			set %moving #true
+		}
+		else
+		{
+			event macro 1 0 Back
+			set %moving #true
+		}
+	}
+	else
+	{
+		if %sailDirection = Forward
+		{
+			event macro 1 0 Forward One
+		}
+		else
+		{
+			event macro 1 0 Back One
+		}
+	}
+	wait 2s
+	if #CHARPOSY = %stopped
+	{
+		set %boatStopped #true
+		set %moving #false
+		for %scanJournalLineServerLine %jIndex #JINDEX
+		}
+			scanjournal %scanJournalLineServerLine
+			if DID_I_EVER_TELL_THEE in #JOURNAL || AR,_TURBULENT_WATER! in #JOURNAL
+				set %serverLine #true
+		}
+	}
+}
+
+return
+;****************************************************************************************************************
+
+sub FixBoatStopped
+
+if %serverLine
+{
+	if %crossServerLine
+	{
+		if %goLeft = 1
+		{
+			event macro 1 0 Left
+		}
+		else
+		{
+			event macro 1 0 Right
+		}
+		wait 120
+		event macro 1 0 Stop
+	}
+	else
+	{
+		if %sailDirection = Forward
+		{
+			set %sailDirection Back
+			menu Set EUOLabel8 %sailDirection
+		}
+		else
+		{
+			set %sailDirection Forward
+			menu Set EUOLabel8 %sailDirection
+		}
+	}
+}
+else
+{
+  if %sailDirection = Forward
+	{
+		event macro 1 0 Back
+	}
+	else
+	{
+		event macro 1 0 Slow Forward
+	}
+	wait 180
+	if %goLeft = 0 || %goLeft = 1
+	{
+		event macro 1 0 Left
+	}
+	else
+	{
+		event macro 1 0 Right
+	}
+	wait 240
+	if %sailDirection = Forward
+	{
+		event macro 1 0 Slow Forward
+	}
+	else
+	{
+		event macro 1 0 Back
+	}
+	wait 550
+	if %goLeft = 0 || %goLeft = 1
+	{
+		event macro 1 0 Right
+	}
+	else
+	{
+		event macro 1 0 Left
+	}
+	wait 240
+	event macro 1 0 Stop
+}
+if %goLeft = 0
+	set %goLeft 1
+if %goLeft = 1
+	set %goLeft 2
+if %goLeft = 2
+	set %goLeft 0
+gosub fixGumps
+set %serverLine #false
+set %boatStopped #false
+if *ArchangelSerpHunter_controlsAutomatic = 1
+{
+	if %sailDirection = Forward
+	{
+		event macro 1 0 Slow Forward
+		set %moving #true
+	}
+	else
+	{
+		event macro 1 0 Back
+		set %moving #true
+	}
+}
+
+return
+;****************************************************************************************************************
+
+sub CheckArrows
+
+if *ArchangelSerpHunter_killMeth = Bow
+{
+  set %arrowTotal 0
+  finditem %quiverType C_ , #CHARID
+	if #FINDKIND <> -1
+	{
+    event property #FINDID
+		set %quiverArrowCount #property
+    str pos %quiverArrowCount Ammo: 1
+		set %arrowCount #STRRES + 6
+		str mid %quiverArrowCount %arrowCount 4
+		set %arrowCount #STRRES
+    str pos %arrowCount / 1
+    if #STRRES > 0
+    {
+      set %removeChar ( #STRRES - 1 )
+      str mid %arrowCount 1 %removeChar
+  		set %arrowCount #STRRES
+    }
+    set %arrowTotal ( %arrowTotal + %arrowCount )
+  }
+	finditem %arrowType C_ , #BACKPACKID
+	if #findkind <> -1
+    set %arrowTotal ( %arrowTotal + #findstack )
+	if %arrowCount > 5
+		return
+	gosub RecallBank
+}
+
+return
+;****************************************************************************************************************
+
+sub CheckBandages
+
+if *ArchangelSerpHunter_healMeth = Aids || *ArchangelSerpHunter_cureMeth = Aids
+{
+	finditem %bandageType C_ , #BACKPACKID
+	if #finditem <> -1
+	{
+		if #findstack > 5
+			return
+	}
+	gosub RecallBank
+}
+
+return
+;****************************************************************************************************************
+
+sub CheckTithing
+
+if *ArchangelSerpHunter_recallMeth = Chiv || *ArchangelSerpHunter_healMeth = Chiv || *ArchangelSerpHunter_cureMeth = Chiv
+{
+	if #TP < 25 && #TP > -1
+		gosub RecallBank
+}
+
+return
+;****************************************************************************************************************
+
+sub CheckRegs
+
+if *ArchangelSerpHunter_useLRC || *ArchangelSerpHunter_killMeth = Bow
+	return
+if *ArchangelSerpHunter_recallMeth = Magery || *ArchangelSerpHunter_killMeth = Magery
+{
+	finditem %RegBPType C_ , #BACKPACKID
+	if #finditem <> -1
+	{
+		if #findstack > 5
+			return
+	}
+}
+if *ArchangelSerpHunter_recallMeth = Magery
+{
+	finditem %RegBMType C_ , #BACKPACKID
+	if #finditem <> -1
+	{
+		if #findstack > 5
+			return
+	}
+}
+if *ArchangelSerpHunter_healMeth = Magery || *ArchangelSerpHunter_cureMeth = Magery
+{
+	finditem %RegGLType C_ , #BACKPACKID
+	if #finditem <> -1
+	{
+		if #findstack > 5
+			return
+	}
+}
+if *ArchangelSerpHunter_healMeth = Magery || *ArchangelSerpHunter_cureMeth = Magery
+{
+	finditem %RegGSType C_ , #BACKPACKID
+	if #finditem <> -1
+	{
+		if #findstack > 5
+			return
+	}
+}
+if *ArchangelSerpHunter_recallMeth = Magery || *ArchangelSerpHunter_healMeth = Magery
+{
+	finditem %RegMRType C_ , #BACKPACKID
+	if #finditem <> -1
+	{
+		if #findstack > 5
+			return
+	}
+}
+if *ArchangelSerpHunter_killMeth = Magery
+{
+	finditem %RegNSType C_ , #BACKPACKID
+	if #finditem <> -1
+	{
+		if #findstack > 5
+			return
+	}
+}
+if *ArchangelSerpHunter_healMeth = Magery
+{
+	finditem %RegSSType C_ , #BACKPACKID
+	if #finditem <> -1
+	{
+		if #findstack > 5
+			return
+	}
+}
+;finditem %RegSAType C_ , #BACKPACKID
+;if #finditem <> -1
+;{
+;	if #findstack > 5
+;	{
+;		return
+;	}
+;}
+
+gosub RecallBank
+;****************************************************************************************************************
+
+sub CheckWeight
+
+if #WEIGHT > #MAXWEIGHT - 10
+	gosub RecallBank
+
+return
+;****************************************************************************************************************
+
+sub CheckHealth
+
+healloop:
+checkForHits1:
+if #hits = N/A
+{
+	event macro 8 2
+	goto checkForHits1
+}
+if C in #charstatus
+{
+	if *ArchangelSerpHunter_cureMeth = Chiv
+	{
+		WaitForManaChivCure1:
+		if #mana = N/A
+		{
+			event macro 8 2
+			goto WaitForManaChivCure1
+		}
+		if #mana < 10
+			goto WaitForManaChivCure1
+		event macro 15 201
+		target
+		event macro 23 0
+		wait 2s
+	}
+	if *ArchangelSerpHunter_cureMeth = Aids
+	{
+		finditem %bandageType C_ , #BACKPACKID
+		if #findkind <> -1
+		{
+			set #lobjectid #findID
+			wait 20
+			event macro 17 0
+			target
+			event macro 23 0
+			wait %aidsCureWait
+		}
+	}
+	if *ArchangelSerpHunter_cureMeth = Magery
+	{
+		WaitForManaMageCure1:
+		if #mana = N/A
+		{
+			event macro 8 2
+			goto WaitForManaMageCure1
+		}
+		if #mana < 6
+			goto WaitForManaMageCure1
+		event macro 15 24
+		target
+		event macro 23 0
+		wait 2s
+	}
+	if *ArchangelSerpHunter_healMeth = Aids
+		gosub CheckBandages
+	if *ArchangelSerpHunter_healMeth = Chiv
+		gosub CheckTithing
+	if *ArchangelSerpHunter_healMeth = Magery
+		gosub CheckRegs
+	goto healloop
+}
+if #hits < *ArchangelSerpHunter_healAt
+{
+	if *ArchangelSerpHunter_healMeth = Chiv
+	{
+		WaitForManaChivHeal1:
+		if #mana = N/A
+		{
+			event macro 8 2
+			goto WaitForManaChivHeal1
+		}
+		if #mana < 10
+			goto WaitForManaChivHeal1
+		event macro 15 202
+		target
+		event macro 23
+		wait 2s
+	}
+	if *ArchangelSerpHunter_healMeth = Aids
+	{
+		finditem %bandageType C_ , #BACKPACKID
+		if #findkind <> -1
+		{
+			set #lobjectid #findID
+			wait 20
+			event macro 17 0
+			target
+			event macro 23 0
+			wait %aidsHealWait
+		}
+	}
+	if *ArchangelSerpHunter_healMeth = Magery
+	{
+		WaitForManaMageHeal1:
+		if #mana = N/A
+		{
+			event macro 8 2
+			goto WaitForManaMageHeal1
+		}
+		if #mana < 11
+			goto WaitForManaMageHeal1
+		event macro 15 28
+		target
+		event macro 23 0
+		wait 2s
+	}
+	if *ArchangelSerpHunter_healMeth = SS
+	{
+		event macro 13 32
+		wait 2s
+	}
+	if *ArchangelSerpHunter_healMeth = Aids
+		gosub CheckBandages
+	if *ArchangelSerpHunter_healMeth = Chiv
+		gosub CheckTithing
+	if *ArchangelSerpHunter_healMeth = Magery
+		gosub CheckRegs
+	goto healloop
+}
+
+return
+;****************************************************************************************************************
+
+sub FillHealth
+
+healloop:
+checkForHits2:
+if #hits = N/A
+{
+	event macro 8 2
+	goto checkForHits2
+}
+if C in #charstatus
+{
+	if *ArchangelSerpHunter_cureMeth = Chiv
+	{
+		WaitForManaChivCure2:
+		if #mana = N/A
+		{
+			event macro 8 2
+			goto WaitForManaChivCure2
+		}
+		if #mana < 10
+			goto WaitForManaChivCure2
+		event macro 15 201
+		target
+		event macro 23 0
+		wait 2s
+	}
+	if *ArchangelSerpHunter_cureMeth = Aids
+	{
+		finditem %bandageType C_ , #BACKPACKID
+		if #findkind <> -1
+		{
+			set #lobjectid #findID
+			wait 20
+			event macro 17 0
+			target
+			event macro 23 0
+			wait %aidsCureWait
+		}
+	}
+	if *ArchangelSerpHunter_cureMeth = Magery
+	{
+		WaitForManaMageCure2:
+		if #mana = N/A
+		{
+			event macro 8 2
+			goto WaitForManaMageCure2
+		}
+		if #mana < 10
+			goto WaitForManaMageCure2
+		event macro 15 24
+		target
+		event macro 23 0
+		wait 20
+	}
+	if *ArchangelSerpHunter_cureMeth = Aids
+		gosub CheckBandages
+	if *ArchangelSerpHunter_cureMeth = Chiv
+		gosub CheckTithing
+	if *ArchangelSerpHunter_cureMeth = Magery
+		gosub CheckRegs
+	goto healloop
+}
+if #hits < #maxhits
+{
+	if *ArchangelSerpHunter_healMeth = Chiv
+	{
+		WaitForManaChivHeal2:
+		if #mana = N/A
+		{
+			event macro 8 2
+			goto WaitForManaChivHeal2
+		}
+		if #mana < 6
+			goto WaitForManaChivHeal2
+		event macro 15 202
+		target
+		event macro 23 0
+		wait 2s
+	}
+	if *ArchangelSerpHunter_healMeth = Aids
+	{
+		finditem %bandageType C_ , #BACKPACKID
+		if #findkind <> -1
+		{
+			set #lobjectid #findID
+			wait 20
+			event macro 17 0
+			target
+			event macro 23 0
+			wait %aidsHealWait
+		}
+	}
+	if *ArchangelSerpHunter_healMeth = Magery
+	{
+		WaitForManaMageHeal2:
+		if #mana = N/A
+		{
+			event macro 8 2
+			goto WaitForManaMageHeal2
+		}
+		if #mana < 11
+			goto WaitForManaMageHeal2
+		event macro 15 28
+		target
+		event macro 23 0
+		wait 20
+	}
+	if *ArchangelSerpHunter_healMeth = SS
+	{
+		event macro 13 32
+		wait 2s
+	}
+	if *ArchangelSerpHunter_healMeth = Aids
+		gosub CheckBandages
+	if *ArchangelSerpHunter_healMeth = Chiv
+		gosub CheckTithing
+	if *ArchangelSerpHunter_healMeth = Magery
+		gosub CheckRegs
+	goto healloop
+}
+
+return
+;****************************************************************************************************************
+
+;sub SetupBank
+
+;event SysMessage Target your Map bag.
+;set #targcurs 1
+;target
+;WaitForTargetMap:
+;if #targcurs = 1
+;{
+;	goto WaitForTargetMap
+;}
+;finditem #ltargetid
+;wait 20
+;set %mapBankX #findx
+;set %mapBankY #findy
+;event SysMessage Target your Net bag.
+;set #targcurs 1
+;target
+;WaitForTargetNet:
+;if #targcurs = 1
+;{
+;	goto WaitForTargetNet
+;}
+;finditem #ltargetid
+;wait 20
+;set %netBankX #findx
+;set %netBankY #findy
+;event SysMessage Target your MIB bag.
+;set #targcurs 1
+;target
+;WaitForTargetMIB:
+;if #targcurs = 1
+;{
+;	goto WaitForTargetMIB
+;}
+;finditem #ltargetid
+;wait 20
+;set %mibBankX #findx
+;set %mibBankY #findy
+;event SysMessage Target your resource bag.
+;set #targcurs 1
+;target
+;WaitForTargetRes:
+;if #targcurs = 1
+;{
+;	goto WaitForTargetRes
+;}
+;set %resBank #ltargetid
+;wait 20
+
+;gosub BankDrop
+
+;return
+;****************************************************************************************************************
+
+sub RecallBank
+
+event macro 1 0 Stop
+wait 10
+event macro 1 0 Drop Anchor
+
+set #lobjectid *ArchangelSerpHunter_bankRunebook
+wait 20
+event macro 17 0
+wait 2s
+contpos 150 200
+
+set %travelCastSpellX 288
+if ( *ArchangelSerpHunter_RuneNo % 2 ) = 0
+{
+	Set %travelCastSpellX 448
+}
+
+if *ArchangelSerpHunter_recallMeth = Chiv
+{
+	WaitForManaRecallChiv1:
+	if #mana = N/A
+	{
+		event macro 8 2
+		goto WaitForManaRecallChiv1
+	}
+	if #mana < 10
+		goto WaitForManaRecallChiv1
+	Set %travelCastSpellY 380
+}
+if *ArchangelSerpHunter_recallMeth = Magery
+{
+	WaitForManaRecallMage1:
+	if #mana = N/A
+	{
+		event macro 8 2
+		goto WaitForManaRecallMage1
+	}
+	if #mana < 12
+		goto WaitForManaRecallMage1
+	Set %travelCastSpellY 344
+}
+if *ArchangelSerpHunter_recallMeth = Runebook
+{
+	WaitForManaRecallRuneBook:
+	if #mana = N/A
+	{
+		event macro 8 2
+		goto WaitForManaRecallRuneBook
+	}
+	if #mana < 12
+		goto WaitForManaRecallRuneBook
+	set %travelCastSpellX 283
+	if ( *ArchangelSerpHunter_RuneNo % 2 ) = 0
+		Set %travelCastSpellX 443
+	Set %travelCastSpellY 269
+}
+
+set %pagex 253 + ( ( ( *ArchangelSerpHunter_RuneNo + 1 ) / 2 ) * 34 )
+if ( ( *ArchangelSerpHunter_RuneNo + 1 ) / 2 ) > 4
+	Set %pagex %pagex + 31
+wait 10
+click %pagex 394 F
+wait 5
+deleteJournal
+click %travelCastSpellX %travelCastSpellY F
+
+;Insert Code for Debugging Recall Errors
+
+wait 5s
+;gosub BankDrop
+
+;*******************************************************************************************************************
+; Temporary until bank drop is active
+;*******************************************************************************************************************
+display ok Script paused due to either weight, resources or you pressed escape. Press play when you are ready to continue.
+menu Hide
+pause
+;*******************************************************************************************************************
+
+if ! %debug
+	menu HideEUO
+if *ArchangelSerpHunter_controlsAutomatic = 0
+	gosub showRunningManual
+if *ArchangelSerpHunter_controlsAutomatic = 1
+	gosub showRunningAutomatic
+if *ArchangelSerpHunter_controlsAutomatic = 2
+	gosub showRunning8x8
+set #lobjectid *ArchangelSerpHunter_boatKey
+if *ArchangelSerpHunter_recallMeth = Magery
+{
+	WaitForManaRecallMage2:
+	if #mana = N/A
+	{
+		event macro 8 2
+		goto WaitForManaRecallMage2
+	}
+	if #mana < 12
+		goto WaitForManaRecallMage2
+	event macro 15 31
+}
+if *ArchangelSerpHunter_recallMeth = Chiv
+{
+	WaitForManaRecallChiv2:
+	if #mana = N/A
+	{
+		event macro 8 2
+		goto WaitForManaRecallChiv2
+	}
+	if #mana < 10
+		goto WaitForManaRecallChiv2
+	event macro 15 210
+}
+if *ArchangelSerpHunter_recallMeth = RuneBook
+{
+	display Ok Press Play once you are back on your boat.
+	menu Hide
+	pause
+}
+target
+event macro 22 0
+wait 3s
+gosub showRunning
+gosub Begin
+
+;****************************************************************************************************************
+
+;sub BankDrop
+
+;event macro 1 0 Bank
+;wait 5s
+;set #lobjectid %resBank
+;wait 1s
+;event macro 17 0
+;wait 1s
+;contpos 600 0
+;wait 2s
+;DropOffMap:
+;finditem %mapType C_ , #BACKPACKID
+;if #findkind <> -1
+;{
+;	event drag #findid
+;	wait 10
+;	click %mapBankX %mapBankY p
+;	wait 10
+;	goto DropOffMap
+;}
+;DropOffNet:
+;finditem %netType C_ , #BACKPACKID
+;if #findkind <> -1
+;{
+;	event drag #findid
+;	wait 10
+;	click %netBankX %netBankY p
+;	wait 10
+;	goto DropOffNet
+;}
+;DropOffMIB:
+;finditem %mibType C_ , #BACKPACKID
+;if #findkind <> -1
+;{
+;	event drag #findid
+;	wait 10
+;	click %mibBankX %mibBankY p
+;	wait 10
+;	goto DropOffMIB
+;}
+;set %bandageSupply 0
+;finditem %bandageType C_ , #BACKPACKID
+;if #finditem <> -1
+;{
+;	if #findstack < 100
+;	{
+;		finditem %bandageType C_ , %resBank
+;		if #finditem <> -1
+;		{
+;			event drag #findid
+;			wait 10
+;			msg 100$
+;			click 950 540 p
+;		}
+;	}
+;}
+;set %arrowSupply 0
+;finditem %arrowType C_ , #BACKPACKID
+;if #finditem <> -1
+;{
+;	if #findstack < 100
+;	{
+;		finditem %arrowType C_ , %resBank
+;		if #finditem <> -1
+;		{
+;			event drag #findid
+;			wait 10
+;			msg 100$
+;			click 950 540 p
+;		}
+;	}
+;}
+
+;return
+
+;****************************************************************************************************************
+sub CheckOnline
+
+if #shard <> %shard
+{
+	display Ok You are no longer connected to %shard
+	menu hide
+	stop
+}
+
+return
+
+;****************************************************************************************************************
+sub CheckMenu
+
+if #menubutton = Quit
+{
+	set #menubutton N/A
+	event macro 1 0 Stop
+	wait 10
+	event macro 1 0 Drop Anchor
+	menu Hide
+	stop
+}
+if #menubutton = Pause
+{
+	set #menubutton N/A
+	event macro 1 0 Stop
+	set %moving #false
+	wait 10
+	event macro 1 0 Drop Anchor
+	display Ok Press Play when you are ready to continue.
+	menu Hide
+	pause
+	if ! %debug
+		menu HideEUO
+	menu Show
+	gosub Begin
+}
+if #menubutton = Escape
+{
+	set #menubutton N/A
+	gosub RecallBank
+}
+if #menubutton = Setup
+{
+	set #menubutton N/A
+	event macro 1 0 Stop
+	set %moving #false
+	wait 10
+	event macro 1 0 Drop Anchor
+	menu Hide
+	if ! %debug
+		menu HideEUO
+	gosub showSetup
+	goto WaitForStart
+}
+if #menubutton = TurnLeft
+{
+	set #menubutton N/A
+	event macro 1 0 Turn Left
+}
+if #menubutton = Forward
+{
+	set #menubutton N/A
+	event macro 1 0 Forward
+	set %moving #true
+}
+if #menubutton = TurnRight
+{
+	set #menubutton N/A
+	event macro 1 0 Turn Right
+}
+if #menubutton = Left
+{
+	set #menubutton N/A
+	event macro 1 0 Left
+}
+if #menubutton = SForward
+{
+	set #menubutton N/A
+	event macro 1 0 Slow Forward
+	set %moving #true
+}
+if #menubutton = Right
+{
+	set #menubutton N/A
+	event macro 1 0 Right
+}
+if #menubutton = Stop
+{
+	set #menubutton N/A
+	event macro 1 0 Stop
+	set %moving #false
+}
+if #menubutton = ComeAbout
+{
+	set #menubutton N/A
+	event macro 1 0 Come About
+}
+if #menubutton = Back
+{
+	set #menubutton N/A
+	event macro 1 0 Back
+	set %moving #true
+}
+if #menubutton = Manual
+{
+	set #menubutton N/A
+	set *ArchangelSerpHunter_ControlsAutomatic 0
+	event macro 1 0 Stop
+	set %moving #false
+	gosub showRunningManual
+}
+if #menubutton = Automatic
+{
+	set #menubutton N/A
+	set *ArchangelSerpHunter_ControlsAutomatic 1
+	if %sailDirection = Forward
+	{
+		event macro 1 0 Slow Forward
+		set %moving #true
+	}
+	else
+	{
+		event macro 1 0 Back
+		set %moving #true
+	}
+	gosub showRunningAutomatic
+}
+if #menubutton = EightXEight
+{
+	set #menubutton N/A
+	set *ArchangelSerpHunter_ControlsAutomatic 2
+	event macro 1 0 Stop
+	set %moving #false
+	gosub showRunning8x8
+}
+if #menubutton = Reverse
+{
+	set #menubutton N/A
+	if %sailDirection = Forward
+	{
+		set %sailDirection Back
+		menu Set EUOLabel8 %sailDirection
+		event macro 1 0 Back
+		set %moving #true
+	}
+	else
+	{
+		set %sailDirection Forward
+		menu Set EUOLabel8 %sailDirection
+		event macro 1 0 Slow Forward
+		set %moving #true
+	}
+}
+
+return
+
+;****************************************************************************************************************
+sub showSetup
+	menu Clear
+	menu Window Title Archangel's Serpent Hunter
+	menu Window Color BtnFace
+	menu Window Size 224 432
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color WindowText
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Text EUOLabel1 10 8 Heal using
+	menu Text EUOLabel2 10 30 Cure using
+	menu Text EUOLabel3 10 52 Recall using
+	menu Text EUOLabel4 182 10 @
+	menu Text EUOLabel5 10 76 Rune Number in Book
+	menu Shape EUOShape1 0 98 225 1 3 7 1 Black 7 White
+	menu Shape EUOShape2 0 150 225 1 3 7 1 Black 7 White
+	menu Shape EUOShape3 0 270 225 1 3 7 1 Black 7 White
+	menu Shape EUOShape4 0 394 225 1 3 7 1 Black 7 White
+	menu Text EUOLabel6 10 160 Min weight big fish keeper
+	menu Check moveFishToBoat 10 180 117 17 #false Move fish to boat
+  if *ArchangelSerpHunter_moveFishToBoat <> N/A
+    menu set moveFishToBoat *ArchangelSerpHunter_moveFishToBoat
+	menu Check FishOut 10 200 300 17 #false Fish out Serpent spot
+  if *ArchangelSerpHunter_FishOut <> N/A
+    menu set FishOut *ArchangelSerpHunter_FishOut
+	menu Text EUOLabel7 10 106 Kill using
+	menu Font Align Center
+	menu Text EUOLabel8 22 274 ------------- Select what to loot -------------
+	menu Font Align Left
+	menu Text EUOLabel9 10 224 Boat Controls
+	menu Text EUOLabel10 10 248 Server Type
+	menu Font BGColor Window
+	menu Combo Create HealMeth 64 4 115
+	menu Combo Add HealMeth Chivalry
+	menu Combo Add HealMeth Healing
+	menu Combo Add HealMeth Magery
+	menu Combo Add HealMeth Spirit Speak
+	if *ArchangelSerpHunter_HealMeth = Chiv
+    menu Combo Select HealMeth 1
+	if *ArchangelSerpHunter_HealMeth = Aids
+    menu Combo Select HealMeth 2
+	if *ArchangelSerpHunter_HealMeth = Magery
+    menu Combo Select HealMeth 3
+	if *ArchangelSerpHunter_HealMeth SS
+    menu Combo Select HealMeth 4
+
+	menu Edit HealAt 196 4 25 %halfHP
+  if *ArchangelSerpHunter_HealAt <> N/A
+    menu set HealAt *ArchangelSerpHunter_HealAt
+
+	menu Combo Create CureMeth 64 26 115
+	menu Combo Add CureMeth Chivalry
+	menu Combo Add CureMeth Healing
+	menu Combo Add CureMeth Magery
+	if *ArchangelSerpHunter_CureMeth = Chiv
+    menu Combo Select CureMeth 1
+	if *ArchangelSerpHunter_CureMeth = Aids
+    menu Combo Select CureMeth 2
+	if *ArchangelSerpHunter_CureMeth = Magery
+    menu Combo Select CureMeth 3
+
+	menu Combo Create RecallMeth 70 48 109
+	menu Combo Add RecallMeth Chivalry
+	menu Combo Add RecallMeth Magery
+  if *ArchangelSerpHunter_RecallMeth = Chiv
+    menu Combo Select RecallMeth 1
+  if *ArchangelSerpHunter_RecallMeth = Magery
+    menu Combo Select RecallMeth 2
+  if *ArchangelSerpHunter_RecallMeth = Runebook
+    menu Combo Select RecallMeth 3
+
+	menu Combo Create RuneNo 118 72 61
+	menu Combo Add RuneNo 1
+	menu Combo Add RuneNo 2
+	menu Combo Add RuneNo 3
+	menu Combo Add RuneNo 4
+	menu Combo Add RuneNo 5
+	menu Combo Add RuneNo 6
+	menu Combo Add RuneNo 7
+	menu Combo Add RuneNo 8
+	menu Combo Add RuneNo 9
+	menu Combo Add RuneNo 10
+	menu Combo Add RuneNo 11
+	menu Combo Add RuneNo 12
+	menu Combo Add RuneNo 13
+	menu Combo Add RuneNo 14
+	menu Combo Add RuneNo 15
+	menu Combo Add RuneNo 16
+  if *ArchangelSerpHunter_RuneNo <> N/A
+    menu Combo Select RuneNo *ArchangelSerpHunter_RuneNo
+
+	menu Combo Create killUsing 54 102 125
+	menu Combo Add killUsing Bow
+	menu Combo Add killUsing Magery - Energy Bolt
+	menu Combo Add killUsing Magery - Mind Blast
+  if *ArchangelSerpHunter_KillMeth = Bow
+    menu Combo Select killUsing 1
+  if *ArchangelSerpHunter_KillMeth = Magery && *ArchangelSerpHunter_KillSpell = EB
+    menu Combo Select killUsing 2
+  if *ArchangelSerpHunter_KillMeth = Magery && *ArchangelSerpHunter_KillSpell = MB
+    menu Combo Select killUsing 3
+
+	menu Combo Create boatControls 76 220 105
+	menu Combo Add boatControls Manual
+	menu Combo Add boatControls Automatic
+	menu Combo Add boatControls 8x8
+	if *ArchangelSerpHunter_ControlsAutomatic = 0
+    menu Combo Select boatControls 1
+	if *ArchangelSerpHunter_ControlsAutomatic = 1
+    menu Combo Select boatControls 2
+	if *ArchangelSerpHunter_ControlsAutomatic = 2
+    menu Combo Select boatControls 3
+
+	menu Edit minWeight 148 156 31 100
+	if *ArchangelSerpHunter_bigFishMin <> N/A
+    menu set minWeight *ArchangelSerpHunter_bigFishMin
+	menu Font BGColor BtnFace
+
+	menu Check LRCSuit 8 128 137 17 #false Wearing LRC suit
+  if *ArchangelSerpHunter_UseLRC <> N/A
+    menu set LRCSuit *ArchangelSerpHunter_UseLRC
+
+	menu Check LootMaps 6 290 117 17 #false Treasure Maps
+	if %mapType in *ArchangelSerpHunter_SerpLootType
+    menu set LootMaps #true
+	menu Check LootNets 6 310 117 17 #false Fishing Nets
+	if %netType in *ArchangelSerpHunter_SerpLootType
+    menu set LootNets #true
+	menu Check LootMIBs 6 330 117 17 #false Messagesin a Bottle
+	if %mibType in *ArchangelSerpHunter_SerpLootType
+    menu set LootMIBs #true
+	menu Check LootHides 6 350 117 17 #false Hides
+	if %hideType in *ArchangelSerpHunter_SerpLootType
+    menu set LootHides #true
+	menu Check LootScales 6 370 117 17 #false Scales
+	if %scaleType in *ArchangelSerpHunter_SerpLootType
+    menu set LootScales #true
+	menu Check LootArrows 148 290 75 17 #false Arrows
+	if %arrowType in *ArchangelSerpHunter_SerpLootType
+    menu set LootArrows #true
+	menu Check LootReagents 148 310 75 17 #false Reagents
+	if %reagentType in *ArchangelSerpHunter_SerpLootType
+    menu set LootReagents #true
+	menu Check LootJewlery 148 330 75 17 #false Jewlery
+	if %jewleryType in *ArchangelSerpHunter_SerpLootType
+    menu set LootJewlery #true
+	menu Check LootGold 148 350 75 17 #false Gold
+	if %goldType in *ArchangelSerpHunter_SerpLootType
+    menu set LootGold #true
+
+	menu Font Size 10
+	menu Button Start 36 402 75 25 Start
+	menu Font Size 8
+	menu Font BGColor Window
+
+	menu Combo Create serverType 76 244 105
+	menu Combo Add serverType OSI
+	menu Combo Add serverType FreeUO
+  if *ArchangelSerpHunter_SerpDist <> N/A
+    menu Combo Select serverType *ArchangelSerpHunter_SerpDist
+
+	menu Show
+  if ! %debug
+  	menu HideEUO
+return
+sub showRunningAutomatic
+	menu Clear
+	menu Window Title Archangel's Serpent Hunter
+	menu Window Color Black
+	menu Window Size 230 323
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Shape EUOShape1 -9 256 249 1 3 7 1 Silver 7 White
+	menu Shape EUOShape2 -9 138 249 1 3 7 1 Silver 7 White
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color Green
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+	menu Text EUOLabel1 8 6 Treasure Maps
+	menu Text EUOLabel2 8 22 Fishing Nets
+	menu Text EUOLabel3 8 38 Messages in a Bottle
+	menu Text EUOLabel9 8 54 Gold
+	menu Text EUOLabel90 8 70 White Pearls
+	menu Font Align Right
+	menu Text EUOLabel4 224 6 %maps
+	menu Text EUOLabel5 224 22 %nets
+	menu Text EUOLabel6 224 38 %mibs
+	menu Text EUOLabel10 224 54 %gold
+	menu Text EUOLabel91 224 70 %whitePearls
+	menu Font Size 10
+	menu Font Align Left
+	menu Text EUOLabel7 8 96 Currently Traveling
+	menu Font Align Right
+	menu Text EUOLabel8 226 96 %sailDirection
+	menu Text EUOLabel11 226 116 %bigFishWeight
+	menu Font Align Left
+	menu Text EUOLabel12 8 116 Biggest Fish Caught
+	menu Button Manual 76 170 75 25 Manual
+	menu Button EightXEight 76 196 75 25 8x8
+	menu Font Style b
+	menu Button Quit 42 264 75 25 Quit
+	menu Button Pause 42 290 75 25 Pause
+	menu Button Setup 118 290 75 25 Setup
+	menu Button Escape 118 264 75 25 Escape
+	menu Show
+  if ! %debug
+  	menu HideEUO
+return
+sub showRunningManual
+	menu Clear
+	menu Window Title Archangel's Serpent Hunter
+	menu Window Color Black
+	menu Window Size 230 323
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Shape EUOShape1 0 256 249 1 3 7 1 Silver 7 White
+	menu Shape EUOShape2 0 138 249 1 3 7 1 Silver 7 White
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color Green
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+	menu Text EUOLabel1 8 6 Treasure Maps
+	menu Text EUOLabel2 8 22 Fishing Nets
+	menu Text EUOLabel3 8 38 Messages in a Bottle
+	menu Text EUOLabel9 8 54 Gold
+	menu Text EUOLabel90 8 70 White Pearls
+	menu Font Align Right
+	menu Text EUOLabel4 224 6 %maps
+	menu Text EUOLabel5 224 22 %nets
+	menu Text EUOLabel6 224 38 %mibs
+	menu Text EUOLabel10 224 54 %gold
+	menu Text EUOLabel91 224 70 %whitePearls
+	menu Font Size 10
+	menu Font Align Left
+	menu Text EUOLabel7 8 96 Currently Traveling
+	menu Font Align Right
+	menu Text EUOLabel8 226 96 %sailDirection
+	menu Text EUOLabel11 226 116 %bigFishWeight
+	menu Font Align Left
+	menu Text EUOLabel12 8 116 Biggest Fish Caught
+	menu Button TurnLeft 2 146 75 25 Turn Left
+	menu Button SForward 78 172 75 25 S Forward
+	menu Button Forward 78 146 75 25 Forward
+	menu Button TurnRight 154 146 75 25 Turn Right
+	menu Button Left 2 172 75 25 Left
+	menu Button Right 154 172 75 25 Right
+	menu Button Stop 78 198 75 25 Stop
+	menu Button ComeAbout 2 224 75 25 Come About
+	menu Button Back 78 224 75 25 Back
+	menu Button Automatic 154 224 75 25 Automatic
+	menu Font Style b
+	menu Button Quit 42 264 75 25 Quit
+	menu Button Pause 42 290 75 25 Pause
+	menu Button Setup 118 290 75 25 Setup
+	menu Button Escape 118 264 75 25 Escape
+	menu Font Style
+	menu Button Reverse 2 198 75 25 Reverse
+	menu Button EightXEight 154 198 75 25 8x8
+	menu Show
+  if ! %debug
+  	menu HideEUO
+return
+sub showRunning8x8
+	menu Clear
+	menu Window Title Archangel's Serpent Hunter
+	menu Window Color Black
+	menu Window Size 230 323
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Shape EUOShape1 -9 256 249 1 3 7 1 Silver 7 White
+	menu Shape EUOShape2 -9 138 249 1 3 7 1 Silver 7 White
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color Green
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+	menu Text EUOLabel1 8 6 Treasure Maps
+	menu Text EUOLabel2 8 22 Fishing Nets
+	menu Text EUOLabel3 8 38 Messages in a Bottle
+	menu Text EUOLabel9 8 54 Gold
+	menu Text EUOLabel90 8 70 White Pearls
+	menu Font Align Right
+	menu Text EUOLabel4 224 6 %maps
+	menu Text EUOLabel5 224 22 %nets
+	menu Text EUOLabel6 224 38 %mibs
+	menu Text EUOLabel10 224 54 %gold
+	menu Text EUOLabel91 224 70 %whitePearls
+	menu Font Size 10
+	menu Font Align Left
+	menu Text EUOLabel7 8 96 Currently Traveling
+	menu Font Align Right
+	menu Text EUOLabel8 226 96 %sailDirection
+	menu Text EUOLabel11 226 116 %bigFishWeight
+	menu Font Align Left
+	menu Text EUOLabel12 8 116 Biggest Fish Caught
+	menu Button Manual 76 172 75 25 Manual
+	menu Button Automatic 76 198 75 25 Automatic
+	menu Font Style b
+	menu Button Quit 42 264 75 25 Quit
+	menu Button Pause 42 290 75 25 Pause
+	menu Button Setup 118 290 75 25 Setup
+	menu Button Escape 118 264 75 25 Escape
+	menu Show
+  if ! %debug
+  	menu HideEUO
+return
+
+

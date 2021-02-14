@@ -1,0 +1,122 @@
+                                                                                        ;=================================================================
+; Script Name: TrailMyx's WarpSpeed Log to Board converter
+; Author: TrailMyx
+; Version: 1.0
+; Shard OSI / FS: OSI ONLY!
+; Revision Date: 3/22/2009
+; Purpose:
+;   Convert logs to boards at warp speed!
+;
+; Requirements:
+;   1) Open all containers you want to convert.  Boards will be returned to the originating container
+;   2) Axe in paperdoll
+; Globals:
+; Special Thanks:
+;   Paulonius - refreshed Disclaimer
+;
+; Beta testers:
+;
+;=================================================================
+; Disclaimer:  By downloading, copying, running or otherwise using this script, you accept the contents
+; of this limited personal use licence agreement.
+; This script is only authorized to be distributed on www.scriptuo.com.  If you purchase this script,
+; or acquire it from any other source, it is not considered an authorized copy and should be deleted
+; immediately. TrailMyx and www.scriptuo.com (Author) provide no warranty for use, function, or safe
+; interaction with any software or hardware. User downloads and runs this script at his-her own risk
+; User shall hold Author and the distribution site www.scriptuo.com harmless for any loss of
+; items, accounts, money, virtual currency or items associated with the use of this script.
+; User shall hold the author harmless for any consequences that may result from the use of this script as
+; intended.  Furthermore, you promise not to distribute or sell this script to anyone without the express
+; permission of the author, Trailmyx.
+; Violation of this agreement will result in one or more of the following:
+; litigation, www.scriptuo.com account termination, bad karma for your next life, and most definitely
+; causing a black mark placed on your soul.
+;
+; I worked very hard to bring this script to you, so please use it responisibily and
+; respectfully.  If you have any questions, please reach me at trailmyx@yahoo.com.
+; (c) 2007 TrailMyx, All rights reserved.
+;===================================================================
+set %wood_col 0
+set %oak_col 2010
+set %ash_col 1191
+set %yew_col 1192
+set %heart_col 1193
+set %blood_col 1194
+set %frost_col 1151
+
+finditem BSF_ZRF_UOH C_ , #CHARID
+if #FINDKIND = -1
+{
+  display ok Can't find your axe, put the spell channeling axe you will be using in your paperdoll.
+  stop
+}
+set %axe #FINDID
+
+chooseskill CARP
+set !skill #SKILL
+chooseskill LUMB
+if #SKILL > !skill
+  set !skill #SKILL
+
+Createboards_loop1:
+  finditem ZLK C ; look through logs in main pack.
+  if #FINDCNT > 0
+  {
+    set !convert_it #FALSE
+    set !log_color #FINDCOL
+    set !log_id #FINDID
+    set %log_stack 150
+    set !log_bag #FINDBAGID
+
+    if !log_color = %wood_col
+      set !convert_it #TRUE
+    if !log_color = %oak_col && !skill >= 650
+      set !convert_it #TRUE
+    if !log_color = %ash_col && !skill >= 800
+      set !convert_it #TRUE
+    if !log_color = %yew_col && !skill >= 950
+      set !convert_it #TRUE
+    if !log_color = %heart_col && !skill >= 1000
+      set !convert_it #TRUE
+    if !log_color = %blood_col && !skill >= 1000
+      set !convert_it #TRUE
+    if !log_color = %frost_col && !skill >= 1000
+      set !convert_it #TRUE
+
+    if !convert_it = #TRUE
+    {
+      exevent drag !log_id %log_stack
+      wait 10
+      event macro 22 0
+      wait 10
+      exevent dropc #BACKPACKID
+      wait 10
+      set #LTARGETID #FINDID
+      set #LOBJECTID %axe
+      set #LTARGETKIND 1
+      event macro 17 0
+      target 5s
+      event macro 22 0
+      wait 25
+      finditem TLK C_ , #BACKPACKID
+      if #FINDCNT > 0
+      {
+        for #FINDINDEX 1 #FINDCNT
+        {
+          if #FINDCOL = !log_color
+          {
+            exevent drag #FINDID #FINDSTACK
+            wait 10
+            exevent dropc !log_bag
+            wait 20
+            break
+          }
+        }
+      }
+    }
+    ignoreitem !log_id strangewood
+    wait 5
+    goto Createboards_loop1
+  }
+stop
+

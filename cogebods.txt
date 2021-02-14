@@ -1,0 +1,297 @@
+
+event SysMessage _________este
+event SysMessage _________este
+
+;runebbok TYPE ZBN
+;===============================================================
+
+
+set %cuenta saidtailor
+set %pass 1234
+
+set %cuenta2 saidtailor2
+set %pass2 1234
+
+set %cuenta3 saidtailor3
+set %pass3 1234
+
+set %cuenta4 saidtailor4
+set %pass4 1234
+
+set %cuenta5 saidtailor5
+set %pass5 1234
+
+set %cuenta6 saidtailor6
+set %pass6 1234
+
+
+inicio:
+set %crato #scnt + 3900
+
+for %zz 1 7
+{
+  gosub logon %cuenta %pass %zz
+  wait 3s
+  gosub trabaja
+  gosub Logout
+  wait 60s
+}
+   for %zz 1 7
+   {
+     gosub logon %cuenta2 %pass2 %zz
+     wait 3s
+     gosub trabaja
+     if %zz <= 5
+        gosub Logout
+     wait 60s
+   }
+   for %zz 1 7
+   {
+     gosub logon %cuenta3 %pass3 %zz
+     wait 3s
+     gosub trabaja
+     if %zz <= 5
+        gosub Logout
+     wait 60s
+   }
+for %zz 1 7
+   {
+     gosub logon %cuenta4 %pass4 %zz
+     wait 3s
+     gosub trabaja
+     if %zz <= 5
+        gosub Logout
+     wait 60s
+   }
+for %zz 1 7
+   {
+     gosub logon %cuenta5 %pass5 %zz
+     wait 3s
+     gosub trabaja
+     if %zz <= 5
+        gosub Logout
+     wait 60s
+   }
+for %zz 1 7
+   {
+     gosub logon %cuenta6 %pass2 %zz
+     wait 3s
+     gosub trabaja
+     if %zz <= 5
+        gosub Logout
+     wait 60s
+   }
+
+
+;event sleep 1200000
+repeat
+wait 60s
+set %temp2 ( %crato - #scnt ) / 60
+event SysMessage ____faltan %temp2 minutos
+until %crato < #scnt
+gosub Logout ; si el ultimo no hace logout tendra k hacerlo antes de emepzar de nuevo
+goto inicio
+halt
+
+sub trabaja
+gosub cogerbod RDIL
+gosub cogerbod BYHL
+
+return
+;############# cogerbod ############
+sub cogerbod
+set %npc %1
+finditem %npc G_15
+if #FINDKIND = -1
+    halt
+
+exevent popup #FINDID 2
+set %timeout #scnt + 10
+repeat
+until 460_ in #contsize || %timeout = #scnt
+if %timeout = #scnt
+  {
+    event SysMessage Algo no va bien
+    return
+  }
+wait 10
+set %my_x #contposx + 113
+str right #contsize 3
+set %my_y #contposy + #strRes - 30
+wait 10
+click %my_x %my_y
+wait 10
+
+return
+
+;########### waitforgump ###########
+;usage gosub waitforgump #contsize
+sub waitforgump
+set #result 0
+set %Csize %1
+set %timeout #SCNT + 7
+repeat
+until #CONTSIZE = %Csize || %timeout =< #SCNT
+if %timeout = #SCNT
+  return no
+return
+
+;########### Clikea ###########
+;usage gosub clikea posx posy
+sub clikea
+
+set %my_x #contposx + %1
+set %my_y #contposy + %2
+click %my_x %my_y
+
+return
+
+;----------------------------------------------------------------------
+
+;########## Sub #############
+sub Logout
+
+if #contkind = CJDD   ;ID main login screen
+  return
+event macro 8 1
+gosub waitforgump 262_324
+gosub clikea 216 111
+gosub waitforgump 178_108
+if #result = no
+{
+  event macro 31 0
+  gosub Logout
+}
+gosub clikea 124 84
+wait 20
+set %char %char + 1
+
+return
+
+;########## Sub #############
+
+
+sub LogOn
+
+;SINTAX gosub logon [login] [pass] [numchar]
+;rewards #CONTNAME generic_gump #CONTKIND CFN (norazor) #CONTSIZE 510_145
+;login #CONTNAME MainMenu_gump #CONTKIND CJDD #CONTSIZE 640_480
+;selectshard #CONTNAME normal_gump #CONTKIND SXAD #CONTSIZE 640_480
+;selectchard #CONTNAME Login_gump #CONTKIND UWUB #CONTSIZE 640_480
+;conecting #CONTNAME waiting_gump #CONTKIND OJGB #CONTSIZE 408_288
+set %loginpass %1
+set %pass %2
+set %login QKJD ;CJDD      ;QKJD
+set %server GZGD ;SXAD    ;GZGD
+set %chars IYAC ;UWUB     ;IYAC
+set %wrongLogin OJGB ;OJGB ;CLMB
+set %char %3
+
+
+if #contkind = %login
+{
+click 334 363
+ wait 20
+  for %i 0 15
+  {
+    key delete
+  }
+  msg %loginpass
+  wait 20
+  ;--------------
+  click 333 403
+  wait 20
+  for %i 0 15
+  {
+    key delete
+  }
+  msg %pass
+  wait 8
+  msg $
+}
+
+set %timeout #scnt + 25
+repeat
+until #CONTKIND = %server || %timeout = #scnt
+wait 30
+
+if #contkind = %server
+{
+  click 614 446
+}
+selectchars:
+set %timeout #scnt + 25
+repeat
+until #CONTKIND = %chars || %timeout = #scnt
+wait 3s
+
+if #contkind = %chars
+{
+  if %char = 1
+  {
+    click 370 140 d
+    click 370 140 d
+  }
+  if %char = 2
+  {
+    click 370 180 d
+    click 370 180 d
+  }
+  if %char = 3
+  {
+    click 370 220 d
+    click 370 220 d
+  }
+  if %char = 4
+  {
+    click 370 260 d
+    click 370 260 d
+  }
+  if %char = 5
+  {
+    click 370 300 d
+    click 370 300 d
+  }
+  if %char = 6
+  {
+    click 370 340 d
+    click 370 340 d
+  }
+  wait 40
+if #contkind = %chars
+{
+goto selectchars
+}
+  event macro 31 0  ;tanca ttots els gumps
+  wait 1s
+  event macro 8 2
+   event macro 8 7
+  return
+}
+
+if #contkind = %wrongLogin
+{
+  if %timeout = #SCNT
+  {
+    click 320 352
+    wait 20
+  }
+  else
+  {
+    wait 5
+  }
+}
+;=======================================================================================================================
+
+for %kk 1 10
+    {
+     scanjournal %kk
+     if %1 in #journal
+         {
+          deletejournal
+          return #true
+         }
+    }
+return #false
+
+

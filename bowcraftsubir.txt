@@ -1,0 +1,673 @@
+;=====================================================================
+; Script Name:   Bowcraft Skill Trainer from 0 to 120
+; Author: Paulonius
+; Version: 0.10
+; Client Tested with:
+; EUO version tested with:
+; Shard OSI / FS: OSI
+; Initial Release Date:  05/03/2011
+; Revision Date: TBD
+; Global Variables Used: N/A
+; Purpose: Train BC/F
+;======================================================================
+; TO Do List
+; 1. build a skill tracking menu
+;
+;======================================================================
+; Instructions:
+; 1. Position yourself with reach of a secured trash barrel
+; 2. Be within reach of a secure w/ standard ingots & boards on top level
+; 3. Have a tinker kit in your backpack
+; 4. Hit Play
+
+;======================================================================
+; Set to True if you want to hide, or False if you don't
+Set %HideWhileWorking True
+
+;=========================================
+; Process
+;=========================================
+Start:
+Gosub Setup
+;=========================================
+Mainloop:
+Repeat
+   {
+   Gosub LoadMaterials
+   Gosub CraftAway
+   Gosub Dump
+   }
+Until #CharGhost = Yes
+Halt
+
+;======================================================================
+sub LoadMaterials
+Start_Load_Materials:
+finditem %Boards C_ , #backpackid
+;event sysmessage Boards in Backpack is #FindCnt Item is %Item . %SkillLevel
+;+ Number of boards to get is %Itemboards Stackmake is %Stackmake
+if #findstack < ( 30 * %itemboards ) && %StackMake = No
+   {
+   Set %Boards2Get %itemboards * 30 - #FindStack
+   Gosub Move_Resource_To_Container %boards 0 %ResourceSecure #BackpackID %Boards2Get
+   }
+If %StackMake = Yes
+ Gosub Move_Resource_To_Container %boards 0 %ResourceSecure #BackpackID 1
+finditem %Tinkertools C_ , #backpackid
+if #findcnt < 2
+   gosub MakeTinkerKit
+Return
+
+;======================================================================
+Sub CraftAway
+CraftAwayLoop:
+finditem %TinkerTools C_ , #backpackid
+if #findcnt < 2
+   gosub MakeTinkerKit
+finditem %FletchersTools C_ , #backpackid
+if #findcnt < 2
+   gosub MakeFletchersTool
+finditem %FletchersTools C_ , #backpackid
+set #lobjectid #findid
+event macro 17
+gosub waitforgump %cwin
+if ! #result
+   {
+   Goto CraftAwayLoop
+   }
+Set %Find%CurrentItemAttempts 0
+Set %Find%CurrentItemAttemptsSuccess 0
+Set %NeedToResetCurrentItem No
+REPEAT
+      {
+      finditem %FletchersTools C_ , #backpackid
+      If #findcnt < 2
+         goto CraftAwayLoop
+      chooseskill bowc real
+      Set %CurrentSkill #Skill
+      Gosub OffSetClick 280 550      ; make last
+      gosub waitforgump %cwin
+      if ! #result
+         Goto CraftAwayLoop
+      Finditem %CurrentItem C_ , #BackpackID
+      Set %FindCurrentItemAttempts %FindCurrentItemAttempts + 1
+      If #FindCnt >= 1
+         {
+         Set %FindCurrentItemAttemptsSuccess %FindCurrentItemAttemptsSuccess + 1
+         Gosub Dump
+         }
+      If %FindCurrentItemAttempts > 9 && %FindCurrentItemAttemptsSuccess < 1
+         Set %NeedToResetCurrentItem Yes
+      Chooseskill Bowc real
+      If Siege in #Shard && #Skill >= 700
+         {
+         GoSub RoT_Timer Bowc
+         finditem %FletchersTools C_ , #backpackid
+         If #FindCnt < 1
+            Goto CraftAwayLoop
+         set #lobjectid #findid
+         event macro 17
+         }
+      If #skill >= %threshhold || %NeedToResetCurrentItem = Yes
+         gosub SkillCheck
+      If #Skill = #SkillCap
+         Gosub SkillCheck
+      gosub weightcheck
+      finditem %Boards C_ , #backpackid
+      }
+UNTIL #findstack < %ItemBoards
+Gosub OffsetClick 30 450
+Return
+
+;======================================================================
+sub SetBowyerGump
+;event sysmessage in Set Gump. Item is %Item . %Skilllevel
+If Siege in #Shard
+   {
+   chooseskill Bowc real
+   Set %CurrentSkill #Skill
+   }
+finditem %Tinkertools C_ , #backpackid
+if #findcnt < 1
+   {
+   display Get a tinker tool in your backpack and restart the script.
+   halt
+   }
+if #findcnt < 2
+   gosub MakeTinkerKit
+finditem %FletchersTools C_ , #backpackid
+if #findcnt < 2
+   gosub MakeFletchersTools
+CraftSetLoop:
+finditem %FletchersTools C_ , #backpackid
+set #lobjectid #findid
+event macro 17
+gosub waitforgump %cwin
+if ! #result
+   Goto CraftSetLoop
+gosub offsetClick %xclick1 %yclick1
+gosub waitforgump %cwin
+if ! #result
+   Goto CraftSetLoop
+gosub OffsetClick %xclick2 %yclick2
+gosub waitforgump %cwin
+if ! #result
+   Goto CraftSetLoop
+If %xclick2 = 380
+   {
+   gosub OffsetClick %xclick3 %yclick3
+   gosub waitforgump %cwin
+   if ! #result
+      Goto CraftSetLoop
+   }
+If Siege in #Shard && #skill >= 700
+   {
+   chooseskill Bowc real
+   If %CurrentSkill < #Skill
+      Gosub RoT_Timer Bowc
+   }
+Return
+
+;======================================================================
+Sub MakeTinkerKit
+    MakeKitLoop:
+    finditem %Ingots C_ , #backpackid
+         if #findstack < 10
+         {
+         set %quantityinpack 10 - #findstack
+         Gosub Move_Resource_To_Container %Ingots 0 %ResourceSecure #BackpackID %quantityinpack
+         If ! #Result
+            {
+            display You need to place more ingots in your Resource Secure and hit play.
+            pause
+            GoTo MakeKitLoop
+            }
+         }
+         finditem %TinkerTools C_ , #backpackid
+         set #lobjectid #findid
+         event macro 17
+              gosub waitforgump %cwin
+              if ! #result
+              {
+              Display Dbl Click a tinker kit in your backpack and hit play
+              Pause
+              }
+              Gosub OffSetClick 30 110
+              gosub waitforgump %cwin
+              if ! #result
+              {
+              GoTo MakeKitLoop
+              }
+              Gosub OffSetClick 230 130 f
+              gosub waitforgump %cwin
+              if ! #result
+              {
+              GoTo MakeKitLoop
+              }
+              Gosub OffSetClick 230 130 f
+              gosub waitforgump %cwin
+              if ! #result
+              {
+              GoTo MakeKitLoop
+              }
+         Gosub Skillcheck
+         Return
+
+;======================================================================
+Sub MakeFletchersTools
+MakeFletchersToolsLoop:
+finditem %Ingots C_ , #backpackid
+if #findstack < 10
+   {
+   set %quantityinpack 10 - #findstack
+   Gosub Move_Resource_To_Container %Ingots 0 %ResourceSecure #BackpackID 50
+   If ! #Result
+      {
+      display You need to place more ingots in your Resource Secure and hit play.
+      pause
+      GoTo MakeFletchersToolsLoop
+      }
+   }
+finditem %TinkerTools C_ , #backpackid
+set #lobjectid #findid
+event macro 17
+gosub waitforgump %cwin
+if ! #result
+   GoTo MakeFletchersToolsLoop
+Gosub OffSetClick 30 110     ; Selects Tools
+gosub waitforgump %cwin
+if ! #result
+   GoTo MakeFletchersToolsLoop
+Gosub OffSetClick 380 290    ; next page
+gosub waitforgump %cwin
+if ! #result
+   GoTo MakeFletchersToolsLoop
+Gosub OffSetClick 380 290    ; next page
+gosub waitforgump %cwin
+if ! #result
+   GoTo MakeFletchersToolsLoop
+Gosub OffSetClick 230 70    ; makes Tools
+gosub waitforgump %cwin
+if ! #result
+   GoTo MakeFletchersToolsLoop
+Gosub OffSetClick 280 550    ; make Last
+gosub waitforgump %cwin
+if ! #result
+   GoTo MakeFletchersToolsLoop
+Gosub Skillcheck
+Return
+
+;========================================================
+Sub Dump
+Set %WeightMargin #MaxWeight - #Weight
+finditem %Savelist C_ , #backpackid
+If #FindCnt > 0 && %WeightMargin < 100
+   {
+   For %ItemToSave 1 #FindCnt
+       {
+       Set #FindIndex %ItemToSave
+       exevent drag #findid #findstack
+       wait 10
+       exevent dropc %ResourceSecure
+       wait 10
+       }
+   }
+finditem %Dumplist C_ , #backpackid
+If #FindCnt > 0
+   {
+   For %ItemToDump 1 #FindCnt
+       {
+       Set #FindIndex %ItemToDump
+       exevent drag #findid #findstack
+       wait 10
+       exevent dropc %TrashBarrel
+       wait 10
+       }
+   }
+Return
+
+;================== Wait for gump ======================
+sub waitforgump
+set %timeout #scnt + 10
+while #contsize <> %1
+      {
+      wait 1
+      if #scnt > %timeout
+         {
+          return #false
+         }
+      }
+wait %gumpwait
+return #true
+
+;=========================================================
+Sub Skillcheck
+chooseskill Bowc real
+;event sysmessage Skill is %Skill #Skill
+If #Skill = 1000
+   {
+   Display Congratulations, #Charname you are the newest GM Bowyer. Skillcap reached, halting.
+   Halt
+   }
+If #Skill <= 301
+   {
+   Set %SkillLevel 1
+   Gosub Item1
+   }
+If #Skill > 301 && #Skill <= 499
+   {
+   Set %SkillLevel 2
+   Gosub Item2
+   }
+If #Skill > 499 && #Skill <= 599
+   {
+   Set %SkillLevel 3
+   Gosub Item3
+   }
+If #Skill > 599 && #Skill <= 699
+   {
+   Set %SkillLevel 4
+   Gosub Item4
+   }
+If #Skill > 699 && #Skill <= 799
+   {
+   Set %SkillLevel 5
+   Gosub Item5
+   }
+If #Skill > 799 && #Skill <= 899
+   {
+   Set %SkillLevel 6
+   Gosub Item6
+   }
+If #Skill > 899
+   {
+   Set %SkillLevel 7
+   Gosub Item7
+   }
+
+
+If %PreviousSkillLevel < %SkillLevel
+   Gosub SetBowyerGump
+Set %PreviousSkillLevel %SkillLevel
+Return
+
+;======================================================================
+sub InitTinkerGump    ; Makes sure you have two kits and sets it to use iron
+    finditem %Tinkertools C_ , #backpackid
+      if #findcnt < 1
+         {
+          display Get a tinker tool in your backpack and restart the script.
+          halt
+         }
+      if #findcnt < 2
+      {
+       gosub MakeTinkerKit
+      }
+      TinkerSetLoop:
+      finditem %Tinkertools C_ , #backpackid
+      set #lobjectid #findid
+         event macro 17
+               gosub waitforgump %cwin
+              if ! #result
+              {
+              Goto TinkerSetLoop
+              }
+         Gosub OffSetClick 30 370
+               gosub waitforgump %cwin
+              if ! #result
+              {
+              Goto TinkerSetLoop
+              }
+         Gosub OffSetClick 230 70
+               gosub waitforgump %cwin
+               if ! #result
+               {
+              Goto TinkerSetLoop
+               }
+         Gosub OffSetClick 30 450
+         wait 5
+Return
+
+
+;================== Wait for Target Cursor ================
+sub WaitForTargetCursor
+set %timeout #scnt + 4
+Repeat
+      wait %targetcursorwait
+      if #scnt > %timeout
+         return #false
+Until #TARGCURS = 1
+return #true
+
+;==================================
+sub weightcheck
+if #weight >= #maxweight
+gosub dump
+Return
+
+;=================================
+; ITEM DATA SUBS
+;==================================
+sub Item1        ; Shafts
+    Set %Threshhold 301    Set %CurrentItem %ItemOne
+    Set %ItemBoards 1
+    Set %XClick1 30
+    Set %YClick1 90
+    Set %XClick2 230
+    Set %YClick2 90
+    Set %XClick3 1
+    Set %YClick3 1
+    Set %StackMake Yes
+    Set %Trash No
+Return
+
+;=================================
+sub Item2      ; Bow
+    Set %Threshhold 499
+    Set %CurrentItem %ItemTwo
+    Set %ItemBoards 7
+    Set %XClick1 30
+    Set %YClick1 130
+    Set %XClick2 230
+    Set %YClick2 70
+    Set %XClick3 1
+    Set %YClick3 1
+    Set %StackMake No
+    Set %Trash Yes
+Return
+
+;=================================
+sub Item3      ; F Dart
+   Set %Threshhold 599
+   Set %CurrentItem %ItemThree
+   Set %ItemBoards 1
+   Set %XClick1 30
+   Set %YClick1 110
+   Set %XClick2 230
+   Set %YClick2 110
+   Set %XClick3 1
+   Set %YClick3 1
+   Set %StackMake No
+   Set %Trash Yes
+Return
+
+;=================================
+sub Item4       ; XBow
+   Set %Threshhold 699
+   Set %CurrentItem %ItemFour
+   Set %ItemBoards 7
+   Set %XClick1 30
+   Set %YClick1 130
+   Set %XClick2 230
+   Set %YClick2 90
+   Set %XClick3 1
+   Set %YClick3 1
+   Set %StackMake No
+   Set %Trash Yes
+Return
+
+;=================================
+sub Item5      ; Composite Bow
+   Set %Threshhold 799
+   Set %CurrentItem %ItemFive
+   Set %ItemBoards 7
+   Set %XClick1 30
+   Set %YClick1 130
+   Set %XClick2 230
+   Set %YClick2 130
+   Set %XClick3 1
+   Set %YClick3 1
+   Set %StackMake No
+   Set %Trash Yes
+Return
+
+;=================================
+sub Item6     ; Hvy XBow
+   Set %Threshhold 899
+   Set %CurrentItem %ItemSix
+   Set %ItemBoards 10
+   Set %XClick1 30
+   Set %YClick1 130
+   Set %XClick2 230
+   Set %YClick2 110
+   Set %XClick3 1
+   Set %YClick3 1
+   Set %StackMake No
+   Set %Trash Yes
+Return
+
+;=================================
+sub Item7  ; Repeating XBow
+   Set %Threshhold 1000
+   Set %CurrentItem NMH
+   Set %ItemBoards 7
+   Set %XClick1 30
+   Set %YClick1 130
+   Set %XClick2 230
+   Set %YClick2 150
+   Set %XClick3 1
+   Set %YClick3 1
+   Set %StackMake No
+   Set %Trash Yes
+Return
+
+;=================================
+sub OffsetClick
+  set %tempx %1 + #CONTPOSX
+  set %tempy %2 + #CONTPOSY
+  click %tempx %tempy f
+return
+
+;==========================================================
+Sub RoT_Timer       ; Sets the RoT timer
+Chooseskill %1 Real
+If #Skill < 700 || #Skill = 1200
+   Set %ROTSkillTimer #SCNT + 2
+If #Skill >= 700 && #Skill < 800       ; 5 Minute Interval
+   Set %ROTSkillTimer #SCNT + 300
+If #Skill >= 800 && #Skill < 900       ; 8 Minute Interval
+   Set %ROTSkillTimer #SCNT + 480
+If #Skill >= 900 && #Skill < 1000      ; 12 Minute Interval
+   Set %ROTSkillTimer #SCNT + 720
+If #Skill >= 1000 && #Skill < 1200    ; 15 Minute Interval
+   Set %ROTSkillTimer #SCNT + 900
+Repeat
+   {
+   If %ROTSkillTimer - #SCNT > 120
+      {
+      If H notin #CharStatus && %HideWhileWorking = True
+         Event Macro 13 21       ; Hide
+      Wait 2400
+      Set #LobjectID #BackpackID
+      Event Macro 17 0
+      }
+   Wait 50
+   }
+Until #SCNT >= %ROTSkillTimer
+Return
+
+;==========================================================
+Sub Move_Resource_To_Container
+; Sub moves a stackable resource from one container to another
+; Checks Item Color to insure proper identification (Required)
+; Will return #False if there are not enough of the resource
+; #True with a successful move
+;----------------------------------------------------------
+; SAMPLE CALL Line
+; Gosub Move_Resource_To_Container ItemType ItemColor ContainerIDSource ContainerIDDestination AmountToMve
+;----------------------------------------------------------
+namespace push
+namespace local NCS
+Set !ResourceItemType %1
+Set !ResourceColor %2
+Set !ResourceSource %3
+Set !ResourceDestination %4
+Set !ResourceCountToMove %5
+Set !ResourceCountToMoveCheck %5
+Finditem !ResourceItemType C_ , !ResourceSource
+Set #findindex 0
+Set #FindCol N/A
+Set !ResourceLocated No
+while #findindex < #findcnt && No in !ResourceLocated
+      {
+      set #findindex #findindex + 1
+      If #FindCol = !ResourceColor && #FindStack < !ResourceCountToMove && #FindCnt > #findindex
+         {
+         exevent drag #FindID #FindStack
+         Wait 15
+         exevent dropc !ResourceDestination
+         Wait 15
+         Set !ResourceCountToMove !ResourceCountToMove - #FindStack
+         Set #findindex 0
+         Finditem !ResourceItemType C_ , !ResourceSource
+         }
+      If #FindCol = !ResourceColor && #FindStack >= !ResourceCountToMove
+         {
+         exevent drag #FindID !ResourceCountToMove
+         Wait 15
+         exevent dropc !ResourceDestination
+         Wait 15
+         Set !ResourceLocated Yes
+         }
+      }
+If #FindIndex = 0 || No in !ResourceLocated
+   {
+   IgnoreItem Reset
+   Namespace pop
+   Return #False
+   }
+Finditem !ResourceItemType C_ , !ResourceDestination
+Set #findindex 0
+Set #FindCol N/A
+Set !ResourceLocated No
+while #findindex < #findcnt && No in !ResourceLocated
+      {
+      set #findindex #findindex + 1
+      If #FindCol = !ResourceColor && #FindStack >= !ResourceCountToMoveCheck
+         {
+         Namespace pop
+         IgnoreItem Reset
+         Return #True
+         }
+      }
+Namespace pop
+Return #False
+
+
+;=================================
+Sub Setup
+set %TinkerTools JTL_GTL_KTL
+Set %FletchersTools UFG
+Set %Boards TLK
+Set %Ingots ENK
+Set %Item1 SLK
+Set %Item2 WOH
+Set %Item3 SGP
+Set %Item4 USF
+Set %Item5 QPO
+Set %Item6 LMH
+Set %Item7 PPO
+Set %PreviousSkillLevel 0
+Set %SaveList NWH_RCG_FCG_FKF_SLK
+Set %DumpList WOH_SGP_USF_QPO_LMH_PPO
+set %cwin 550_587            ; Crafting window size
+set %gumpwait 1 ; Increase number to slow down clicks on menus.  20 = 1 second.
+set %targetcursorwait 1 ; Increase number as above
+;GoSub Dump
+
+; INITIAL SETUP
+
+Display Ok Select the container with your boards and Ingots in it.
+  set #targcurs 1
+      while #targcurs = 1
+         wait 1
+      set %ResourceSecure #ltargetID
+      set #lobjectID #ltargetID
+      set #nextcposx 400
+      set #nextcposy 0
+      event macro 17
+      wait 20
+
+Finditem BKF G_2
+For %TrashSearch 1 #FindCnt
+   {
+   Set #Findindex %TrashSearch
+   Event Property #FindID
+   If Trash in #Property
+      {
+      Set %TrashBarrel #FindID
+      Set %TrashSearchSuccess Yes
+      }
+   }
+If %TrashSearchSuccess <> Yes
+   {
+   Display A secure trash barrel was not found within reach.  Correct this and restart
+   pause
+   }
+GoSub InitTinkerGump
+Gosub SkillCheck
+Return
+;======================================================================
+
+
+

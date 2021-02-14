@@ -1,0 +1,1924 @@
+;===========================================================================
+; Script Name: Auto Item Buyer
+; Author: Genesis
+; Version: 3.5
+; Client Tested with: 7.0.8.2
+; EUO version tested with: 1.5 176
+; Shard OSI/FS: OSI
+; Public Release: 03/20/06
+; Revision Date: 8/11/10
+; Global Variables Used: CEO*FILESYSTEM (GEN AIB3)
+; Purpose: Buys items from npc's like nobody's bitch!
+; Instructions: Start off at any bank, click play and follow menu.
+;===========================================================================
+;--------------------------Special Thanks-----------------------------------
+;===========================================================================
+; Author:  TrailMyx
+; Script Name: sub TM_AdvJournalSync sub TM_AdvJournalScan
+;              sub TM_NewCastSpell   sub TM_TravelFromRunebook 
+;---------------------------------------------------------------------------
+; Author:  Quintok / Raziel
+; Script Name: sub waitForSysVars
+;---------------------------------------------------------------------------
+; Author:  CEO
+; Script Name: Sub CEO*FILESYSTEM
+;===========================================================================
+;---------------------------Items Needed------------------------------------
+;===========================================================================
+; Backpack:     2 Rune Books, 1 with 2 bank runes, and 1 with vendor shops.
+; Bank:         1 Container for items.
+; Beetle (bonded or not)
+;---------------------------------------------------------------------------
+; THIS SCRIPT WILL ONLY WORK WITH A BEETLE, SO GET ON YOUR BEETLE!
+;===========================================================================
+;----------------------------Instructions-----------------------------------
+;===========================================================================
+; -The first time you run the script per/char it will go straight to Setup Menu
+;  You only have to run setup once unless changing items or settings.
+;  The script will remember Runebooks/ItemBox setting so you only have to
+;  set those up once.
+;
+; -Setup
+;  Select runebooks, and itembox
+;  Select rune numbers and travel method
+;  (If you previously setup these you can skip)
+;
+; -Add Items to Buy Rules
+;  Select an item from the Items pulldown and click add.
+;  You can add as many items as you wish to the buy rules.
+;
+; -Manual
+;  If your buying from vendor that you can't recall to
+;  choose this option and the script will not recall.
+;  (Use the "Reset Vendors" button to reset ignored vendors.)
+;
+;---------------------------------------------------------------------------
+; You can add Items to the script below under the "Index Items" section
+;===========================================================================
+;----------------------------Delay Adjustments------------------------------
+;===========================================================================
+set %slowconn #FALSE ;If you have a slow connection or computer set to #TRUE
+;---------------------------------------------------------------------------
+; If you are having problems with client crashing when dragging an item
+; raise the %ex_drag/drop 10 at a time until you don't.
+set %ex_drag 0 ;exevent drag delay
+set %ex_drop 20 ;exevent drop delay
+;---------------------------------------------------------------------------
+; If you are having beetle problems, raise the %beetle_delay 10
+; at a time until you don't
+set %beetle_delay 20 ;setup beetle, mount/dismount beetle
+;---------------------------------------------------------------------------
+; If you need to adjust the respawn timer, put in how many mins you want to wait,
+; default is 0 mins from the time you recall to vendor #1
+set %respawntime 0 ;how many mins to wait for respawn
+;---------------------------------------------------------------------------
+; The the number of time to double-click an item to add to buy.
+set %click 3
+;===========================================================================
+gosub setup
+;===========================================================================
+
+Loop:
+if ! %manual
+   gosub unloaditems
+loop2:
+if #MENUBUTTON <> N/A
+   gosub #MENUBUTTON
+if ! %manual
+   gosub recall2vendor
+else
+{
+   gosub Status 48 8 Aqua 8 Find , #spc , some , #spc , vendors , #spc , and , #spc , Click , #spc , resume.
+   set #MENUBUTTON PAUSE
+}
+gosub shop
+if ! #result
+    goto loop2
+if ! %manual
+   gosub recall2bank
+goto Loop
+
+;==========================================================================
+; Index Items
+;==========================================================================
+sub index_items
+set %index 1
+;---------------------------------------------------------------------------
+; You can add items below using the follow gosub
+; Gosub index <Types_> <Item , #spc , Name> <Maxprice> <Instant Spawn? yes/no>
+;---------------------------------------------------------------------------
+; Mage Regs
+;---------------------------------------------------------------------------
+gosub index KUF_ Black , #spc , Pearl 5 no
+gosub index JUF_ Blood , #spc , Moss 5 no
+gosub index KZF_ Garlic 3 no
+gosub index JZF_ Gensing 3 no
+gosub index MZF_ Mandrake , #spc , Root 3 no
+gosub index WZF_ Nightshade 3 no
+gosub index RZF_ Spider , #spc , Silk 3 no
+gosub index SZF_ Sulfurous , #spc , Ash 3 no
+;---------------------------------------------------------------------------
+; Necro Regs
+;---------------------------------------------------------------------------
+gosub index IUF_ Batwings 3 no
+gosub index YZF_ Pig , #spc , Iron 5 no
+gosub index TZF_ Grave , #spc , Dust 3 no
+gosub index DUF_ Daemon , #spc , Blood 6 no
+gosub index UZF_ Nox , #spc , Crystals 6 no
+;---------------------------------------------------------------------------
+; Gems
+;---------------------------------------------------------------------------
+gosub index RVF_ Amber 50 yes
+gosub index BVF_ Citrine 50 yes
+gosub index OVF_ Tourmaline 75 yes
+gosub index HVF_ Ruby 75 yes
+gosub index GVF_ Emerald 100 yes
+gosub index FVF_ Saphire 100 yes
+gosub index EVG_ Amethyst 100 yes
+gosub index VUF_ Star , #spc , Saphire 125 yes
+gosub index UVF_ Diamond 200 yes
+;---------------------------------------------------------------------------
+; Other
+;---------------------------------------------------------------------------
+gosub index DPF_ Blank , #spc , Scrolls 5 no
+gosub index TLK_ Boards 6 yes
+gosub index ENK_ Ingots 25 yes
+gosub index JJG_ Cut , #spc , Leather 18 yes
+gosub index BAG_CAG_NAG_IAG_ Bolts , #spc , of , #spc , Cloth 147 yes
+gosub index ZLF_ Bandages 5 yes
+gosub index WUF_ Bottles 5 yes
+gosub index QQD_ Apples 3 yes
+gosub index RWF_ Arrows 16 yes
+gosub index LNK_ Cross , #spc , Bolts 19 yes
+;---------------------------------------------------------------------------
+set %items %index - 1
+set %index 1
+return
+;==========================================================================
+sub index
+set %item . %index %1
+set %name . %index %2
+set %max . %index %3
+set %log . %index #false
+set %instant . %index #false
+if %4 = yes
+   set %instant . %index #true
+else
+   set %instant . %index #false
+set %index %index + 1
+return
+;===========================================================================
+; Misc Subs
+;===========================================================================
+sub recall2vendor
+recall2vendor:
+if %VR > %VRB
+{
+    wait %respawntime
+    set %VR 1
+    ignoreitem reset
+}
+gosub status 48 8 Aqua 8 Recalling , #spc , to , #spc , vendor , #spc , spot: , #spc , %VR
+gosub TM_TravelFromRunebook %TRAVEL %VR %VR %VRUNEBOOK
+if #result
+{
+   set %VR %VR + 1
+   goto recall2vendor
+}
+return
+;---------------------------------------------------------------------------
+sub recall2bank
+if #random < 500
+   set %BR %BR1
+if #random > 500
+   set %BR %BR2
+bankloop:
+if #MENUBUTTON <> N/A
+   gosub #MENUBUTTON
+gosub status 48 8 Aqua 8 Recalling , #spc , to , #spc , bank
+gosub TM_TravelFromRunebook %TRAVEL %BR %BR %BRUNEBOOK  
+if #result
+{
+   if %BR = %BR1
+   {
+      set %BR %BR2
+      goto bankloop
+   }
+   if %BR = %BR2
+   {
+      set %BR %BR1
+      goto bankloop
+   }
+}
+return #true
+;---------------------------------------------------------------------------
+Sub Shop
+set %lpc #lpc
+set #lpc 10000
+set %attempts 0
+set %BulkOrder #false
+findvendor:
+if #MENUBUTTON <> N/A
+   gosub #MENUBUTTON
+set %done #true
+for %i 1 %items
+{
+    if %log . %i = #true
+       set %done #false
+}
+if %done
+{
+   if ! %Manual
+      gosub recall2bank
+   gosub status 48 8 red 8 Total , #spc , amount , #spc , Bought! , #spc , Halted
+   halt
+}
+gosub status 48 8 Aqua 8 Searching , #spc , for , #spc , vendor..
+finditem %vendortype G_8
+if #findcnt => 1
+{
+    if #FINDREP <> 7
+    {
+      ignoreitem #findid 1
+      goto findvendor
+    }
+    event Property #findID
+    if guild in #property || banker in #property || minter in #property || naturalist in #property ;|| quest in #property ;-Termur vendors give quest!
+    {
+      ignoreitem #findid 1
+      goto findvendor
+    }
+    set %context 2
+    if tinker in #property
+       set %context 3
+    if %BulkOrder
+       set %context 3
+    set %vendor #findid
+    gosub status 48 8 Aqua 8 Opening , #spc , buy , #spc , menu...
+    gosub TM_AdvJournalSync Vendor
+    gosub context %vendor %context
+    if ! #result
+    {
+        ignoreitem %vendor ;Didn't open context - too far away?
+        goto findvendor
+    }
+    gosub WaitForSysVars CONTNAME = bill_gump CONTSIZE = 283_248 5
+    if ! #result
+    {
+        gosub TM_AdvJournalScan Vendor NONE An_offer_may_be_available
+        if #result
+        {
+            set %BulkOrder #true
+            goto findvendor
+        }
+        if #CONTSIZE = 460_207 && #CONTNAME = generic_gump ;Bulk order menu
+        {
+            set %closex #contposx + 50
+            set %closey #contposy + 50
+            click %closex %closey r
+            wait 20
+            set %BulkOrder #true
+            goto findvendor
+        }
+        if #CONTSIZE = 507_436 ;Quest menu
+        {
+            set %x2 #CONTPOSX + 350
+            set %y2 #CONTPOSY + 400
+            click %x2 %y2
+            wait 30
+            click %x2 %y2
+            wait 10
+            ignoreitem %vendor 1
+            set %attempts 0
+        }
+        if #CONTSIZE = 463_414 ;Quest menu 2
+        {
+            set %x1 #CONTPOSX + 245
+            set %y1 #CONTPOSY + 344
+            click %x1 %y1
+            wait 10
+            ignoreitem %vendor 1
+            set %attempts 0
+        }
+        if %attempts => 2
+        {
+            ignoreitem %vendor 1
+            set %attempts 0
+            goto findvendor
+        }
+        set %attempts %attempts + 1
+        goto findvendor
+    }
+    set %BulkOrder #false
+    set %x_buy #CONTPOSX - 118
+    set %y_buy #CONTPOSY - 135
+    set %x_next #CONTPOSX + 73
+    set %y_next #CONTPOSY - 11
+    set %x_sign #CONTPOSX + 43
+    set %y_sign #CONTPOSY + 205
+    ;Scan
+    gosub status 48 8 Aqua 8 Shopping....
+    set %instant #false
+    set %bought #false
+    getshopinfo
+    for %i 1 #SHOPCNT
+    {
+        if #MENUBUTTON <> N/A
+           gosub #MENUBUTTON
+        getshopinfo
+        for %scan 1 %items
+        {
+            if %Count . %scan => %MaxCount . %scan
+               set %log . %scan #false
+            if %log . %scan = #true
+            {
+               set %buy %item . %scan
+               set %maxprice %max . %scan
+               if #SHOPITEMTYPE in %buy && #SHOPITEMPRICE =< %MAXPRICE
+               {
+                  for %c 1 %click
+                  {
+                     click %x_buy %y_buy d ;buy
+                  }
+                  getShopInfo
+                  wait 10
+                  setShopItem #shopItemID #shopItemMax
+                  set %Count . %scan %Count . %scan + #shopItemMax
+                  set %gold %gold + ( #SHOPITEMPRICE * #shopItemMax )
+                  set %bought #true
+               }
+            }
+        }
+        if %slowconn
+           wait 10
+        click %x_next %y_next ;next
+    }
+    menu delete statlist
+    menu Font Color WindowText
+    menu Font BGColor Window
+    menu List Create statlist 8 80 237 221
+    menu list add statlist Gold - %gold
+    menu list add statlist ========================================
+    for %i 1 %items
+    {
+        if %log . %i = #true
+        {
+           set %name %name . %i
+           set %Count %Count . %i
+           menu list add statlist %name - %Count
+        }
+    }
+    gosub TM_AdvJournalSync Vendor
+    click %x_sign %y_sign ;sign
+    gosub WaitForSysVars CONTNAME <> bill_gump CONTSIZE <> 283_248 5
+    gosub TM_AdvJournalScan Vendor NONE bank_lacks_these_funds canst_not_afford_that bank_account_lacks_these_funds
+    if #result
+    {
+        display Your out of gold!
+        halt
+    }
+    for %i 1 %items
+	  {
+        if %log . %i = #true
+        {
+           if %instant . %i = #true
+              set %instant #true
+        }
+	  }
+	  if ! %bought || ! %instant
+	      ignoreitem %vendor
+	  gosub Check_Weight_Ground
+    if #result
+    {
+        set #lpc %lpc
+        return #true
+    }
+    goto findvendor
+}
+set %VR %VR + 1
+set #lpc %lpc
+if ! %instant && #GOLD < 2500
+   return #true
+return #false
+;---------------------------------------------------------------------------
+sub unloaditems
+if %beetle
+{
+    gosub openbank
+    gosub unloadbeetle
+}
+gosub status 48 8 Aqua 8 Opening , #spc , bank.
+gosub openbank
+gosub status 48 8 Aqua 8 Unloading , #spc , items..
+if #MENUBUTTON <> N/A
+   gosub #MENUBUTTON
+for %i 1 %items
+{
+    if %log . %i = #true
+    {
+       set %buy %item . %i
+       finditem %buy C_ , #BACKPACKID
+       if #findcnt > 0
+       {
+          for #findindex 1 #findcnt
+          {
+              Exevent Drag #findid #findstack
+              wait %ex_drag
+              Exevent Dropc %ITEMBOX
+              wait %ex_drop
+              ignoreitem #findid ;Ghost test fix
+          }
+       }
+    }
+}
+gosub status 48 8 Aqua 8 Checking , #spc , gold...
+finditem POF c_ , #backpackid
+set %instant #false
+for %i 1 %items
+{
+    if %log . %i = #true
+    {
+       if %instant . %i = #true
+          set %instant #true
+    }
+}
+if %instant
+   set %amount 1
+for %i 1 %items
+{
+    if %log . %i = #true
+    {
+       if %instant . %i = #false
+          set %instant #false
+    }
+}
+if ! %instant
+   set %amount 10000
+if #findstack => 1
+   set %amount %amount - #findstack
+gosub TM_AdvJournalSync bank
+if %amount > 0
+   event macro 3 0 Withdraw %amount
+wait 20
+gosub TM_AdvJournalScan bank NONE not_so_much_gold
+if #result || #gold < %amount
+{
+   display Your out of gold!
+   halt
+}
+return
+;===========================================================================
+; Beetle Subs
+;===========================================================================
+sub Check_Weight_Ground
+gosub status 48 8 Aqua 8 Checking , #spc , weight , #spc , and , #spc , ground...
+for %i 1 %items
+{
+    set %buy %item . %i
+    finditem %buy g_2
+    if #findcnt > 0 || #weight > #maxweight ;adjust for elf/human!
+    {
+       set #lobjectid #CHARID
+       event macro 17 0
+       wait %beetle_delay
+       set %beetle #true
+       checkground:
+       if #WEIGHT >= #maxweight - 25
+       {
+          for %scan 1 %items
+          {
+              set %buy %item . %scan
+              finditem %buy C_ , #BACKPACKID
+              if #findcnt > 0
+              {
+                 for #findindex 1 #findcnt
+                 {
+                     Exevent Drag #findid #findstack
+                     wait %ex_drag
+                     Exevent Dropc %BEETLEID
+                     wait %ex_drop
+                 }
+              }
+          }
+       }
+       for %scan 1 %items
+       {
+           set %buy %item . %scan
+           finditem %buy G_2
+           if #findcnt > 0
+           {
+              for #findindex 1 #findcnt
+              {
+                  Exevent Drag #findid #findstack
+                  wait %ex_drag
+                  Exevent Dropc %BEETLEID
+                  wait %ex_drop
+              }
+           }
+       }
+       set #lobjectid %BEETLEID
+       gosub TM_AdvJournalSync Beetle
+       event macro 17 0
+       wait %beetle_delay
+       gosub TM_AdvJournalScan Beetle NONE You_must_wait
+       if #result
+       {
+          event macro 17 0
+          wait %beetle_delay
+       }
+       if %beetle
+          return #true
+    }
+}
+if #weight > #maxweight - 25
+   return #true
+return #false
+;---------------------------------------------------------------------------
+sub unloadbeetle
+gosub status 48 8 Aqua 8 Unloading , #spc , beetle...
+set #lobjectid #CHARID
+event macro 17 0
+wait %beetle_delay
+openbeetle:
+set #lobjectid %beetlebag
+event macro 17 0
+wait %beetle_delay
+gosub WaitForSysVars CONTNAME = container_gump CONTSIZE = 230_204 5
+if ! #result
+   goto openbeetle
+wait %beetle_delay
+unloadbeetle:
+for %scan 1 %items
+{
+    set %buy %item . %scan
+    finditem %buy C_ , %beetlebag
+    if #findcnt > 0
+    {
+       for #findindex 1 #findcnt
+       {
+           Exevent Drag #findid #findstack
+           wait %ex_drag
+           Exevent Dropc %ITEMBOX
+           wait %ex_drop
+           ignoreitem #findid
+       }
+    }
+}
+set #lobjectid %BEETLEID
+gosub TM_AdvJournalSync Beetle
+event macro 17 0
+wait %beetle_delay
+gosub TM_AdvJournalScan Beetle NONE You_must_wait 
+if #result
+{
+    event macro 17 0
+    wait %beetle_delay
+}
+set %beetle #false
+return
+
+sub SetupBeetle
+set #lobjectid #CHARID
+event macro 17 0
+wait %beetle_delay
+beetle:
+finditem ZGB g_1
+if #findkind = -1
+{
+    menu hide
+    Display Get a beetle and restart!
+    halt
+}
+set %BEETLEID #findid
+set #lobjectid %BEETLEID
+gosub Beetle_Pack
+set %beetlebag #CONTID
+gosub Setup_Menu
+repeat
+gosub TM_AdvJournalSync Beetle
+event macro 17 0
+wait %beetle_delay
+gosub TM_AdvJournalScan Beetle NONE You_must_wait 
+if #result
+{
+    event macro 17 0
+    wait %beetle_delay
+}
+wait %beetle_delay
+return
+;===========================================================================
+; Container Handling Subs
+;===========================================================================
+sub openpaperdoll
+openpaperdoll:
+event macro 8 1
+gosub WaitForSysVars CONTNAME = paperdoll_gump CONTSIZE = 262_324 5
+if ! #result
+  goto openpaperdoll
+movepaperdoll:
+set #contposx 800
+set #contposy 1
+gosub WaitForSysVars CONTPOSX = 800 CONTPOSY = 1 5
+if ! #result
+   goto movepaperdoll
+wait 20
+return
+;---------------------------------------------------------------------------
+sub openpack
+openpack:
+event macro 8 7
+gosub WaitForSysVars CONTSIZE = 230_204 CONTNAME = container_gump
+if ! #result
+   goto openpack
+movepack:
+set #CONTPOSX 800
+set #CONTPOSY 325
+gosub WaitForSysVars CONTPOSX = 800 CONTPOSY = 325 5
+if ! #result
+   goto movepack
+wait 20
+return
+;---------------------------------------------------------------------------
+sub openstatusbar
+openstatusbar:
+event macro 8 2
+gosub WaitForSysVars CONTSIZE = 432_184 CONTNAME = status_gump
+if ! #result
+   goto openstatusbar
+movestatus:
+set #CONTPOSX 400
+set #CONTPOSY 580
+gosub WaitForSysVars CONTPOSX = 400 CONTPOSY = 580 5
+if ! #result
+   goto movestatus
+wait 20
+return
+;---------------------------------------------------------------------------
+sub openbank
+if #CONTSIZE = 180_240
+{
+   set %BankID #contid
+   return
+}
+set %attempts 0
+set %t1 3
+set %t2 0
+openbank:
+if %attempts => 2
+{
+    gosub recall2bank
+    set %attempts 0
+    goto openbank
+}
+if %attempts => 1
+{
+    set %t1 4
+    set %t2 4
+}
+event macro %t1 %t2 Bank
+gosub WaitForSysVars CONTNAME = container_gump CONTSIZE = 180_240 5
+if ! #result
+{
+   set %attempts %attempts + 1
+   goto openbank
+}
+movebank:
+set #CONTPOSX 830
+set #CONTPOSY 525
+gosub WaitForSysVars CONTPOSX = 830 CONTPOSY = 525 5
+if ! #result
+   goto movebank
+set %BankID #contid
+return
+;---------------------------------------------------------------------------
+;sub context <XXXXXX> <1-11>
+sub context
+set !ID %1
+set !click %2
+exevent popup !ID
+gosub waitForSysVars CONTPOSX = 0 CONTNAME = normal_gump
+if ! #result
+   return #false
+if #CONTSIZE = 108_42
+   return #false
+if !click = 1
+   click 20 20
+if !click = 2
+   click 20 40
+if !click = 3
+   click 20 55
+if !click = 4
+   click 20 75
+if !click = 5
+   click 20 90
+if !click = 6
+   click 20 110
+if !click = 7
+   click 20 130
+if !click = 8
+   click 20 145
+if !click = 9
+   click 20 165
+if !click = 10
+   click 20 185
+if !click = 11
+   click 20 200
+return #true
+;===========================================================================
+; SETUP - Varibles, Menu Selection, Ect. (Subs)
+;===========================================================================
+sub setup
+set %lpc #lpc
+set #lpc 10000
+set %help #false
+set %Manual #false
+;---------------------------------------------------------------------------
+; Misc
+;---------------------------------------------------------------------------
+set %VendorType IS_HS_OCB_NCB
+set %respawntime %respawntime * 60
+Set %VR 1 ;Vendor Rune Number
+set #MENUBUTTON N/A
+set %beetle #false
+;---------------------------------------------------------------------------
+gosub Index_Items
+gosub getGlobalVar GEN AIB3 #CHARID FIRST
+if %first
+{
+    gosub Ask_Menu
+    if ! #result
+    {
+        gosub getGlobalVars
+        gosub MaxMenu
+        gosub Run_Menu
+        gosub status 48 8 Aqua 8 Opening , #spc , Paperdoll....
+        gosub openpaperdoll
+        gosub status 48 8 Aqua 8 Opening , #spc , StatusBar..
+        gosub openstatusbar
+        gosub status 48 8 Aqua 8 Opening , #spc , Pack.....
+        gosub openpack
+        gosub status 48 8 Aqua 8 Opening , #spc , Bank........
+        gosub openbank
+        if ! %manual
+        {
+           finditem POF c_ , #backpackid
+           if #findcnt > 0
+           {
+              exevent drag #findid #findstack
+              wait %ex_drag
+              exevent dropc %BankID
+              wait %ex_drop
+           }
+        }
+        return
+    }
+}
+gosub getGlobalVars2
+gosub Setup_Menu
+gosub Status 52 132 Red 10 Checking , #spc , for , #spc , beetle..
+gosub SetupBeetle
+gosub test_beetle_pack
+gosub Status 52 132 Red 10 Opening , #spc , Paperdoll....
+gosub openpaperdoll
+gosub Status 52 132 Red 10 Opening , #spc , Pack......
+gosub openpack
+gosub Status 52 132 Red 10 Opening , #spc , StatusBar....
+gosub openstatusbar
+gosub Status 52 132 Red 10 Opening , #spc , Bank........
+gosub openbank
+gosub Status 52 132 Red 10 Loading , #spc , Variables..........
+;===========================================================================
+; Menu Button Loop
+;===========================================================================
+gosub Status 52 132 Red 10 Ready , #spc , to , #spc , setup!
+while #MENUBUTTON <> start
+{
+    if #MENUBUTTON = bank
+    {
+        gosub Status  52 132 Red 10 Tagert , #spc , Bank , #spc , Runebook
+        set #targcurs 1
+        repeat
+        until #targcurs = 0
+        set %BRUNEBOOK #ltargetid
+        menu delete bank
+        menu font size 8
+        menu font color aqua
+        menu Button Bank 256 52 99 25 Done
+        gosub Status  52 132 Red 10 Ready...
+        set #menubutton N/A
+    }
+    if #MENUBUTTON = vendor
+    {
+        gosub Status  52 132 Red 10 Taget , #spc , Vendor , #spc , Runebook
+        set #targcurs 1
+        repeat
+        until #targcurs = 0
+        set %VRUNEBOOK #ltargetid
+        menu font size 8
+        menu font color aqua
+        menu Button Vendor 256 24 99 25 Done
+        gosub Status  52 132 Red 10 Ready...
+        set #menubutton N/A
+    }
+    if #MENUBUTTON = items
+    {
+        gosub Status  52 132 Red 10 Tagert , #spc , Item(s) , #spc , Box
+        set #targcurs 1
+        repeat
+        until #targcurs = 0
+        set %ITEMBOX #ltargetid
+        menu font size 8
+        menu font color aqua
+        menu Button Items 356 24 99 25 Done
+        gosub Status  52 132 Red 10 Ready...
+        set #menubutton N/A
+    }
+    if #MENUBUTTON = Add
+    {
+       ;What to buy
+       menu get buy
+       set %index #MENURES
+       set %Log . %index #true
+       menu Font BGColor Window
+       menu delete Rules
+       menu Font Color black
+       menu List Create Rules 4 44 237 81
+       for %i 1 %items
+       {
+           if %log . %i = #true
+           {
+              set %addname %name . %i
+              menu List Add Rules %addname
+           }
+       }
+       menu Font BGColor BtnShadow
+       menu Font Color aqua
+       set #MENUBUTTON N/A
+    }
+    if #MENUBUTTON = Help
+    {
+       if ! %help
+       {
+          set %help #true
+          menu Window Size 473 435
+       }
+       else
+       {
+          set %help #false
+          menu Window Size 473 245
+       }
+       set #MENUBUTTON N/A
+    }
+}
+;===========================================================================
+; Calculating Menu Selections
+;===========================================================================
+;Runebooks
+Menu get br1
+if #menures <> 0
+   set %BR1 #menures
+menu get br2
+if #menures <> 0
+   set %BR2 #menures
+menu get VRB
+if #menures <> 0
+   set %VRB #menures
+
+menu get Manual
+set %manual #menures
+
+;Travel Method
+menu get travel_method
+if #menures <> 0
+{
+   if #menures = 1
+      set %TRAVEL RE
+   if #menures = 2
+      set %TRAVEL SJ
+}
+gosub MaxMenu
+gosub Run_Menu
+gosub status 48 8 Aqua 8 Saving , #spc , Variables..
+gosub putGlobalVars
+set #lpc %lpc
+finditem POF c_ , #backpackid
+if #findcnt > 0
+{
+   exevent drag #findid #findstack
+   wait %ex_drag
+   exevent dropc %BankID
+   wait %ex_drop
+}
+return
+;---------------------------------------------------------------------------
+sub putGlobalVars
+set %First #true
+gosub putGlobalVar GEN AIB3 #CHARID FIRST
+gosub PutGlobalVar GEN AIB3 #CHARID BEETLEID
+gosub PutGlobalVar GEN AIB3 #CHARID BEETLEBAG
+gosub PutGlobalVar GEN AIB3 #CHARID BRUNEBOOK
+gosub PutGlobalVar GEN AIB3 #CHARID VRUNEBOOK
+gosub PutGlobalVar GEN AIB3 #CHARID ITEMBOX
+gosub PutGlobalVar GEN AIB3 #CHARID MANUAL
+gosub putGlobalVar GEN AIB3 #CHARID BR1
+gosub putGlobalVar GEN AIB3 #CHARID BR2
+gosub putGlobalVar GEN AIB3 #CHARID VRB
+gosub putGlobalVar GEN AIB3 #CHARID TRAVEL
+gosub putGlobalVar GEN AIB3 #CHARID ITEMS
+for %i 1 %items
+    gosub putGlobalVar GEN AIB3 #CHARID log . %i
+return
+;---------------------------------------------------------------------------
+sub GetGlobalVars
+gosub getGlobalVar GEN AIB3 #CHARID FIRST NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BEETLEID NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BEETLEBAG NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BRUNEBOOK NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID VRUNEBOOK NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID ITEMBOX NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID MANUAL NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BR1 NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BR2 NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID VRB NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID TRAVEL NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID ITEMS NOLOCK
+for %i 1 %items
+    gosub getGlobalVar GEN AIB3 #CHARID log . %i NOLOCK
+return
+;---------------------------------------------------------------------------
+sub GetGlobalVars2
+gosub getGlobalVar GEN AIB3 #CHARID BEETLEID NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BEETLEBAG NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BRUNEBOOK NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID VRUNEBOOK NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID ITEMBOX NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID MANUAL NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BR1 NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID BR2 NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID VRB NOLOCK
+gosub getGlobalVar GEN AIB3 #CHARID TRAVEL NOLOCK
+return
+;==========================================================================
+; Menus Subs
+;==========================================================================
+ 	sub Setup_Menu
+  menu HideEUO
+  menu Clear
+	menu Window Title Gen's Auto Item Buyer - Setup
+	menu Window Color BtnShadow
+	menu Window Size 473 245
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 10
+	menu Font Style
+	menu Font Color aqua
+	menu Font Align Left
+	menu Font BGColor BtnShadow
+	menu Text EUOLabel1 8 132 Status:
+	menu Font Color Red
+	menu Text status 52 132 %status
+	menu Font Size 8
+	menu Font Color aqua
+	menu Text EUOLabel2 336 88 Bank Rune 1
+	menu Text EUOLabel4 336 112 Bank Rune 2
+	menu Text EUOLabel5 284 136 Number of Vendor Spots
+	menu Font Size 10
+	menu Font Style bi
+	menu Text EUOLabel8 112 0 Welcome to Gen's Auto Item Buyer
+	menu Shape EUOShape1 252 20 1 417 3 7 1 Navy 7 White
+	menu Shape EUOShape2 4 20 500 1 3 7 20 Navy 7 White
+	menu Shape EUOShape3 0 152 253 1 3 7 1 Navy 7 White
+	menu Shape EUOShape22 252 185 241 1 3 7 1 Navy 7 White
+	menu Shape EUOShape4 0 128 249 1 3 7 1 Navy 7 White
+	menu Font Size 8
+	menu Font Style
+	menu Text EUOLabel9 276 160 Travel Method
+	menu Font Size 10
+	menu Font Style bu
+	menu Text EUOLabel18 110 156 Items
+	menu Text EUOLabel3 92 24 Buy Rules
+	menu Shape EUOShape6 -4 240 505 1 3 7 1 Navy 7 White
+	menu Font Color Aqua
+	menu Font Transparent #false
+	menu Text EUOLabel6 8 252 Instructions
+	menu Font Size 8
+	menu Font Style
+	menu Text EUOLabel7 8 280 1. Set your rune books and Item Box.
+	menu Text EUOLabel10 8 300 2. Set your rune numbers for banks and vendors.
+	menu Text EUOLabel11 8 320 3. Set your Travel Method.
+	menu Text EUOLabel12 8 340 4. Add Items to Buy Rules.
+	menu Text EUOLabel13 20 360 Pick item(s) from Items pulldown
+	menu Text EUOLabel14 20 376 then click Add to add the item to Buy Rules.
+	menu Text EUOLabel15 8 396 5. Click Start
+  menu Text EUOLabel25 8 416 6. Set max prices and total amounts to buy.
+  menu Font Size 10
+	menu Font Style bu
+	menu Text EUOLabel16 260 252 Items Needed
+	menu Font Size 8
+	menu Font Style
+	menu Text EUOLabel17 260 276 - blue beetle (bonded or not)
+	menu Text EUOLabel19 260 292 - Bank Runebook (2 bank spots)
+	menu Text EUOLabel20 260 308 - Vendor runebook (up to 16)
+	menu Text EUOLabel21 260 324 - Items Container to unload items
+  menu Font Size 10
+	menu Font Style bu
+	menu Text EUOLabel26 260 350 Manual Option
+	menu Font Size 8
+	menu Font Style
+	menu Text EUOLabel27 260 370 - Check Manual to avoid recalling.
+  menu Shape EUOShape5 0 208 253 1 3 7 1 Navy 7 White
+	menu Font Color aqua
+  menu Button Vendor 256 24 99 25 Vendor Runebook
+  menu Button Bank 256 52 99 25 Bank Runebook
+  menu Button Items 356 24 99 25 Item Box
+  menu Font Align Right
+  menu check manual 397 60 55 25 %manual Manual
+  menu Font Align Left
+  menu Button Add 172 180 67 21 Add
+	menu Combo Create travel_Method 352 156 101
+	menu Combo Add travel_Method magery
+	menu Combo Add travel_Method chiv
+	menu Font Size 10
+	menu Font Style b
+	menu Font Color Lime
+	menu Button start 260 192 203 45 Start
+	menu Font Size 8
+	menu Font Style
+	menu Font Color aqua
+	menu Combo Create BR1 404 84 49
+  for %i 1 16
+	{
+	    menu Combo Add BR1 %i
+	}
+	menu Combo Create BR2 404 108 49
+  for %i 1 16
+	{
+	    menu Combo Add BR2 %i
+	}
+	menu Combo Create VRB 404 132 49
+  for %i 1 16
+	{
+	    menu Combo Add VRB %i
+	}
+	menu Combo Create Buy 11 180 150
+  for %i 1 %items
+	{
+	    menu Combo Add Buy %name . %i
+	}
+	menu Font Size 8
+	menu Font Style
+	menu Font Color WindowText
+	menu Font BGColor Window
+	menu List Create Rules 4 44 237 81
+	menu Font Size 8
+	menu Font Style
+	menu Font Color aqua
+	menu Font BGColor BtnShadow
+	menu Button help 8 216 235 21 Instructions and Items Needed
+	menu Show 250 150
+return
+;---------------------------------------------------------------------------
+sub Run_Menu
+  set %pause Pause
+	set %pause_resume Pause
+  menu Clear
+	menu Window Title Gen's Auto Item Buyer
+	menu Window Color BtnShadow
+	menu Window Size 262 308
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style
+	menu Font Color Blue
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor BtnShadow
+	menu Text EUOLabel1 8 8 Status:
+	menu Font Color Aqua
+	menu Text status 48 8 Started!
+	menu Shape EUOShape1 -4 72 273 1 3 7 1 Aqua 7 White
+	menu Button %pause 172 28 75 25 %pause_resume
+	menu Button stats 12 28 75 25 Hide Stats
+  if %manual
+     menu Button reset 92 28 75 25 Reset Vendors
+  menu Font Color WindowText
+	menu Font BGColor Window
+	menu List Create statlist 8 80 237 221
+	menu show 250 150
+	set %stats #true
+return
+;--------------------------------------------------------------------------
+sub Ask_Menu
+	menu Clear
+	menu HideEUO
+	menu Window Transparent 80
+	menu Window Title Setup
+	menu Window Color BtnShadow
+	menu Window Size 190 75
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 10
+	menu Font Style
+	menu Font Color Aqua
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor BtnShadow
+	menu Text EUOLabel1 16 8 Do you wish to run setup?
+	menu Font Size 8
+	menu Button yes 8 44 75 25 YES
+	menu Button no 96 44 75 25 NO
+	menu Show 250 150
+	repeat
+	wait 1
+	until #MENUBUTTON <> N/A
+	if #MENUBUTTON = NO
+	{
+     set #MENUBUTTON N/A
+     return #false
+  }
+set #MENUBUTTON N/A
+return #true
+
+sub Beetle_Pack
+menu Clear
+	menu HideEUO
+	menu Window Transparent 80
+	menu Window Title Setup
+	menu Window Color BtnShadow
+	menu Window Size 275 75
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 10
+	menu Font Style
+	menu Font Color Aqua
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor BtnShadow
+	menu Text EUOLabel1 16 8 Open your beetle's Pack, then click OK
+	menu Font Size 8
+	menu Button OK 100 44 75 25 OK
+	menu Show 250 150
+	repeat
+	wait 1
+	until #MENUBUTTON <> N/A
+set #MENUBUTTON N/A
+return
+;---------------------------------------------------------------------------
+Sub Status
+;%1 X 296
+;%2 Y 272
+;%3 Color ;Red
+;%4 Size ;10
+;%5 Status Message
+menu delete status
+menu Font Color %3
+menu Font Size %4
+menu Text status %1 %2 %5
+return
+;---------------------------------------------------------------------------
+sub pause
+menu delete pause
+set %pause resume
+set %pause_resume Resume
+menu Font Size 8
+menu Font Color aqua
+menu Font BGColor BtnShadow
+menu Button %pause 172 28 75 25 %pause_resume
+repeat
+if #MENUBUTTON <> N/A && #MENUBUTTON <> RESUME && #MENUBUTTON <> PAUSE
+   gosub #MENUBUTTON
+until #MENUBUTTON = RESUME
+menu delete resume
+set %pause pause
+set %pause_resume Pause
+menu Button %pause 172 28 75 25 %pause_resume
+return
+;========================
+; Max Price Menu
+;========================
+sub MaxMenu
+  set %high 100
+  for %i 1 %items
+  {
+      if %log . %i = #true
+         set %high %high + 20
+  }
+  menu Clear
+	menu Window Title Max Settings
+	menu Window Color BtnShadow
+	menu Window Size 275 %high
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name MS Sans Serif
+	menu Font Size 10
+	menu Font Style
+	menu Font Color Aqua
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor BtnShadow
+	menu Text EUOLabel2 125 5 Price
+	menu Text EUOLabel3 195 5 Amount
+  menu Font Color WindowText
+	menu Font BGColor Window
+  set %H 21
+  for %i 1 %items
+  {
+      if %log . %i = #true
+      {
+         set %name %name . %i
+         menu Font Color Aqua
+         menu Font BGColor BtnShadow
+         menu Window Color BtnShadow
+         menu Text EUOLabel1 16 %H %name
+         set %max %max . %i
+	       set %MenuPrice Price . %i
+ 	       menu Font BGColor window
+ 	       menu Font Color windowtext
+ 	       menu Edit %MenuPrice 123 %H 55 %max
+ 	       set %H %H + 25
+        }
+  }
+  set %H 21
+  for %i 1 %items
+  {
+      if %log . %i = #true
+      {
+         set %MenuAmount Amount . %i
+         menu Font BGColor window
+ 	       menu Font Color windowtext
+ 	       menu Edit %MenuAmount 191 %H 60 1000000
+ 	       set %H %H + 25
+      }
+  }
+  menu Font Color Aqua
+	menu Font BGColor BtnShadow
+	menu Button OK 12 %H 50 25 Ok
+  set #MENUBUTTON N/A
+  repeat
+  wait 1
+  until #MENUBUTTON = OK
+  for %i 1 %items
+  {
+      if %log . %i = #true
+      {
+         set %MenuPrice Price . %i
+         menu get %MenuPrice
+         set %max . %i #menures
+      }
+  }
+  for %i 1 %items
+  {
+      if %log . %i = #true
+      {
+         set %MenuAmount Amount . %i
+         menu get %MenuAmount
+         set %MaxCount . %i #menures
+         set %Count . %i 0
+      }
+  }
+  set %gold 0
+return
+;---------------------------------------------------------------------------
+sub stats
+if %stats
+{
+   menu delete stats
+   menu Font BGColor BtnShadow
+   menu Font Color Aqua
+   menu Button stats 12 28 75 25 Show Stats
+   menu Window Size 262 62
+   set %stats #false
+   set #MENUBUTTON N/A
+   return
+}
+menu delete stats
+menu Font BGColor BtnShadow
+menu Font Color Aqua
+menu Button stats 12 28 75 25 Hide Stats
+menu Window Size 262 308
+set %stats #true
+set #MENUBUTTON N/A
+return
+
+sub Reset
+ignoreitem reset
+set #MENUBUTTON N/A
+return
+;====================================================================
+; SPECIAL THANKS TO THE AUTHORS OF THE FOLLOWING SUBS!
+;====================================================================
+; Script Name: sub waitForSysVars
+; Author: Quintok / Raziel
+; Version: 1.05
+; Client Tested with: 4.0.2b
+; EUO version tested with: 0078
+; Shard OSI / FS: OSI / FS
+; Revision Date: 22th August 2005
+; Public Release: 20th March 2004
+; Global Variables Used: none
+; Purpose: same as waitForSysVar but for multiple inputs.
+;%1 system variable without '#'
+;%2 = <> > < ... etc
+;%3 comparing value
+;%4 system variable without '#'
+;%5 = <> > < ... etc
+;%6 comparing value
+;%n = timeout (not required)
+;==========================================================================
+sub waitForSysVars
+  set !cnt %0 / 3
+  set !timeOut #scnt + 5
+  if ( %0 % 3 = 1 )
+    set !timeOut #scnt + % . %0
+  for !i 1 !cnt
+  {
+    set !offset 3 * !i - 2
+    set !evaluation !offset + 1
+    set !value !offset + 2
+    if ! ( # . % . !offset % . !evaluation % . !value )
+      set !i 0
+    if #scnt > !timeout
+      return #false
+  }
+return #true
+;==========================================================================
+; Script Name:  CEO*FileSystem (pseudo filesystem)
+; Author: CEO
+; Version: 1.1
+; Client Tested with: 4.0.1b
+; EUO version tested with: 1_41_103
+; Shard OSI / FS: OSI
+; Revision Date: 040219
+; Public Release: 040219
+; Globals Used: User specified (2 total)
+; Purpose: Allows you to use a * variable as a pseudo-filesystem
+;=======================================
+; CEO's global variable management subs:
+;      getGlobalVar  . putGlobalVar  . delGlobalVar
+;=======================================
+;
+;ver 1.1
+;changed the lock file to use *variablename_lock so it'll work with any named *variable
+;
+Sub getGlobalVar
+;ver 1.0 posted 19Feb04 by CEO
+;purpose: Allows you to store multiple variables in one global variable unique to
+;             each player and script. getGlobaVar retrieves a value from a global variable.
+;@returns: #result = #false if variable not found, #true if found
+;            % . %3 contains variable value
+;%1 is the global/persistant variable to use ( %1 + 1 is used for locking)
+;%2 is the script identifer or pseudo filename
+;%3 is #charid or pseudo filename
+;%4 is the variable to search for and return in %. %3
+;%5 is for lock control. By default getGlobalVar uses a lock to return a value. In some cases you may want to
+;       retrieve a variable (mostly for speed) without needing a lock as long as you are aware of
+;      any potentional conflicts, that very rarely may occur. Set this param to NOLOCK to access
+;      global storage without a lock.
+;sample usage:
+;               gosub getGlobalVar 50 MyScript #charid backpackid
+; Using global var *50 finds the variable labeled MyScript#charidbackpackid and returns it in %backpackid
+;
+;               gosub getGlobalVar 50 MyScript #charid clothstat NOLOCK
+; Using global var *50 find the variable labeled MyScript#charidclothstat and returns it in %clothstat without using a lock
+; Warning: do not use *1000. * %1 + 1 is used for locking and there is no *1001!
+nameSpace push
+nameSpace local #systime , _ , %2 , _ , %3 , _ , %4 , _ , GET
+set !lpc #lpc
+set #lpc 1000
+set !lock %1 , _lock
+if ( %0 = 5 ) && ( %5 = NOLOCK )
+   goto getGlobalVar_skiplock
+set !lockcount 0
+getGlobalVar_waitforlock:
+if * . !lock <> N/A && * . !lock <> #nsname
+{
+   wait 1 4
+   set !lockcount !lockcount + 1
+   if !lockcount < 10
+      goto getGlobalVar_waitforlock
+   if * . !lock <> N/A
+   {
+      set !currentlock * . !lock
+      if !currentlock = N/A
+         goto getGlobalVar_waitforlock
+      str pos !currentlock _
+      set !strres #strres - 1
+      str left !currentlock !strres
+      set !systime #systime - #strres
+      if !systime < 10000 ; if over 10 seconds assume a broken lock and take it
+      {
+         set !lockcount 0
+         goto getGlobalVar_waitforlock
+      }
+   }
+}
+set * . !lock #nsname
+wait 3 2
+if  * . !lock <> #nsname
+{
+   set !lockcount 0
+   goto getGlobalVar_waitforlock
+}
+getGlobalVar_skiplock:
+set !global * . %1
+set !varName %2 , ^ , %3 , ^ , %4 , |
+str pos !global !varName
+set #result #strres <> 0
+if #result
+{
+   set !varNamePos #strres
+   str len !varName
+   set !delString !varNamePos + #strres - 1
+   str del !global 1 !delString
+   set !global #strres
+   str pos !global |
+   set !varNamePos #strres - 1
+   str left !global !varNamePos
+   set % . %4 #strres
+}
+if ( %0 < 5 || %5 <> NOLOCK ) && * . !lock = #nsname
+   set * . !lock N/A
+set #lpc !lpc
+nameSpace Clear
+nameSpace Pop
+return #result
+;---------------------------------------------------------------------------
+Sub putGlobalVar
+;ver 1.0 posted 19Feb04 by CEO
+;purpose: Allows you to store multiple variables in one global variable unique to
+;             each player and script. putGlobaVar stores a value into a global variable.
+
+;@returns: #result = #false if variable not found, #true if found
+;            % . %3 contains variable
+;%1 is the global/persistant variable to use
+;%2 is the script identifer or pseudo filename
+;%3 #charid or other identifier
+;%4 is the variable name of the variable to save into the* variable identified in %1
+;sample usage:
+;               gosub putGlovalVar 50 MyScript #chardid backpackid
+; Using global var *50 stores/updates the variable labeled MyScript#charidbackpackid  with %backpackid
+; Warning: do not use *1000. * %1 + 1 is used for locking and there is no *1001!
+nameSpace push
+nameSpace local #systime , _ , %2 , _ , %3 , _ , %4 , _ , PUT
+set !lpc #lpc
+set #lpc 1000
+set !lock %1 , _lock
+set !lockcount 0
+putGlobalVar_waitforlock:
+if * . !lock <> N/A && * . !lock <> #nsname
+{
+   wait 1 4
+   set !lockcount !lockcount + 1
+   if !lockcount < 10
+      goto putGlobalVar_waitforlock
+   if * . !lock <> N/A
+   {
+      set !currentlock * . !lock
+      if !currentlock = N/A
+         goto putGlobalVar_waitforlock
+      str pos !currentlock _
+      set !strres #strres - 1
+      str left !currentlock !strres
+      set !systime #systime - #strres
+      if !systime < 10000 ; if over 10 seconds assume a hung lock and take it
+      {
+         set !lockcount 0
+         goto putGlobalVar_waitforlock
+      }
+   }
+}
+set * . !lock #nsname
+wait 4
+set !global * . %1
+set !varName %2 , ^ , %3 , ^ , %4 , |
+str pos !global !varName
+if #strres = 0
+{
+   if  * . !lock <> #nsname
+   {
+      set !lockcount 0
+      goto putGlobalVar_waitforlock
+   }
+   if  |CEO*FILESYSTEM| notin !global
+      set !global |CEO*FILESYSTEM|
+   set * . %1 !global , !varName , % . %4 , |
+   set * . !lock N/A
+   set #lpc !lpc
+   nameSpace clear
+   nameSpace pop
+   return #true
+}
+set !varNamePos #strres
+str len !varName
+set !splitString !varNamePos + #strres - 1
+str left !global !splitstring
+set !globalPart1 #strres
+str del !global 1 !splitString
+set !global #strres
+str len !global
+set !globalLen #strres
+str pos !global |
+set !splitString !globalLen - #strres + 1
+str right !global !splitstring
+set !global #strres
+if  * . !lock <> #nsname
+{
+   set !lockcount 0
+   goto putGlobalVar_waitforlock
+}
+set * . %1 !globalPart1 , % . %4 , !global
+set * . !lock N/A
+set #lpc !lpc
+nameSpace clear
+nameSpace pop
+return #true
+;=================================================================
+; Script Name: TrailMyx's Advanced Journal Scanner
+; Author: TrailMyx
+; Version: 1.1
+; Shard OSI / FS: OSI / FS?
+; Revision Date: 10/20/2007
+; Purpose:
+;   Use these subs to quickly find text in your #journal entries.  These subs
+; use #jindex for flawless journal scanning and is much more reliable than using
+; standard indexing of #journal and #SYSMSG.
+;
+;   Now it is possible to manage separate journals based on unrelated text.  It's now possible
+; to monitor spellcasting, bandaging, stealing, or anything else without a TM_AdvJournalSync
+; potentially removing text needed for another UO funciton.
+;
+;   New is the ability to either gosub or call these functions without the need to change the
+; header!  When calling, a limit of 10 arguments is allowed, but more can be added by editing the
+; call interface section.
+;
+;  Examples:
+;     gosub TM_AdvJournalSync speech 100 ; sync "speech" journal space, set #LPC to 100 from default of 1000
+;     gosub TM_AdvJournalScan speech VALID Find_this_text and_find_this_too ; will not advance copy of #jindex
+;     gosub TM_AdvJournalScan heal VALID_ADVANCE you_heal_what that_patient_is_not ; advances pointer after scan
+;     gosub TM_AdvJournalScan spellcast NONE fizzle ; no spam checking and doesn't advance #jindex copy automatically
+;
+;  Subs included:
+;     TM_AdvJournalSync - Must call this in initialzation
+;     TM_AdvJournalScan - see header for details....
+;-------------------------------------------------------------------------------
+; %1 - Journal Name
+; %2 - #LPC setting (optional)
+; Brings !_jindex up to the most recent #journal entry
+sub TM_AdvJournalSync
+  namespace push
+  namespace local TM_AdvJS_ , %1
+  set !_jindex #jindex + 1
+  if %0 > 1
+    set !lpc_set %2
+  namespace pop
+  set !TM_FunctionCalled #TRUE
+return
+;-------------------------------------------------------------------------------
+; %1 - Journal Name
+; %2 - NONE, ADVANCE , ( _VALID ) - advances jindex pointer, anything else
+; %3, %4, %5, etc strings to match
+; returns #TRUE for match, #FALSE for no match
+;  Will not advance !_jindex pointer to allow for scanning journal history for more than one search.
+;  Also searches for : , #SPC in journal entry to be sure someone isn't spamming the text
+;  About %2 arguments:
+;    NONE: defaults to basic journal scan (no SPAM checking, no #jindex pointer copy advancing)
+;    ADVANCE: no spam checking, advances #jindex copy
+;    VALID: invokes SPAM filtering, no advance of #jindex copy
+;    VALID_ADVANCE, VALIDADVANCE, ADVANCE_VALID, etc.: invokes SPAM filtering, advances of #jindex copy
+sub TM_AdvJournalScan
+  namespace push
+  namespace local TM_AdvJS_ , %1
+  set !args %2
+  set !temp_lpc #LPC
+  if !lpc_set = N/A
+    set #LPC 1000
+  else
+    set #LPC !lpc_set
+  set !num_args %0
+  set !first_arg 3
+  set !sampled_jindex #JINDEX
+  if !_jindex = N/A
+    set !_jindex !sampled_jindex
+  if !charname = N/A
+  {
+    set !charname #CHARNAME
+    AdvJournalScan_loop1:
+      str pos !charname #SPC
+      if #STRRES <> 0
+      {
+        set !val #STRRES - 1
+        str left !charname !val
+        set !left #STRRES
+        set !val !val + 1
+        str del !charname 1 !val
+        set !charname !left , _ , #STRRES
+        goto AdvJournalScan_loop1
+      }
+  }
+  set !index !first_arg
+  repeat
+    set !temp_jindex !_jindex
+    set !text % . !index
+    while !temp_jindex <= !sampled_jindex
+    {
+      scanjournal !temp_jindex
+      str pos #JOURNAL !charname 1
+      set !namepos #STRRES
+      str count #JOURNAL !charname
+      set !namecnt #STRRES
+      str pos #JOURNAL :_ 1
+      set !smcpos #STRRES
+      str pos #JOURNAL !text 1
+      set !textpos #STRRES
+      if !textpos < !smcpos && !smcpos <> 0 || !smcpos = 1 || :_ notin #JOURNAL || VALID notin !args
+        set !pass #TRUE
+      else
+        set !pass #FALSE
+      if ( !text in #journal && ( ( !namepos = 1 && !namecnt <= 1 ) || !pass ) )
+      {
+        set !temp_jindex !temp_jindex + 1
+        if ADVANCE in !args
+          set !_jindex !temp_jindex
+        set #LPC !temp_lpc
+        namespace pop
+        set !TM_FunctionCalled #TRUE
+        return #TRUE
+      }
+      set !temp_jindex !temp_jindex + 1
+    }
+    set !index !index + 1
+  until !index - !first_arg > !num_args - !first_arg
+  set %10 !sampled_jindex - !_jindex
+  set %10 %1 , _ , %10 ; for debugging purposes
+  set #LPC !temp_lpc
+  namespace pop
+  set !TM_FunctionCalled #TRUE
+return #FALSE
+;=================================================================
+; Script Name: TrailMyx's Runebook/Spellcast Subs
+; Author: TrailMyx
+; Version: 2.5
+; Shard OSI / FS: OSI / FS
+; Revision Date: 09/27/2007
+; Purpose:
+;   Runebook subs to manage your runebook travel needs.  You need either to know
+;   the runebook ID or runebook name.
+;
+; Subroutines:
+;     TM_NewCastSpell - casts spells with appropriate waits, delays, retrys.
+;     TM_TravelFromRunebook - Uses specified runbook #FINDID to travel from .  If a location is blocked
+;                             the next location will be tried until success.
+;     TM_TravelFromNamedRunebook - Same as TM_TravelFromRunebook, but allows you to specify a runebook name
+;
+;  Examples:
+;     gosub TM_NewCastSpell 31 !rbook 10 20 20 ; recall
+;     gosub TM_TravelFromRunebook RE 1 3 %runebookid ; travel (recall) to location from #FINDID runebook using slots 1-3
+;     gosub TM_TravelFromNamedRunebook GA 1 2 LUMBERJACKING1 ; gate using LUMBERJACKING1 runebook starting at rune 1
+;     gosub TM_RandomRunebookTravel SJ 1 6 %runebookid  ; Randomly choose a rune from 1-6 in runebook
+;     gosub TM_TravelFromObject RE %runeid ; travels to rune specified by %runeid
+;
+;  Use of these subrountes is allowed, but please give me (TrailMyx) credit somewhere in your script.
+;
+;  Release History:
+;     2.0 - Initial public release
+;     2.1 - Bug in TM_FindValidTextNoAdvance, added return value to TM_TravelFromNamedRunebook
+;     2.2 - Bug in TM_NewCastSpell when mana gets too low
+;     2.3 - Better spellcasting for chivalry, necro
+;           Added TM_TravelFromNamedRunebook
+;           Added TM_RandomRunebookTravel
+;     2.4 - Little fix for journal handler
+;     2.5 - Hack to allow for transport through a red moongate.
+;=================================================================
+; %1 = spell number
+; %2 = #TARGETID or SELF or NONE
+; %3 = retry count (-1 = cast until successful)
+; %4 = cast delay
+; %5 = recovery delay
+sub TM_NewCastSpell
+  namespace push
+  namespace local NCS
+  set !lpc #LPC
+  set #LPC 100
+  set !whichspell %1
+  set !whichtarget %2
+  set !castretrymax %3
+  set !waitdelay %4
+  set !recovery_delay %5
+
+  set !castretry 0
+  set !temp_ltargetid #LTARGETID
+  set !temp_ltargetkind #LTARGETKIND
+
+  NewCastSpell_loop1:
+    if !castretrymax < 0
+      goto NewCastSpell_cont1
+    if !castretry > !castretrymax
+      goto NewCastSpell_end1
+    NewCastSpell_cont1:
+      gosub TM_AdvJournalSync SPELLCAST
+      set #LTARGETKIND 1
+      set #LTARGETID !whichtarget
+      set !tempmana #MANA
+      event macro 15 !whichspell ; cast the spell
+      wait !waitdelay
+      set !targettimeout #SCNT + 7
+      NewCastSpell_wait1:
+        gosub TM_AdvJournalScan SPELLCAST VALID you_have_not_yet mana your_spirit more_reagents
+        if #RESULT = #TRUE || #SCNT > !targettimeout
+        {
+          set !casttimeout #SCNT2 + !recovery_delay
+          repeat
+          until #SCNT2 > !casttimeout     ; finish up cast delay
+          set !castretry !castretry + 1
+          goto NewCastSpell_loop1
+        }
+        if !whichtarget = NONE
+          goto NewCastSpell_skip1
+        if #TARGCURS = 1
+          goto NewCastSpell_targ1
+        goto NewCastSpell_wait1 ; wait for target cursor
+
+  NewCastSpell_targ1:
+    if !whichtarget = SELF
+      event macro 23
+    else
+      event macro 22
+
+  NewCastSpell_skip1:
+    wait 5
+    set !casttimeout #SCNT2 + !recovery_delay
+    NewCastSpell_skip2:
+      if !whichspell >= 0 && !whichspell <= 63 ; Magery
+      {
+        gosub TM_AdvJournalScan SPELLCAST VALID spell_fizzles there_is_already mana your_spirit more_reagents
+      }
+      else
+      {
+        set !cont #FALSE  ; Chivalry, Necromancy, etc
+        finditem !whichtarget *
+        if !whichtarget in SELF_NONE || #FINDKIND <> -1
+          set !cont #TRUE
+
+        if #MANA >= !tempmana && !cont = #TRUE ; check if target is still there
+          set #RESULT #TRUE
+        else
+          set #RESULT #FALSE
+      }
+      repeat
+      until #SCNT2 > !casttimeout     ; finish up cast delay
+      if #RESULT = #TRUE
+      {
+        if !castretrymax > -1
+        {
+          set !castretry !castretry + 1 ; %castretrymax of -1 will cast until successful
+          if !castretry > !castretrymax
+            goto NewCastSpell_end1
+        }
+        goto NewCastSpell_loop1
+      }
+      if #SCNT2 <= !casttimeout     ; finish up cast delay
+        goto NewCastSpell_skip2
+  NewCastSpell_end1:
+    set #LTARGETID !temp_ltargetid
+    set #LTARGETKIND !temp_ltargetkind
+    set #LPC !lpc
+    namespace pop
+return
+;-------------------------------------------------------------------------------
+; %1 = Method (RE, GA, SJ)
+; %2 = index location within runebook (1-16)
+; %3 = index location within runebook (1-16), try up to this point
+; %4 = runebook item id
+; returns #TRUE if error, #FALSE for no error
+sub TM_TravelFromRunebook
+  namespace push
+  namespace local RFR
+  set #LTARGETKIND 1
+  set !method %1
+  set !locindex %2
+  set !locindexend %3
+  set !rbook %4
+
+  finditem !rbook C_ , #BACKPACKID
+  if !method notin RE_GA_SJ || #FINDKIND = -1
+  {
+    namespace pop
+    return #TRUE
+  }
+  if !locindex notin 1_2_3_4_5_6_7_8_9_10_11_12_13_14_15_16
+  {
+    namespace pop
+    return #TRUE
+  }
+  if !locindexend notin 1_2_3_4_5_6_7_8_9_10_11_12_13_14_15_16
+  {
+    namespace pop
+    return #TRUE
+  }
+
+  TravelFromRunebook_loop1:
+    set #LOBJECTID !rbook
+    set #LTARGETKIND 1
+    event macro 17 0
+    gosub GumpWait generic_gump generic_gump
+
+    set !runeclickx 140 ; page 1, rune 1
+    set !runeclickx ( #CONTPOSX + !runeclickx + ( 35 * ( ( !locindex - 1 ) / 2 ) ) )
+    if !locindex > 8
+    {
+      set !runeclickx 310 ; page 2, rune 1
+      set !runeclickx ( #CONTPOSX + !runeclickx + ( 35 * ( ( !locindex - 9 ) / 2 ) ) )
+    }
+    set !runeclicky #CONTPOSY + 196
+    click !runeclickx !runeclicky
+    wait 5
+
+    set !runeclicky #CONTPOSY + 24
+    set !runeclickx #CONTPOSX + 164 ; page 1 set to default
+    if !locindex % 2 = 0
+    {
+      set !runeclickx #CONTPOSX + 305 ; page 2 set to default
+    }
+    click !runeclickx !runeclicky
+    wait 5
+    set !oldx #CHARPOSX
+    set !oldy #CHARPOSY
+    if !method = RE
+      gosub TM_NewCastSpell 31 !rbook -1 10 10 ; recall until successful
+    if !method = GA
+    {
+      gosub TM_NewCastSpell 51 !rbook -1 10 20 ; gate until successful
+      set !temp_cnt #SCNT + 10
+      repeat
+        finditem KEF_OTF_JEF G_0
+      until #FINDKIND <> -1 || #SCNT > !temp_cnt
+      if #FINDKIND <> -1
+      {
+        set #LOBJECTID #FINDID
+        wait 10
+        event macro 17 0
+        wait 20
+        if #CONTNAME = generic_gump && #CONTSIZE = 420_280
+        {
+          gosub TM_AdvJournalSync SPELLCAST
+          set !clickx #CONTPOSX + 26
+          set !clicky #CONTPOSY + 261
+          click !clickx !clicky ; click ok
+        }
+      }
+    }
+
+    if !method = SJ
+      gosub TM_NewCastSpell 210 !rbook -1 10 30 ; sacred journey until successful
+    wait 30
+
+    set !tempscnt #SCNT + 10
+  WaitforTravel_loop1:
+    gosub TM_AdvJournalScan SPELLCAST VALID location_is_blocked something_is_blocking you_spirit_lacks
+    if #RESULT = #TRUE
+    {
+      gosub TM_AdvJournalSync SPELLCAST
+      set !locindex !locindex + 1
+      if !locindex > !locindexend
+      {
+        namespace pop
+        return #TRUE
+      }
+      goto TravelFromRunebook_loop1
+    }
+    if ( ( #CHARPOSX = !oldx && #CHARPOSY = !oldy ) && #SCNT < !tempscnt )
+      goto WaitforTravel_loop1
+
+  if #CONTNAME = generic_gump && #CONTSIZE = 452_236 ; RunUO close runebook
+  {
+    set !clickx #CONTPOSX + 120
+    set !clicky #CONTPOSY + 60
+    click !clickx !clicky mc r
+    wait 5
+  }
+  namespace pop
+  click 401 254 n
+return #FALSE
+;-------------------------------------------------------------------------------
+; %1 = Gumpname 1
+; %2 = Gumpname 2
+; #TRUE gump occured before timeout
+sub GumpWait
+  namespace push
+  namespace local GW
+  wait 10
+  set !timedelay #SCNT
+  while #SCNT <= !timedelay + 7
+  {
+    if #CONTNAME = %1 || #CONTNAME = %2
+    {
+      namespace pop
+      return #TRUE
+    }
+  }
+  namespace pop
+return #FALSE

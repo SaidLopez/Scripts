@@ -1,0 +1,418 @@
+set %cuantas 1
+
+;    taskkill /IM EUOX.EXE /f
+;      start EUOX.exe cogebods.txt
+
+
+;uoXL [{"new"} | {"swap"}]  cambiar de client
+;#cliCnt numero de clients abiertos
+;#cliNr client actual asiganado al easyuo
+;#cliLogged 0= no logeado 1=logeado
+selectclient:
+if #cliCnt > 1
+{
+    if #cliLogged = 1
+    {
+       uoXL swap
+       goto selectclient
+    }
+}
+event SysMessage _________este
+event SysMessage _________este
+
+;runebbok TYPE ZBN
+;===============================================================
+
+inicio:
+set %crato #scnt + 3900
+
+for %zz 1 6
+{
+  gosub logon kadazaras metelepoison %zz
+  wait 3s
+  gosub trabaja
+  gosub Logout
+  wait 60s
+}
+if %cuantas > 1
+{
+   for %zz 1 6
+   {
+     gosub logon cuenta2 pass2 %zz
+     wait 3s
+     gosub trabaja
+     if %zz <= 5
+        gosub Logout
+     wait 60s
+   }
+}
+
+;event sleep 1200000
+repeat
+wait 60s
+set %temp2 ( %crato - #scnt ) / 60
+event SysMessage ____faltan %temp2 minutos
+until %crato < #scnt
+gosub Logout ; si el ultimo no hace logout tendra k hacerlo antes de emepzar de nuevo
+goto inicio
+halt
+;login gosub logon tucuenta tupass 4
+;inicialitza variables locals
+
+
+
+;recall herrero
+;cogebod
+;guardabod
+;recall tailor
+;cogebod
+;guardabod
+;Recall inn
+
+;logout
+
+;loop
+
+
+
+
+
+sub trabaja
+   finditem ZBN C_ , #backpackid
+   if #findkind = -1
+       return
+   set %llibrerunes #findid
+   gosub recalea %llibrerunes 1 C
+   if #RESULT <> bloker
+       gosub cogerbod
+   gosub recalea %llibrerunes 2 C
+   if #RESULT <> bloker
+        gosub cogerbod
+   gosub recalea %llibrerunes 3 C
+   if #RESULT = bloker
+   {
+    gosub recalea %llibrerunes 4 C
+     if #RESULT = bloker
+      {
+       gosub logout
+       wait 480s
+       return
+      }
+   }
+   gosub guardarbod
+
+
+return
+
+;############# guardarbod ############
+sub guardarbod
+set %bookbodsTYPE DYM
+set %bodTYPE EYM
+
+finditem %bookbodsTYPE C_ , #backpackid
+if #findkind = -1
+    return
+set %my_g_book #findid
+finditem %bodTYPE C_ , #backpackid
+if #findkind = -1
+    return
+for #FINDINDEX 1 #FINDCNT
+{
+          Exevent Drag #findid 1
+          wait 10
+          Exevent Dropc %my_g_book
+          wait 20
+}
+
+return
+
+
+;############# cogerbod ############
+sub cogerbod
+finditem HS_IS G_10
+if #FINDKIND = -1
+    return
+for #FINDINDEX 1 #FINDCNT
+{
+	event property #FINDID
+	wait 5
+  if tailor in #property && guildmaster notin #property && guildmisteress notin #property || weaver in #property
+      break
+  if blacksmith in #property && guildmaster notin #property && guildmisteress  notin #property || weaponsmith in #property
+      break
+}
+exevent popup #FINDID 4
+set %timeout #scnt + 10
+repeat
+until 460_ in #contsize || %timeout = #scnt
+if %timeout = #scnt
+  {
+    event SysMessage Algo no va bien
+    return
+  }
+wait 10
+set %my_x #contposx + 113
+str right #contsize 3
+set %my_y #contposy + #strRes - 30
+wait 10
+click %my_x %my_y
+wait 10
+return
+
+;########### waitforgump ###########
+;usage gosub waitforgump #contsize
+sub waitforgump
+set #result 0
+set %Csize %1
+set %timeout #SCNT + 7
+repeat
+until #CONTSIZE = %Csize || %timeout =< #SCNT
+if %timeout = #SCNT
+  return no
+return
+
+;########### Clikea ###########
+;usage gosub clikea posx posy
+sub clikea
+
+set %my_x #contposx + %1
+set %my_y #contposy + %2
+click %my_x %my_y
+
+return
+
+;----------------------------------------------------------------------
+
+;########## Sub #############
+sub Logout
+
+if #contkind = GRI   ;ID main login screen
+  return
+event macro 8 1
+gosub waitforgump 262_324
+gosub clikea 216 111
+gosub waitforgump 178_108
+if #result = no
+{
+  event macro 31 0
+  gosub Logout
+}
+gosub clikea 124 84
+wait 20
+set %char %char + 1
+
+return
+
+;########## Sub #############
+;gosub logon tucuenta tupass 1
+
+sub LogOn
+
+;SINTAX gosub logon [login] [pass] [numchar]
+;rewards #CONTNAME generic_gump #CONTKIND CFN (norazor) #CONTSIZE 510_145
+;login #CONTNAME MainMenu_gump #CONTKIND CJDD #CONTSIZE 640_480
+;selectshard #CONTNAME normal_gump #CONTKIND SXAD #CONTSIZE 640_480
+;selectchard #CONTNAME Login_gump #CONTKIND UWUB #CONTSIZE 640_480
+;conecting #CONTNAME waiting_gump #CONTKIND OJGB #CONTSIZE 408_288
+set %loginpass %1
+set %pass %2
+set %login GRI ;CJDD      ;QKJD
+set %server AAG ;SXAD    ;GZGD
+set %chars MSSC ;UWUB     ;IYAC
+set %wrongLogin EKEC ;OJGB ;CLMB
+set %char %3
+
+
+if #contkind = %login
+{
+click 334 363
+ wait 20
+  for %i 0 15
+  {
+    key delete
+  }
+  msg %loginpass
+  wait 20
+  ;--------------
+  click 333 403
+  wait 20
+  for %i 0 15
+  {
+    key delete
+  }
+  msg %pass
+  wait 8
+  msg $
+}
+
+set %timeout #scnt + 25
+repeat
+until #CONTKIND = %server || %timeout = #scnt
+wait 30
+
+if #contkind = %server
+{
+  click 614 446
+}
+selectchars:
+set %timeout #scnt + 25
+repeat
+until #CONTKIND = %chars || %timeout = #scnt
+wait 3s
+
+if #contkind = %chars
+{
+  if %char = 1
+  {
+    click 370 140 d
+    click 370 140 d
+  }
+  if %char = 2
+  {
+    click 370 180 d
+    click 370 180 d
+  }
+  if %char = 3
+  {
+    click 370 220 d
+    click 370 220 d
+  }
+  if %char = 4
+  {
+    click 370 260 d
+    click 370 260 d
+  }
+  if %char = 5
+  {
+    click 370 300 d
+    click 370 300 d
+  }
+  if %char = 6
+  {
+    click 370 340 d
+    click 370 340 d
+  }
+  wait 40
+if #contkind = %chars
+{
+goto selectchars
+}
+  event macro 31 0  ;tanca ttots els gumps
+  wait 1s
+  event macro 8 2
+   event macro 8 7
+  return
+}
+
+if #contkind = %wrongLogin
+{
+  if %timeout = #SCNT
+  {
+    click 320 352
+    wait 20
+  }
+  else
+  {
+    wait 5
+  }
+}
+;=======================================================================================================================
+
+;gosub clickRunebookLocation TGUSKMD 1 M #false
+
+
+sub recalea
+set #RESULT 0
+; %1 = ID runebook
+; %2 = numero de runa
+; %3 = spell (M = magery, C = chivalry)
+
+;=================================
+set %intentos 0
+
+esperamana:
+set %actualPosX #charposx
+set %actualPosY #charposy
+
+if %3 = M || %3 = R
+    {
+     set %viajema 145
+     if #mana < 11
+         goto esperamana
+    }
+if %3 = C || %3 = S
+    {
+     set %viajema 180
+     if #mana < 10
+         goto esperamana
+    }
+
+abreLibroRunas: ;ABRIMOS EL LIBRO DE RUNAS_____________________________________________________________________________________________________________
+   set #lobjectid %1
+   set %tiempoRunas #scnt
+esperaLibroRunas:
+   if #contsize <> 452_236 || #contname <> generic_gump
+   {
+      if #scnt >= %tiempoRunas
+      {
+         set %tiempoRunas #scnt + 5
+         event macro 17
+      }
+      goto esperaLibroRunas
+   }
+   set %libroPosX #contposx
+   set %libroPosY #contposy
+
+eligePaginaRunas: ;HACEMOS CLICK EN LA PAGINA CORRESPONDIENTE__________________________________________________________________________
+   set %clickX ( %libroPosX + ( ( ( ( %2 + 1 ) / 2 ) * 35 ) + 105 ) )
+   set %clickY %libroPosY + 195
+   if %2 > 8
+      set %clickX %clickX + 30
+   click %clickX %clickY ;mc
+   wait 10
+
+lanzaHechizo: ;HACEMOS CLICK EN LA GEMA CORRESPONDIENTE PARA LANZAR EL HECHIZO__________________________________________________________
+   set %clickX %libroPosX + 140
+   set %clickY %libroPosY + %viajema ; (sería + 180 en caso de Sacred Journey)
+   if %2 % 2 = 0
+      set %clickX %clickX + 160
+   set %actualPosX #charposx
+   set %actualPosY #charposy
+   click %clickX %clickY ;mc
+   set %tiempoIr #scnt + 5
+   ;wiat 1s
+esperaLlegada: ;ESPERAMOS HASTA QUE LLEGUEMOS AL NUEVO LUGAR___________________________________________________________________________
+   if #scnt > %tiempoIr
+      goto abreLibroRunas
+   if #charposx = %actualPosX && #charposy = %actualPosY
+      {
+       scanjournal 1
+       if blocking in #journal || blocked in #journal
+           {
+            set %intentos %intentos + 1
+            if %intentos > 15
+            {
+               return bloker
+            }
+            wait 2s
+           }
+       goto esperaLlegada
+      }
+   wait 1s
+
+return
+
+sub escaneajournal
+
+for %kk 1 10
+    {
+     scanjournal %kk
+     if %1 in #journal
+         {
+          deletejournal
+          return #true
+         }
+    }
+return #false
+
+

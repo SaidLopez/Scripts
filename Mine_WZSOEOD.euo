@@ -1,0 +1,39 @@
+Call RuneFunctions.euo FindRunebook WZSOEOD
+Set %sdlbook %return
+If %sdlBook > 0
+{
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 1 1930 782 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 1 1933 781 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 2 1909 778 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 2 1912 779 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 3 1945 766 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 3 1947 765 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 4 1955 748 -88 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 4 1954 746 -86 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 5 1940 724 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 5 1941 723 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 6 1951 710 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 6 1953 709 -88 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 7 1973 716 -86 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 7 1971 714 -84 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 8 1985 716 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 8 1987 715 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 9 2003 718 -89 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 9 2005 718 -89 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 10 2017 717 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 10 2019 715 -89 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 11 2035 708 -83 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 11 2037 707 -83 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 12 2051 692 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 12 2052 690 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 13 2056 672 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 13 2056 669 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 14 2048 651 -89 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 14 2046 649 -89 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 15 2004 622 -81 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 15 2005 620 -85 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 15 2006 620 -85 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 16 1991 600 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 16 1990 599 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 16 1990 597 -90 2 1339
+}

@@ -1,0 +1,2568 @@
+;================================== 
+; Script Name: FAST OCR to get text information from UO gumps 
+; Author: Kal In Ex 
+; Version: 5.8
+; Client Tested with: 7.0.8.1 (Patch 95)
+; EUO version tested with: 1.5.173
+; Shard OSI / FS: OSI 
+; Revision Date: August 9, 2010
+; Public Release: January 22, 2004 
+; Purpose: get text information from gumps into EasyUO for scripting 
+; Copyright: 2004, 2005, 2006, 2007, 2008, 2009, 2010 Kal In Ex
+;================================== 
+
+if %0 = n/a 2
+	display ok kalocr.txt - this script can not be used directly
+	halt
+if _ , %1 , _ notin _GetMLQInfo_getRuneName_getBookPage_getPageNumber_getBodInfo_getSOSInfo_getINVInfo_testKalOCR_getQuestInfo_getHagQuestMap_getContextInfo_getLoreInfo_getRuneCount_getChar_getText_setCharFormat_getRunebookCharges_getbodinfo2_getTrackingInfo_getvendorinfo_getcontractinfo_GetBODOffer_IsRuneSlotEmpty_scantext_ 2
+	display ok kalocr.txt - %1 is not a recognized command
+	exit
+namespace push
+namespace local kalocr
+for !_ 0 %0
+{
+	set ! . !_ % . !_
+}
+if !KalOCR_Init = n/a 2
+	gosub _setCharFormat Default
+	set !KalOCR_Init #true
+gosub !1
+namespace pop
+if #result = n/a
+	exit
+gosub #result
+exit
+
+; call kalocr.txt getContractInfo <w> <x> <y>
+; call kalocr.txt getVendorInfo <w> <x> <y>
+; call kalocr.txt getMLQInfo QuestDescription <x> <y>
+; call kalocr.txt getMLQInfo QuestOffer <x> <y>
+; call kalocr.txt getMLQInfo QuestList <i> <x> <y>
+; call kalocr.txt getRuneName <i> <x> <y> <o>
+; call kalocr.txt getBookPage <p> <x> <y> <o>
+; call kalocr.txt getPageNumber <p> <x> <y>
+; call kalocr.txt getBodInfo <i> <x> <y>
+; call kalocr.txt getSOSInfo <x> <y>
+; call kalocr.txt getINVInfo <m> <x> <y>
+; call kalocr.txt testKalOCR
+; call kalocr.txt getQuestInfo <w> <x> <y>
+; call kalocr.txt getHagQuestMap <x> <y>
+; call kalocr.txt getContextInfo <i> <x> <y>
+; call kalocr.txt getLoreInfo <i> <w> <x> <y>
+; call kalocr.txt getRuneCount <x> <y>
+; call kalocr.txt getChar <x> <y> <o> <c> <t>
+; call kalocr.txt getText <x> <y> <o> <c> <t> <e>
+; call kalocr.txt setCharFormat <o>
+; call kalocr.txt getRunebookCharges <x> <y>
+; call kalocr.txt getTrackingInfo <x> <y> <s>
+; call kalocr.txt getBODOffer <x> <y>
+
+sub getBODOffer
+set !x !2 + 251
+set !y !3 + 73
+gosub ReadText !x !y = 16250871 number 20
+set !BODAmount %1
+
+set !BODItems 0
+for !BODItemIDX 1 7
+   {
+   gosub _GetBODOfferItem !BODItemIDX
+   set !_1 #result
+   gosub NoSpaces #result
+   if |Special in | , #result || |Do_you_want in | , #result
+      break
+   set !BODItems 1 + !BODItems
+   set !BODItem . !BODItems !_1
+   }
+set !result #result
+set !BODItem !BODItem1 ; this is "legacy" code...
+
+if !BODItems = 1
+   set !BODSize small
+else
+   set !BODSize large
+
+; get the exceptional / material requirements...
+
+gosub _GetBODOfferMaterial !BODItem1
+set !BODQuality normal ; default
+set !BODMaterial #result
+
+if |Special in | , !result
+   {
+   gosub _GetBODOfferSpecial 1
+   gosub _GetBODOfferSpecial 2
+   }
+
+return returnGetBODOffer
+
+sub returnGetBODOffer
+namespace copy BODItem from local kalocr
+namespace copy BODMaterial from local kalocr
+namespace copy BODAmount from local kalocr
+namespace copy BODQuality from local kalocr
+namespace copy BODSize from local kalocr
+namespace copy BODItems from local kalocr
+namespace copy BODItem1 from local kalocr
+namespace copy BODItem2 from local kalocr
+namespace copy BODItem3 from local kalocr
+namespace copy BODItem4 from local kalocr
+namespace copy BODItem5 from local kalocr
+namespace copy BODItem6 from local kalocr
+;namespace copy tgi_* from local kalocr
+return
+
+sub _GetBODOfferItem
+set !x !2 + 40
+set !y !3 + 96 + ( %1 * 24 )
+gosub ReadText !x !y = 16777215 text 150
+return %1
+
+sub _GetBODOfferSpecial
+   set !x !2 + 155
+   set !y !3 + 96 + ( !BODItems + %1 + 1 ) * 24
+   gosub ReadChar !x !y = 16777215 text
+   if #result = e
+      set !BODQuality exceptional
+   if #result = m
+      {
+      set !x !2 + 221
+      gosub ReadText !x !y = 16777215 text 150
+      set !BODMaterial %1
+      }
+return
+
+sub _GetBODOfferMaterial ; cloth | leather
+call %NoSpaces %1 ; changes spaces to underscores...
+set %1 #result
+set %1 | , %1 , |
+if %1 in |skullcap|bandana|floppy_hat|cap|wide-brim_hat|straw_hat|tall_straw_hat|wizard's_hat|bonnet|feathered_hat|tricorne_hat|jester_hat|
+return cloth
+if %1 in |doublet|shirt|fancy_shirt|tunic|surcoat|plain_dress|fancy_dress|cloak|robe|jester_suit|
+return cloth
+if %1 in |short_pants|long_pants|kilt|skirt|
+return cloth
+if %1 in |body_sash|half_apron|full_apron|
+return cloth
+if %1 in |sandals|shoes|boots|thigh_boots|
+return normal
+if %1 in |leather_gorget|leather_cap|leather_gloves|leather_sleeves|leather_leggings|leather_tunic|
+return normal
+if %1 in |studded_gorget|studded_gloves|studded_sleeves|studded_leggings|studded_tunic|
+return normal
+if %1 in |leather_shorts|leather_skirt|leather_bustier|studded_bustier|female_leather_armor|studded_armor|
+return normal
+if %1 in |bone_helmet|bone_gloves|bone_arms|bone_leggings|bone_armor|
+return normal
+return iron
+pause
+display ok KalOCR.txt->GetBODOffer error looking up material type!
+return n/a
+
+sub GetContractInfo
+if !2 = rentalLength
+{
+set !x !3 + 230
+set !y !4 + 95
+set !_ !y + 5
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 80
+}
+if !2 = rentalCost
+{
+set !x !3 + 231
+set !y !4 + 116
+set !_ !y + 5
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 80
+}
+if !2 = renewLandlord
+{
+set !x !3 + 230
+set !y !4 + 190
+set !_ !y + 5
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 80
+}
+if !2 = renewRenter
+{
+set !x !3 + 230
+set !y !4 + 210
+set !_ !y + 5
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 80
+}
+if !2 = renewCost
+{
+set !x !3 + 231
+set !y !4 + 251
+set !_ !y + 5
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 80
+}
+return
+
+sub GetVendorInfo
+if !2 = dayspaid
+{
+set !x !3 + 301
+set !y !4 + 36
+set !_ !y + 5
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 80
+}
+if !2 = dailycharge
+{
+set !x !3 + 301
+set !y !4 + 59
+set !_ !y + 5
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 80
+}
+if !2 = goldheld
+{
+set !x !3 + 301
+set !y !4 + 83
+set !_ !y + 5
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 80
+}
+if !2 = expiration
+{
+set !x !3 + 39
+set !y !4 + 133
+set !_ !y + 4
+savepix !x !_ 1
+gosub readtext !x !y = #pixcol number 350
+}
+return
+
+sub GetQuestObjectives
+set !xpos 98 + !3
+set !ypos 177 + !4
+savepix !xpos !ypos 1
+
+gosub _objective 1
+return
+
+sub _objective
+set !xpos 98 + !3
+set !ypos 172 + !4 ;+ !2 * 21 + !4
+for !loop %1 1
+{
+gosub readtext !xpos !ypos = #pixcol text 50
+}
+return
+
+; !LimeColor
+; !LemonColor	
+; !WhiteColor
+; !BWhiteColor
+
+sub getMLQInfo
+if !2 = QuestList
+{
+set !xpos 98 + !4
+set !ypos 119 + !3 * 21 + !5
+if !WhiteColor = n/a
+gosub _GetMLQTextColor WhiteColor !xpos !ypos
+gosub readtext !xpos !ypos = !WhiteColor text 200
+}
+if !2 = QuestOffer
+{
+set !xpos !3 + 98
+set !ypos !4 + 144
+if !LimeColor = n/a
+gosub _GetMLQTextColor LimeColor !xpos !ypos
+if #shard = Alexandria
+   {
+   set !xpos !3 + 160
+   set !ypos !4 + 108
+   gosub readtext !xpos !ypos = !LimeColor text 200
+   }
+else
+   {
+   for !x 130 239
+      {
+      set !xpos !3 + !x
+      for !y 72 74
+         {
+         set !ypos !4 + !y
+         savepix !xpos !ypos 1
+         if #pixcol = !LimeColor
+            break
+      }
+      if #pixcol = !LimeColor
+         break
+      }
+   set !ypos 68 + !4
+   gosub readtext !xpos !ypos = !LimeColor text 200
+   }
+}
+if !2 = QuestDescription
+{
+set !Description
+set !xpos 98 + !3
+set !ypos 156 + !4
+if !LemonColor = n/a
+gosub _GetMLQTextColor LemonColor !xpos !ypos
+for !LineIndex 1 10
+{
+gosub readtext !xpos !ypos = !LemonColor text 300
+str len %1
+if #strres = 0 || #pixcol = 4294967295
+break
+set !Description !Description , %1 , $
+set !ypos !ypos + 18
+}
+set %1 !Description
+}
+if !2 = QuestReward
+{
+set !xpos 133 + !3
+set !ypos 162 + !4
+if !LemonColor = n/a
+gosub _GetMLQTextColor LemonColor !xpos !ypos
+gosub readtext !xpos !ypos = !LemonColor text 150
+}
+return
+
+sub _getMLQTextColor
+namespace push
+namespace local _KalTemp
+set !x1 %2
+set !y1 %3
+set !x2 !x1 + 8
+set !y2 !y1 + 15
+set #result
+set !count 0
+for !x !x1 !x2
+{
+for !y !y1 !y2
+{
+savepix !x !y 1
+set ! . #pixcol 1 + ! . #pixcol
+if ! . #pixcol > !count
+{
+set #result #pixcol
+set !count ! . #pixcol
+}
+}
+}
+namespace clear
+namespace pop
+set ! . %1 #result
+return
+
+sub getTrackingInfo
+str pos !4 _
+str del !4 1 #strres
+set !4 ( #strres / 155 ) - 1
+set !tgi_cnt 0
+for !_l1 0 !4
+{
+for !_l2 0 3
+{
+set !xpos !_l2 * 100 + 20 + !2
+set !ypos !_l1 * 155 + 90 + !3
+gosub readtext !xpos !ypos in 524288 text 95
+str len %1
+if #strres > 0 2
+	set !tgi_cnt !tgi_cnt + 1
+	set !tgi_name . !tgi_cnt %1
+}
+}
+return returnTrackingInfo
+
+sub returnTrackingInfo
+namespace copy tgi_* from local kalocr
+return
+
+sub getbodinfo2
+	set !gbi_type n/a
+	set !gbi_item n/a
+	set !gbi_quality n/a
+	set !gbi_material n/a
+	set !gbi_amount n/a
+	set !gbi_price n/a
+	set !gbi_count n/a
+	set !gbi_amount n/a
+	for !_ 1 6
+		{
+		set !gbi_item . !_ n/a
+		;set !gbi_amount . !_ n/a
+		}
+
+	if !menuTextColor = n/a
+		{
+		set !xpos !3 + 429
+		set !ypos !4 +  77
+		savepix !xpos !ypos 1
+		set !menuTextColor #pixcol
+		set !xpos !3 + 422
+		set !ypos !4 + 102
+		savepix !xpos !ypos 1
+		set !menuNumberColor #pixcol
+		}
+
+	set !xpos !3 + 61 ; type
+	set !ypos !4 + 64 + ( 32 * !2 )
+	gosub readtext !xpos !ypos in !menuTextColor text 34
+	str len %2
+	if #strres = 0
+		goto getBodInfo2_end
+	set !gbi_type %1
+	set !_endscan 10
+	if !gbi_type = small
+		set !_endscan !2
+
+	set !xpos !3 + 235 ; quality
+	set !ypos !4 + 64 + ( 32 * !2 )
+	gosub readtext !xpos !ypos in !menuTextColor text 77
+	set !gbi_quality %1
+
+	set !xpos !3 + 316 ; material
+	set !ypos !4 + 64 + ( 32 * !2 )
+	gosub readtext !xpos !ypos in !menuTextColor text 100
+	set !gbi_material %1
+
+	set !xpos !3 + 422 ; amount
+	set !ypos !4 + 65 + ( 32 * !2 )
+	gosub readtext !xpos !ypos in !menuNumberColor number 70
+	set !gbi_amount %1
+
+	set !xpos !3 + 496 ; price
+	set !ypos !4 + 65 + ( 32 * !2 )
+	gosub readtext !xpos !ypos in !menuNumberColor number 78
+	set !gbi_price %1
+
+	set !gbi_count 0
+	for !_index !2 !_endscan
+		{
+		set !xpos !3 + 103 ; item
+		set !ypos !4 + 64 + ( 32 * !_index )
+		gosub readchar !xpos !ypos in !menuTextColor text
+		if #result = #spc
+			goto getBodInfo2_end
+		set !gbi_count !gbi_count + 1
+		gosub readtext !xpos !ypos in !menuTextColor text 129
+		set !gbi_item . !gbi_count %1
+		set !xpos !3 + 61
+		set !ypos !4 + 101 + ( 32 * !_index )
+		savepix !xpos !ypos 1
+		if !_index <> !2 && #pixcol = !menuTextColor
+			set !_index !_endscan
+		}
+getBodInfo2_end:
+	;set !gbi_amount !gbi_amount1
+	gosub getBodDesc
+	return returnBODInfo2
+
+sub returnBODInfo2
+	namespace copy gbi_* from local kalocr
+	return
+
+sub getRunebookCharges
+	set !x !2 + 220
+	set !y !3 +  45
+	savepix !x !y 1
+	set !y !3 + 40
+	gosub readtext !x !y = #pixcol number 17
+	set !rbi_charges %1
+	set !x !2 + 400
+	set !y !3 +  45
+	savepix !x !y 1
+	set !y !3 + 40
+	gosub readtext !x !y = #pixcol number 17
+	set !rbi_maxcharges %1
+	return returnRunebookCharges
+
+sub returnRunebookCharges
+		namespace copy rbi_* from local kalocr
+	return
+
+sub getrunename
+	; check for empty runeslot
+	gosub isRuneSlotEmpty !2 !3 !4
+	if #result = #true 2
+		set %1
+		return
+	; offset to rune name text
+	set !xorigin ( ( !2 - 1 ) / 8 ) * 160 + !3 + 146
+	set !yorigin ( ( !2 - 1 ) % 8 ) * 15 + !4 + 61
+	if !0 < 5
+		set !5 text
+	; get text color
+	set !x !3 + 158
+	set !y !4 + 26
+	savepix !x !y 1
+	set !blackColor #pixcol
+	set !xsorigin !xorigin
+	set !ysorigin !yorigin + 2
+	set !xextent !xorigin + 118
+	set !yextent !yorigin + 16
+	for !x !xsorigin !xextent
+	{
+	for !y !ysorigin !yextent
+	{
+	savepix !x !y 1
+	if #pixcol = !blackColor
+    {
+		set !x !x + 1
+		set !y !y + 1
+		savepix !x !y 1
+		if #pixcol = !blackColor
+      {
+			set !x !x - 1
+			savepix !x !y 1
+			}
+		set !x !xextent - 7 ; exit loop
+		set !y !yextent     ; exit loop
+		}
+	}
+	set !x !x + 7 ; skip spaces
+	}
+	gosub readtext !xorigin !yorigin = #pixcol !5 118
+
+;	if !_charFormat = OutputMessage 10
+;		for !_ 1 1
+;			{
+;			str pos %1 #spc
+;			if #strres > 0 5
+;				set !_ #strres
+;				str del %1 !_ 1
+;				str ins #strres ^_ !_
+;				set %1 #strres
+;				set !_ 0
+;			}
+	return
+
+; define how some characters are "returned" by sub ReadChar
+sub setCharFormat
+	gosub _setCharFormat !2
+	return
+
+sub _setCharFormat
+if %1 = Default || %0 = 0
+{
+set !KalOCR_SPC #spc
+set !KalOCR_A A
+set !KalOCR_B B
+set !KalOCR_C C
+set !KalOCR_D D
+set !KalOCR_E E
+set !KalOCR_F F
+set !KalOCR_G G
+set !KalOCR_H H
+set !KalOCR_I I
+set !KalOCR_J J
+set !KalOCR_K K
+set !KalOCR_L L
+set !KalOCR_M M
+set !KalOCR_N N
+set !KalOCR_O O
+set !KalOCR_P P
+set !KalOCR_Q Q
+set !KalOCR_R R
+set !KalOCR_S S
+set !KalOCR_T T
+set !KalOCR_U U
+set !KalOCR_V V
+set !KalOCR_W W
+set !KalOCR_X X
+set !KalOCR_Y Y
+set !KalOCR_Z Z
+}
+if %1 = OutputMessage
+{
+set !KalOCR_A ^A
+set !KalOCR_B ^B
+set !KalOCR_C ^C
+set !KalOCR_D ^D
+set !KalOCR_E ^E
+set !KalOCR_F ^F
+set !KalOCR_G ^G
+set !KalOCR_H ^H
+set !KalOCR_I ^I
+set !KalOCR_J ^J
+set !KalOCR_K ^K
+set !KalOCR_L ^L
+set !KalOCR_M ^M
+set !KalOCR_N ^N
+set !KalOCR_O ^O
+set !KalOCR_P ^P
+set !KalOCR_Q ^Q
+set !KalOCR_R ^R
+set !KalOCR_S ^S
+set !KalOCR_T ^T
+set !KalOCR_U ^U
+set !KalOCR_V ^V
+set !KalOCR_W ^W
+set !KalOCR_X ^X
+set !KalOCR_Y ^Y
+set !KalOCR_Z ^Z
+}
+if %1 = NoSpaces
+{
+set !KalOCR_SPC _
+}
+return
+
+sub getChar
+	;set !3 !3 - 13
+	;set !7 !7 - !2
+	gosub readchar !2 !3 !4 !5
+	set %2 #result
+	return
+
+sub getText
+	;set !3 !3 - 13
+	;set !7 !7 - !2
+	gosub readtext !2 !3 !4 !5 !6 !7
+	return
+
+sub getRuneCount
+	for !_ 1 16
+		{
+		gosub isRuneSlotEmpty !_ !2 !3
+		if #result = #true 2
+			set %1 !_ - 1
+			return
+		}
+	set %1 16
+	return
+
+sub isRuneSlotEmpty
+	set !xorigin ( ( %1 - 1 ) / 8 ) * 160 + %2 + 146
+	set !yorigin ( ( %1 - 1 ) % 8 ) * 15 + %3 + 65
+	set !x %2 + 158
+	set !y %3 + 26
+	savepix !x !y 1
+	set !blackColor #pixcol
+	savepix !xorigin !yorigin 1
+	if #pixcol <> !blackColor
+		return #false
+	set !xorigin !xorigin - 1
+	set !yorigin !yorigin - 4
+	for !__ 1 16
+		{
+		savepix !xorigin !yorigin 1
+		if #pixcol = !blackColor
+			return #false
+		set !yorigin !yorigin + 1
+		}
+	return #true
+
+sub getLoreInfo
+	if !3 = name 4
+		set !xorigin !4 + 53
+		set !yorigin !5 + 92 + ( !2 - 1 ) * 18
+		gosub readtext !xorigin !yorigin in 2701642_2701386 text 128
+		set !lore_name %1
+	if !3 = value 18
+		set !xorigin !4 + 157
+		set !yscan !5 + 97 + ( !2 - 1 ) * 18
+		set !xmax !4 + 246
+		for !_ !xorigin !xmax
+			{
+			savepix !xorigin !yscan 1
+			if _ , #pixcol , _ in _25063_524288_
+				set !_ !xmax
+			else
+				set !xorigin !xorigin + 1
+			}
+		if !xorigin <= !xmax 4
+			set !yorigin !5 + 92 + ( !2 - 1 ) * 18
+			set !xmax ( !4 + 255 ) - !xorigin
+			gosub readtext !xorigin !yorigin in 25063_524288 number !xmax
+			set !lore_value %1
+		else
+			set !lore_value ---
+	return returnLoreInfo
+
+sub returnLoreInfo
+		namespace copy lore_* from local kalocr
+	return
+
+sub getContextInfo
+		set !xorigin !3 + 12
+		set !yorigin !4 + 12 + ( !2 * 18 )
+		gosub readtext !xorigin !yorigin in 16777215 text 300
+	return
+
+sub getHagQuestMap
+		set %1 !2 + 24
+		set %2 !3 + 31
+
+	; create map "signature"
+
+		savepix !2 !3 1
+		if _ , #pixcol , _ in _530473_
+			set !col 1
+		else
+			set !col 0
+		set !cnt 0
+		set !sig _
+		for !_ 0 199
+		{
+			set !xpos %1 + !_
+			set !ypos %2 + !_
+			savepix !xpos !ypos 1
+			if _ , #pixcol , _ in _530473_ 6
+				if !col = 1
+					set !cnt !cnt + 1
+				else 3
+					set !sig !sig , !cnt
+					set !cnt 1
+					set !col 0
+			if _ , #pixcol , _ notin _530473_ 6
+				if !col = 0
+					set !cnt !cnt + 1
+				else 3
+					set !sig !sig , !cnt
+					set !cnt 1
+					set !col 1
+		}
+		set !sig !sig , !cnt
+
+	; lookup map signature
+
+		if !sig = _414251113751167141710111614762113544
+			return 1
+		if !sig = _38111111641112233111151518127161611353136512
+			return 2
+		if !sig = _1523129511114134112517411144571471945
+			return 3
+		if !sig = _01491111131611712514114244119311122544
+			return 4
+		if !sig = _511311311323434116141102471111782511213911311311332111421
+			return 5
+		if !sig = _493214113111351511631110121121214141142215159
+			return 6
+		if !sig = _511117143223321411131511139111311412
+			return 7
+		if !sig = _0111116111414110316141412138321431151511121124111285295111351217
+			return 8
+		if !sig = _1117171683133331711217291191010111311211111151653611
+			return 9
+		if !sig = _4823211172326331414349
+			return 10
+		if !sig = _048251131132214181131247111115169
+			return 11
+		if !sig = _61214313113113111153116211163117118723842
+			return 12
+		if !sig = _591111121531155714111171881151721144244
+			return 13
+		if !sig = _9312349111324813122111117113333315311111511
+			return 14
+		if !sig = _01624131111101133110122121311815311119611152
+			return 15
+		if !sig = _671357511112321172151441314411384
+			return 16
+		if !sig = _0221114116111111111124117196211417142
+			return 17
+		if !sig = _202911131313211131965
+			return 18
+		if !sig = _146161211219141142414106811
+			return 19
+		if !sig = _0332262114101111173111127121131352443
+			return 20
+	return
+
+sub getQuestInfo
+		if !2 = objective
+		{
+			set !que_objective
+			set !xorigin !3 + 70
+			set !yorigin !4 + 130
+			for !getQuestInfo1 1 1
+				{
+				gosub readchar !xorigin !yorigin in 16756364_16756108 text
+				if #result <> #spc 6
+					gosub readtext !xorigin !yorigin in 16756364_16756108 text 300
+					str len %1
+					if #strres > 0 3
+						set !que_objective !que_objective , %1 , $
+						set !yorigin !yorigin + 18
+						set !getQuestInfo1 0
+				}
+		}
+		if !2 = progress
+		{
+			set !que_progress
+			set !xorigin !3 + 70
+			set !yorigin !4 + 260
+			gosub readchar !xorigin !yorigin in 16756364_16756108 text
+			if #result <> #spc 11
+				gosub readtext !xorigin !yorigin in 16756364_16756108 text 300
+				str len %1
+				if #strres > 0 8
+					set !que_progress !que_progress , %1 , $
+					set !yorigin !yorigin + 18
+					gosub readchar !xorigin !yorigin in 16756364 text
+					if #result <> #spc 4
+						gosub readtext !xorigin !yorigin in 16756364 number 300
+						str len %1
+						if #strres > 0
+							set !que_progress !que_progress , %1 , $
+		}
+		if !2 = toymaker
+		{
+			for !CreatureIndex 1 4
+			{
+				set !xorigin !3 + 70
+				set !yorigin !4 + 240 + ( !CreatureIndex * 20 )
+				gosub readtext !xorigin !yorigin in 16756364_16756108 text 130
+				set !que_creature . !CreatureIndex %1
+				set !xorigin !3 + 220
+				gosub readtext !xorigin !yorigin in 16756364_16756108 text 130
+				set !que_creature . !CreatureIndex !que_creature . !CreatureIndex , : , %1
+			}
+		}
+	return returnQuestInfo
+
+sub returnQuestInfo
+		namespace copy que_* from local kalocr
+	return
+
+sub testKalOCR
+	return kalocr
+sub kalOCR
+	return kalocr
+
+; -78 -133
+
+sub getINVInfo
+		set !xorigin !2 + -78
+		set !yorigin !3 + -146
+		gosub readtext !xorigin !yorigin in 2177131_148_2177387 text 111
+		set !yorigin !yorigin + 18
+		set !inv_text %1
+		for !getINVInfo1 1 1
+			{
+			gosub readtext !xorigin !yorigin in 2177131_148_2177387 text 111
+			str len %1
+			if #strres > 0 3
+				set !yorigin !yorigin + 18
+				set !inv_text !inv_text , #spc , %1
+				set !getINVInfo1 0
+			}
+		set %1
+		set !inv_price
+		for !getINVInfo2 1 1
+			{
+			str len !inv_text
+			if #strres > 0 16
+				str mid !inv_text #strres 1
+				if #strres in 123456789o 4
+					if #strres = o
+						set !inv_price 0 , !inv_price
+					else
+						set !inv_price #strres , !inv_price
+				if #strres <> #spc 9
+					if #strres = o
+						set %1 0 , %1
+					else
+						set %1 #strres , %1
+					str len !inv_text
+					set #strres #strres - 1
+					str mid !inv_text 1 #strres
+					set !inv_text #strres
+					set !getINVInfo2 0
+			}
+		set !inv_text !inv_text , %1
+	return returnINVInfo
+
+sub returnINVInfo
+		namespace copy inv_* from local kalocr
+	return
+
+; sextant coordinate info...
+; http://uoam.net/geo.html
+
+sub getSOSInfo
+		set !xorigin !2 + 35
+		set !yorigin !3 + 240
+		set !sos_coords
+
+    gosub readtext !xorigin !yorigin in 524288 number 150
+    set !sos_coords %1
+
+	; extract and normalize NS
+		str pos %1 o
+		set #strres #strres - 1
+		str left %1 #strres
+		set !sos_worldy #strres * 60
+		str pos %1 o
+		str del %1 1 #strres
+		set %1 #strres
+		str pos %1 '
+		set #strres #strres - 1
+		str left %1 #strres
+		set !sos_worldy !sos_worldy + #strres
+		str pos %1 ,
+		str del %1 1 #strres
+		set %1 #strres
+	; extract and normalize WE
+		str pos %1 o
+		set #strres #strres - 1
+		str left %1 #strres
+		set !sos_worldx #strres * 60
+		str pos %1 o
+		str del %1 1 #strres
+		set %1 #strres
+		str pos %1 '
+		set #strres #strres - 1
+		str left %1 #strres
+		set !sos_worldx !sos_worldx + #strres
+	; convert WE to world position
+		set !sos_worldx !sos_worldx , 00000 / 421875
+		if w in !sos_coords 3
+			set !sos_worldx 1323 - !sos_worldx
+			if !sos_worldx < 0
+				set !sos_worldx !sos_worldx + 5120
+		if e in !sos_coords 3
+			set !sos_worldx 1323 + !sos_worldx
+			if !sos_worldx >= 5120
+				set !sos_worldx !sos_worldx - 5120
+	; convert NS to world position
+		set !sos_worldy !sos_worldy , 0000000 / 52734375
+		if n in !sos_coords 3
+			set !sos_worldy 1624 - !sos_worldy
+			if !sos_worldy < 0
+				set !sos_worldy !sos_worldy + 4096
+		if s in !sos_coords 3
+			set !sos_worldy 1624 + !sos_worldy
+			if !sos_worldy >= 4096
+				set !sos_worldy !sos_worldy - 4096
+	return returnSOSInfo
+
+sub returnSOSInfo
+		namespace copy sos_* from local kalocr
+	return
+
+sub getBookPage
+		if !2 = left 2
+			set !xorigin !3 + 38
+			set !yorigin !4 + 32
+		if !2 = right 2
+			set !xorigin !3 + 224
+			set !yorigin !4 + 32
+		if !0 < 5
+			set !5 text
+		set !bookText
+		for !_ 0 7
+		{
+			gosub readtext !xorigin !yorigin in 3223700_3223956 !5 153
+			set !bookText !bookText , %1 , $
+			set !yorigin !yorigin + 18
+		}
+		set %1 !bookText
+	return
+
+sub getPageNumber
+		if !2 = left 3
+			set !xorigin !3 + 108
+			set !yorigin !4 + 202
+			set !yscan !4 + 207
+		if !2 = right 3
+			set !xorigin !3 + 294
+			set !yorigin !4 + 202
+			set !yscan !4 + 207
+		for !_ 0 7
+		{
+			savepix !xorigin !yscan 1
+			if _ , #pixcol , _ in _3227970_3228226_ 2
+				gosub readtext !xorigin !yorigin in 3227970_3228226 number 16
+				return
+			set !xorigin !xorigin + 1
+		}
+		set %1
+	return
+
+sub getBodInfo
+		set !gbi_item n/a
+		set !gbi_quality n/a
+		set !gbi_material n/a
+		set !gbi_amount n/a
+		set !gbi_price n/a
+		set !gbi_count n/a
+		set !gbi_item1 n/a
+		set !gbi_item2 n/a
+		set !gbi_item3 n/a
+		set !gbi_item4 n/a
+		set !gbi_item5 n/a
+		set !gbi_item6 n/a
+		if !menuTextColor = n/a
+			{
+			set !xpos !3 + 147
+			set !ypos !4 +  77
+			savepix !xpos !ypos 1
+			set !menuTextColor #pixcol
+			set !xpos !3 + 422
+			set !ypos !4 + 102
+			savepix !xpos !ypos 1
+			set !menuNumberColor #pixcol
+			}
+		set !ypos !4 + 64 + ( 32 * !2 )
+		gosub getBodType
+		if !gbi_type <> n/a
+		{
+;			gosub getBodItem_safe
+			gosub getBodItem
+			gosub getBodQuality
+			gosub getBodMaterial
+			gosub getBodAmount
+			gosub getBodPrice
+			gosub getLBodInfo
+			gosub getBodDesc
+		}
+	return returnBODInfo
+
+sub returnBODInfo
+		namespace copy gbi_* from local kalocr
+	return
+
+sub getboddesc
+		set !gbi_desc a , #spc , bulk , #spc , order , #spc , deed$
+		set !gbi_desc !gbi_desc , blessed$
+		set !gbi_desc !gbi_desc , !gbi_type , #spc , bulk , #spc , order$
+
+		if !gbi_material = iron
+			set !gbi_desc !gbi_desc , iron , #spc , ingots$
+		if !gbi_material = dull , #spc , copper
+			set !gbi_desc !gbi_desc , all , #spc , items , #spc , must , #spc , be , #spc , made , #spc , with , #spc , !gbi_material , #spc , ingots.$
+		if !gbi_material = shadow , #spc , iron
+			set !gbi_desc !gbi_desc , all , #spc , items , #spc , must , #spc , be , #spc , made , #spc , with , #spc , !gbi_material , #spc , ingots.$
+		if !gbi_material = copper
+			set !gbi_desc !gbi_desc , all , #spc , items , #spc , must , #spc , be , #spc , made , #spc , with , #spc , !gbi_material , #spc , ingots.$
+		if !gbi_material = bronze
+			set !gbi_desc !gbi_desc , all , #spc , items , #spc , must , #spc , be , #spc , made , #spc , with , #spc , !gbi_material , #spc , ingots.$
+		if !gbi_material = golden
+			set !gbi_desc !gbi_desc , all , #spc , items , #spc , must , #spc , be , #spc , made , #spc , with , #spc , gold , #spc , ingots.$
+		if !gbi_material = agapite
+			set !gbi_desc !gbi_desc , all , #spc , items , #spc , must , #spc , be , #spc , made , #spc , with , #spc , !gbi_material , #spc , ingots.$
+		if !gbi_material = verite
+			set !gbi_desc !gbi_desc , all , #spc , items , #spc , must , #spc , be , #spc , made , #spc , with , #spc , !gbi_material , #spc , ingots.$
+		if !gbi_material = valorite
+			set !gbi_desc !gbi_desc , all , #spc , items , #spc , must , #spc , be , #spc , made , #spc , with , #spc , !gbi_material , #spc , ingots.$
+		if !gbi_material = cloth
+			set !gbi_desc !gbi_desc , cloth$
+		if !gbi_material = normal , #spc , leather
+			set !gbi_desc !gbi_desc , !gbi_material , $
+		if !gbi_material = spined , #spc , leather
+			set !gbi_desc !gbi_desc , !gbi_material , $
+		if !gbi_material = horned , #spc , leather
+			set !gbi_desc !gbi_desc , !gbi_material , $
+		if !gbi_material = barbed , #spc , leather
+			set !gbi_desc !gbi_desc , !gbi_material , $
+
+		; RunUO only material "names"
+;		if !gbi_material = 
+
+		set !gbi_desc !gbi_desc , !gbi_quality , $
+		str pos !gbi_amount /
+		set #strres #strres + 1
+		str del !gbi_amount 1 #strres
+		set !gbi_desc !gbi_desc , amount , #spc , to , #spc , make: , #spc , #strres , $
+		for !_ 1 !gbi_count
+		{
+			set !gbi_desc !gbi_desc , !gbi_item . !_ , : , #spc , 0$
+		}
+	return
+
+sub getBodType
+		set !gbi_type n/a
+		set !xpos !3 + 61
+		gosub readchar !xpos !ypos in !menuTextColor text
+		if #result notin sl
+			return #false
+		if #result = s
+			set !gbi_type small
+		if #result = l
+			set !gbi_type large
+	return #true
+
+sub getBodQuality
+		set !gbi_quality n/a
+		set !xpos !3 + 235
+		gosub readchar !xpos !ypos in !menuTextColor text
+		if #result notin en
+			return #false
+		if #result = e
+			set !gbi_quality exceptional
+		if #result = n
+			set !gbi_quality normal
+	return #true
+
+sub getBodMaterial
+		set !gbi_material n/a
+		set !xpos !3 + 316
+		gosub readchar !xpos !ypos in !menuTextColor text
+		if #result notin abcdghilnsv ; L is for RunUO "Leather"
+			return #false
+		if #result = a
+			set !gbi_material agapite
+		if #result = b 9
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor text
+			if #result notin ar
+				return #false
+			if #result = a
+				set !gbi_material barbed , #spc , leather
+			if #result = r
+				set !gbi_material bronze
+			set #result n/a
+		if #result = c 9
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor text
+			if #result notin lo
+				return #false
+			if #result = l
+				set !gbi_material cloth
+			if #result = o
+				set !gbi_material copper
+			set #result n/a
+		if #result = d
+			set !gbi_material dull , #spc , copper
+		if #result = g
+			set !gbi_material golden
+		if #result = h
+			set !gbi_material horned , #spc , leather
+		if #result = i
+			set !gbi_material iron
+		if #result = l
+			set !gbi_material normal , #spc , leather
+		if #result = n
+			set !gbi_material normal , #spc , leather
+		if #result = s 9
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor text
+			if #result notin hp
+				return #false
+			if #result = h
+				set !gbi_material shadow , #spc , iron
+			if #result = p
+				set !gbi_material spined , #spc , leather
+			set #result n/a
+		if #result = v 9
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor text
+			if #result notin ae
+				return #false
+			if #result = a
+				set !gbi_material valorite
+			if #result = e
+				set !gbi_material verite
+			set #result n/a
+	return #true
+
+sub getBodItem_safe
+		set !gbi_item n/a
+		set !xpos !3 + 103
+		gosub readtext !xpos !ypos in !menuTextColor text 125
+		set !gbi_item %1
+		if !gbi_item = buckler
+			set !gbi_item !gbi_item , #spc
+	return #true
+
+sub getBodItem
+		set !gbi_item n/a
+		set !xpos !3 + 103
+		gosub readchar !xpos !ypos in !menuTextColor
+		if #result notin abcdefhjklmnprstvw
+			return #false
+		if #result = a
+			set !gbi_item axe
+		if #result = b
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin aoru
+				return #false
+			if #result = a
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin nrst
+					return #false
+				if #result = n
+					set !gbi_item bandana
+				if #result = r
+					set !gbi_item bardiche
+				if #result = s
+					set !gbi_item bascinet
+				if #result = t
+					set !gbi_item battle , #spc , axe
+				set #result n/a
+			}
+			if #result = o
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin dno
+					return #false
+				if #result = d
+					set !gbi_item body , #spc , sash
+				if #result = n
+				{
+					set !xpos !xpos + %1
+					gosub readchar !xpos !ypos in !menuTextColor
+					if #result notin en
+						return #false
+					if #result = e
+					{
+						set !xpos !xpos + %1 + 8 ; ' ' is common
+						gosub readchar !xpos !ypos in !menuTextColor
+						if #result notin aghl
+							return #false
+						if #result = a
+						{
+							set !xpos !xpos + %1 + 6 + 9 ; 'rm' is common
+							gosub readchar !xpos !ypos in !menuTextColor
+							if #result notin os
+								return #false
+							if #result = o
+								set !gbi_item bone , #spc , armor
+							if #result = s
+								set !gbi_item bone , #spc , arms
+							set #result n/a
+						}
+						if #result = g
+							set !gbi_item bone , #spc , gloves
+						if #result = h
+							set !gbi_item bone , #spc , helmet
+						if #result = l
+							set !gbi_item bone , #spc , leggings
+						set #result n/a
+					}
+					if #result = n
+						set !gbi_item bonnet
+					set #result n/a
+				}
+				if #result = o
+					set !gbi_item boots
+				set #result n/a
+			}
+			if #result = r
+			{
+				set !xpos !xpos + %1 + 6 ; 'o' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin an
+					return #false
+				if #result = a
+					set !gbi_item broadsword
+				if #result = n
+					set !gbi_item bronze , #spc , shield
+				set #result n/a
+			}
+			if #result = u
+				set !gbi_item buckler , #spc
+			set #result n/a
+		}
+		if #result = c
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin ahlu
+				return #false
+			if #result = a
+				set !gbi_item cap
+			if #result = h
+			{
+				set !xpos !xpos + %1 + 6 + 3 + 6 + 9 + 6 + 3 + 3 + 8 ; 'ainmail ' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin #spc , lt
+					return #false
+				if #result = #spc
+					set !gbi_item chainmail , #spc , #spc , coif
+				if #result = l
+					set !gbi_item chainmail , #spc , leggings
+				if #result = t
+					set !gbi_item chainmail , #spc , tunic
+				set #result n/a
+			}
+			if #result = l
+			{
+				set !xpos !xpos + %1 + 6 ; 'o' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin as
+					return #false
+				if #result = a
+					set !gbi_item cloak
+				if #result = s
+					set !gbi_item close , #spc , helmet
+				set #result n/a
+			}
+			if #result = u
+				set !gbi_item cutlass
+			set #result n/a
+		}
+		if #result = d
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin ao
+				return #false
+			if #result = a
+				set !gbi_item dagger
+			if #result = o
+			{
+				set !xpos !xpos + %1 + 6 + 6 + 3 + 6 ; 'uble' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin #spc , t
+					return #false
+				if #result = #spc
+					set !gbi_item double , #spc , axe
+				if #result = t
+					set !gbi_item doublet
+				set #result n/a
+			}
+			set #result n/a
+		}
+		if #result = e
+			set !gbi_item executioner's , #spc , axe
+		if #result = f
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin aelu
+				return #false
+			if #result = a
+			{
+				set !xpos !xpos + %1 + 6 + 6 + 6 + 8 ; 'ncy ' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin ds
+					return #false
+				if #result = d
+					set !gbi_item fancy , #spc , dress
+				if #result = s
+					set !gbi_item fancy , #spc , shirt
+				set #result n/a
+			}
+			if #result = e
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin am
+					return #false
+				if #result = a
+					set !gbi_item feathered , #spc , hat
+				if #result = m
+				{
+					set !xpos !xpos + %1 + 6 + 3 + 6 + 8 ; 'ale ' is common
+					gosub readchar !xpos !ypos in !menuTextColor
+					if #result notin lp
+						return #false
+					if #result = l
+						set !gbi_item female , #spc , leather , #spc , armor
+					if #result = p
+						set !gbi_item female , #spc , plate
+					set #result n/a
+				}
+				set #result n/a
+			}
+			if #result = l
+				set !gbi_item floppy , #spc , hat
+			if #result = u
+				set !gbi_item full , #spc , apron
+			set #result n/a
+		}
+		if #result = h
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin ae
+				return #false
+			if #result = a
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin lm
+					return #false
+				if #result = l
+				{
+					set !xpos !xpos + %1
+					gosub readchar !xpos !ypos in !menuTextColor
+					if #result notin bf
+						return #false
+					if #result = b
+						set !gbi_item halberd
+					if #result = f
+						set !gbi_item half , #spc , apron
+					set #result n/a
+				}
+				if #result = m
+					set !gbi_item hammer , #spc , pick
+				set #result n/a
+			}
+			if #result = e
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin al
+					return #false
+				if #result = a
+					set !gbi_item heater , #spc , shield
+				if #result = l
+					set !gbi_item helmet
+				set #result n/a
+			}
+			set #result n/a
+		}
+		if #result = j
+		{
+			set !xpos !xpos + %1 + 6 + 6 + 6 + 6 + 6 + 8 ; 'ester ' is common
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin hs
+				return #false
+			if #result = h
+				set !gbi_item jester , #spc , hat
+			if #result = s
+				set !gbi_item jester , #spc , suit
+			set #result n/a
+		}
+		if #result = k
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin air
+				return #false
+			if #result = a
+				set !gbi_item katana
+			if #result = i
+				set !gbi_item kilt
+			if #result = r
+				set !gbi_item kryss
+			set #result n/a
+		}
+		if #result = l
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin aeo
+				return #false
+			if #result = a
+				set !gbi_item large , #spc , battle , #spc , axe
+			if #result = e
+			{
+				set !xpos !xpos + %1 + 6 + 6 + 6 + 6 + 6 + 8 ;  'ather ' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin abcglst
+					return #false
+				if #result = a
+					set !gbi_item leather , #spc , armor
+				if #result = b
+					set !gbi_item leather , #spc , bustier
+				if #result = c
+					set !gbi_item leather , #spc , cap
+				if #result = g
+				{
+					set !xpos !xpos + %1
+					gosub readchar !xpos !ypos in !menuTextColor
+					if #result notin lo
+						return #false
+					if #result = l
+						set !gbi_item leather , #spc , gloves
+					if #result = o
+						set !gbi_item leather , #spc , gorget
+					set #result n/a
+				}
+				if #result = l
+					set !gbi_item leather , #spc , leggings
+				if #result = s
+				{
+					set !xpos !xpos + %1
+					gosub readchar !xpos !ypos in !menuTextColor
+					if #result notin hkl
+						return #false
+					if #result = h
+						set !gbi_item leather , #spc , shorts
+					if #result = k
+						set !gbi_item leather , #spc , skirt
+					if #result = l
+						set !gbi_item leather , #spc , sleeves
+					set #result n/a
+				}
+				if #result = t
+					set !gbi_item leather , #spc , tunic
+				set #result n/a
+			}
+			if #result = o
+			{
+				set !xpos !xpos + %1 + 6 + 6 ; 'ng' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin #spc , s
+					return #false
+				if #result = #spc
+					set !gbi_item long , #spc , pants
+				if #result = s
+					set !gbi_item longsword
+				set #result n/a
+			}
+		}
+		if #result = m
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin ae
+				return #false
+			if #result = a
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin cu
+					return #false
+				if #result = c
+					set !gbi_item mace
+				if #result = u
+					set !gbi_item maul
+				set #result n/a
+			}
+			if #result = e
+			{
+				set !xpos !xpos + %1 + 6 + 6 + 3 + 8 ; 'tal ' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin ks
+					return #false
+				if #result = k
+					set !gbi_item metal , #spc , kite , #spc , shield
+				if #result = s
+					set !gbi_item metal , #spc , shield
+				set #result n/a
+			}
+			set #result n/a
+		}
+		if #result = n
+			set !gbi_item norse , #spc , helm
+		if #result = p
+		{
+			set !xpos !xpos + %1 + 3 + 6 ; 'la" is common
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin it
+				return #false
+			if #result = i
+				set !gbi_item plain , #spc , dress
+			if #result = t
+			{
+				set !xpos !xpos + %1 + 6 ; 'e' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin #spc , m
+					return #false
+				if #result = #spc
+					set !gbi_item plate , #spc , helm
+				if #result = m
+				{
+					set !xpos !xpos + %1 + 6 + 3 + 3 + 8 ; 'ail ' is common
+					gosub readchar !xpos !ypos in !menuTextColor
+					if #result notin aglt
+						return #false
+					if #result = a
+						set !gbi_item platemail , #spc , arms
+					if #result = g
+					{
+						set !xpos !xpos + %1
+						gosub readchar !xpos !ypos in !menuTextColor
+						if #result notin lo
+							return #false
+						if #result = l
+							set !gbi_item platemail , #spc , gloves
+						if #result = o
+							set !gbi_item platemail , #spc , gorget
+						set #result n/a
+					}
+					if #result = l
+						set !gbi_item platemail , #spc , legs
+					if #result = t
+						set !gbi_item platemail , #spc , tunic
+					set #result n/a
+				}
+				set #result n/a
+			}
+			set #result n/a
+		}
+		if #result = r
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin io
+				return #false
+			if #result = i
+			{
+				set !xpos !xpos + %1 + 6 + 6 + 9 + 6 + 3 + 3 + 8 ; 'ngmail ' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin glst
+					return #false
+				if #result = g
+					set !gbi_item ringmail , #spc , gloves
+				if #result = l
+					set !gbi_item ringmail , #spc , leggings
+				if #result = s
+					set !gbi_item ringmail , #spc , sleeves
+				if #result = t
+					set !gbi_item ringmail , #spc , tunic
+				set #result n/a
+			}
+			if #result = o
+				set !gbi_item robe
+			set #result n/a
+		}
+		if #result = s
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin achkptu
+				return #false
+			if #result = a
+				set !gbi_item sandals
+			if #result = c
+				set !gbi_item scimitar
+			if #result = h
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin io
+					return #false
+				if #result = i
+					set !gbi_item shirt
+				if #result = o
+				{
+					set !xpos !xpos + %1
+					gosub readchar !xpos !ypos in !menuTextColor
+					if #result notin er
+						return #false
+					if #result = e
+						set !gbi_item shoes
+					if #result = r
+					{
+						set !xpos !xpos + %1 + 6 + 8 ; 't ' is common
+						gosub readchar !xpos !ypos in !menuTextColor
+						if #result notin ps
+							return #false
+						if #result = p
+							set !gbi_item short , #spc , pants
+						if #result = s
+							set !gbi_item short , #spc , spear
+						set #result n/a
+					}
+					set #result n/a
+				}
+				set #result n/a
+			}
+			if #result = k
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin iu
+					return #false
+				if #result = i
+					set !gbi_item skirt
+				if #result = u
+					set !gbi_item skullcap
+				set #result n/a
+			}
+			if #result = p
+				set !gbi_item spear
+			if #result = t
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin ru
+					return #false
+				if #result = r
+					set !gbi_item straw , #spc , hat
+				if #result = u
+				{
+					set !xpos !xpos + %1 + 6 + 6 + 6 + 6 + 8 ; 'dded ' is common
+					gosub readchar !xpos !ypos in !menuTextColor
+					if #result notin abglst
+						return #false
+					if #result = a
+						set !gbi_item studded , #spc , armor
+					if #result = b
+						set !gbi_item studded , #spc , bustier
+					if #result = g
+					{
+						set !xpos !xpos + %1
+						gosub readchar !xpos !ypos in !menuTextColor
+						if #result notin lo
+							return #false
+						if #result = l
+							set !gbi_item studded , #spc , gloves
+						if #result = o
+							set !gbi_item studded , #spc , gorget
+						set #result n/a
+					}
+					if #result = l
+						set !gbi_item studded , #spc , leggings
+					if #result = s
+						set !gbi_item studded , #spc , sleeves
+					if #result = t
+						set !gbi_item studded , #spc , tunic
+					set #result n/a
+				}
+				set #result n/a
+			}
+			if #result = u
+				set !gbi_item surcoat
+			set #result n/a
+		}
+		if #result = t
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin aehruw
+				return #false
+			if #result = a
+				set !gbi_item tall , #spc , straw , #spc , hat
+			if #result = e
+				set !gbi_item tear , #spc , kite , #spc , shield
+			if #result = h
+				set !gbi_item thigh , #spc , boots
+			if #result = r
+				set !gbi_item tricorne , #spc , hat
+			if #result = u
+				set !gbi_item tunic
+			if #result = w
+				set !gbi_item two , #spc , handed , #spc , axe
+			set #result n/a
+		}
+		if #result = v
+			set !gbi_item viking , #spc , sword
+		if #result = w
+		{
+			set !xpos !xpos + %1
+			gosub readchar !xpos !ypos in !menuTextColor
+			if #result notin ai
+				return #false
+			if #result = a
+			{
+				set !xpos !xpos + %1 + 6 + 8 ; 'r ' is common
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin afhm
+					return #false
+				if #result = a
+					set !gbi_item war , #spc , axe
+				if #result = f
+					set !gbi_item war , #spc , fork
+				if #result = h
+					set !gbi_item war , #spc , hammer
+				if #result = m
+					set !gbi_item war , #spc , mace
+				set #result n/a
+			}
+			if #result = i
+			{
+				set !xpos !xpos + %1
+				gosub readchar !xpos !ypos in !menuTextColor
+				if #result notin dz
+					return #false
+				if #result = d
+					set !gbi_item wide-brim , #spc , hat
+				if #result = z
+					set !gbi_item wizard's , #spc , hat
+				set #result n/a
+			}
+			set #result n/a
+		}
+	return #true
+
+sub getBodAmount
+		set !xpos !3 + 422
+		set !yorigin !ypos + 1
+		set !cnt 0
+		set !gbi_amount
+		for !getBodAmount1 1 1
+			{
+			gosub readchar !xpos !yorigin in !menuNumberColor number
+			if #pixcol <> 4294967295
+				{
+				set !xpos !xpos + %1
+				if #result = #spc
+					set !cnt !cnt + 1
+				if !cnt < 3 2
+					set !gbi_amount !gbi_amount , #result
+					set !getBodAmount1 0
+				}
+			}
+	return
+
+sub getBodPrice
+		set !xpos !3 + 496
+		set !yorigin !ypos + 1
+		set !cnt 0
+		set !gbi_price
+		for !getBodPrice1 1 1
+			{
+			gosub readchar !xpos !yorigin in !menuNumberColor number
+			set !cnt !cnt + 1
+			set !xpos !xpos + %1
+			if #result <> #spc && !cnt < 10 2
+				set !gbi_price !gbi_price , #result
+				set !getBodPrice1 0
+			}
+	return
+
+sub getLBodInfo
+		set !gbi_count 0
+		for !_ 1 6
+		{
+			set !gbi_item . !_ n/a
+		}
+		if !gbi_type = small 3
+			set !gbi_count 1
+			set !gbi_item1 !gbi_item
+			return
+		if !gbi_item = bandana 5
+			set !gbi_count 4
+			set !gbi_item1 bandana
+			set !gbi_item2 shirt
+			set !gbi_item3 skirt
+			set !gbi_item4 thigh , #spc , boots
+		if !gbi_item = bardiche 3
+			set !gbi_count 2
+			set !gbi_item1 bardiche
+			set !gbi_item2 halberd
+		if !gbi_item = bone , #spc , helmet 6
+			set !gbi_count 5
+			set !gbi_item1 bone , #spc , helmet
+			set !gbi_item2 bone , #spc , gloves
+			set !gbi_item3 bone , #spc , arms
+			set !gbi_item4 bone , #spc , leggings
+			set !gbi_item5 bone , #spc , armor
+		if !gbi_item = bonnet 5
+			set !gbi_count 4
+			set !gbi_item1 bonnet
+			set !gbi_item2 half , #spc , apron
+			set !gbi_item3 fancy , #spc , dress
+			set !gbi_item4 sandals
+		if !gbi_item = chainmail , #spc , #spc , coif 4
+			set !gbi_count 3
+			set !gbi_item1 chainmail , #spc , #spc , coif
+			set !gbi_item2 chainmail , #spc , leggings
+			set !gbi_item3 chainmail , #spc , tunic
+		if !gbi_item = cutlass 7
+			set !gbi_count 6
+			set !gbi_item1 cutlass
+			set !gbi_item2 viking , #spc , sword
+			set !gbi_item3 longsword
+			set !gbi_item4 scimitar
+			set !gbi_item5 broadsword
+			set !gbi_item6 katana
+		if !gbi_item = dagger 6
+			set !gbi_count 5
+			set !gbi_item1 dagger
+			set !gbi_item2 kryss
+			set !gbi_item3 war , #spc , fork
+			set !gbi_item4 short , #spc , spear
+			set !gbi_item5 spear
+		if !gbi_item = feathered , #spc , hat 6
+			set !gbi_count 5
+			set !gbi_item1 feathered , #spc , hat
+			set !gbi_item2 surcoat
+			set !gbi_item3 fancy , #spc , shirt
+			set !gbi_item4 short , #spc , pants
+			set !gbi_item5 thigh , #spc , boots
+		if !gbi_item = floppy , #spc , hat 5
+			set !gbi_count 4
+			set !gbi_item1 floppy , #spc , hat
+			set !gbi_item2 full , #spc , apron
+			set !gbi_item3 plain , #spc , dress
+			set !gbi_item4 sandals
+		if !gbi_item = jester , #spc , hat 5
+			set !gbi_count 4
+			set !gbi_item1 jester , #spc , hat
+			set !gbi_item2 jester , #spc , suit
+			set !gbi_item3 cloak
+			set !gbi_item4 shoes
+		if !gbi_item = large , #spc , battle , #spc , axe 7
+			set !gbi_count 6
+			set !gbi_item1 large , #spc , battle , #spc , axe
+			set !gbi_item2 double , #spc , axe
+			set !gbi_item3 battle , #spc , axe
+			set !gbi_item4 two , #spc , handed , #spc , axe
+			set !gbi_item5 axe
+			set !gbi_item6 executioner's , #spc , axe
+		if !gbi_item = leather , #spc , cap 7
+			set !gbi_count 6
+			set !gbi_item1 leather , #spc , cap
+			set !gbi_item2 leather , #spc , gorget
+			set !gbi_item3 leather , #spc , gloves
+			set !gbi_item4 leather , #spc , sleeves
+			set !gbi_item5 leather , #spc , leggings
+			set !gbi_item6 leather , #spc , tunic
+		if !gbi_item = leather , #spc , skirt 7
+			set !gbi_count 6
+			set !gbi_item1 leather , #spc , skirt
+			set !gbi_item2 leather , #spc , bustier
+			set !gbi_item3 leather , #spc , shorts
+			set !gbi_item4 female , #spc , leather , #spc , armor
+			set !gbi_item5 studded , #spc , bustier
+			set !gbi_item6 studded , #spc , armor
+		if !gbi_item = mace 7
+			set !gbi_count 6
+			set !gbi_item1 mace
+			set !gbi_item2 maul
+			set !gbi_item3 war , #spc , mace
+			set !gbi_item4 war , #spc , hammer
+			set !gbi_item5 hammer , #spc , pick
+			set !gbi_item6 war , #spc , axe
+		if !gbi_item = platemail , #spc , gorget 7
+			set !gbi_count 6
+			set !gbi_item1 platemail , #spc , gorget
+			set !gbi_item2 platemail , #spc , gloves
+			set !gbi_item3 plate , #spc , helm
+			set !gbi_item4 platemail , #spc , arms
+			set !gbi_item5 platemail , #spc , legs
+			set !gbi_item6 platemail , #spc , tunic
+		if !gbi_item = ringmail , #spc , gloves 5
+			set !gbi_count 4
+			set !gbi_item1 ringmail , #spc , gloves
+			set !gbi_item2 ringmail , #spc , sleeves
+			set !gbi_item3 ringmail , #spc , leggings
+			set !gbi_item4 ringmail , #spc , tunic
+		if !gbi_item = sandals 5
+			set !gbi_count 4
+			set !gbi_item1 sandals
+			set !gbi_item2 shoes
+			set !gbi_item3 boots
+			set !gbi_item4 thigh , #spc , boots
+		if !gbi_item = skullcap 5
+			set !gbi_count 4
+			set !gbi_item1 skullcap
+			set !gbi_item2 doublet
+			set !gbi_item3 kilt
+			set !gbi_item4 shoes
+		if !gbi_item = straw , #spc , hat 5
+			set !gbi_count 4
+			set !gbi_item1 straw , #spc , hat
+			set !gbi_item2 tunic
+			set !gbi_item3 long , #spc , pants
+			set !gbi_item4 boots
+		if !gbi_item = studded , #spc , gorget 6
+			set !gbi_count 5
+			set !gbi_item1 studded , #spc , gorget
+			set !gbi_item2 studded , #spc , gloves
+			set !gbi_item3 studded , #spc , sleeves
+			set !gbi_item4 studded , #spc , leggings
+			set !gbi_item5 studded , #spc , tunic
+		if !gbi_item = tricorne , #spc , hat 5
+			set !gbi_count 4
+			set !gbi_item1 tricorne , #spc , hat
+			set !gbi_item2 cap
+			set !gbi_item3 wide-brim , #spc , hat
+			set !gbi_item4 tall , #spc , straw , #spc , hat
+		if !gbi_item = wizard's , #spc , hat 5
+			set !gbi_count 4
+			set !gbi_item1 wizard's , #spc , hat
+			set !gbi_item2 body , #spc , sash
+			set !gbi_item3 robe
+			set !gbi_item4 boots
+	return
+
+; %1 = left edge of text
+; %2 = base line of text - 13
+; %3 = operator such as =, <>, notin and in
+; %4 = text colors like 12345_23456_34567 (#pixcol values)
+; %5 = number | text
+;	on return...
+; #result = character
+; %1 = character width
+
+; note: since 'O's and ZEROs have the same shape and it is shape that
+; sub readchar relies on to recognize text parameter %5 is necessary.
+; this allows both characters to be returned but its more like an on/off
+; switch as there is no way for this routine to distinguish between them
+; you specify "number" to cause it to return ZEROs instead of 'O's
+
+; note: in version 2.00 sub readchar parameters changed
+
+sub readchar
+		set %4 _ , %4 , _
+		set %7 %2 + 5
+		savepix %1 %7 1
+		if _ , #pixcol , _ %3 %4 256
+			set %7 %2 + 13
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 136
+				set %7 %2 + 4
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 98
+					set %7 %2 + 3
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 12
+						set %7 %2 + 2
+						savepix %1 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 4
+							return [
+						set %7 %2 + 15
+						savepix %1 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 2
+							return |
+						set %1 4
+						return (
+					set %6 %1 + 2
+					set %7 %2 + 4
+					savepix %6 %7 1
+					if _ , #pixcol , _ %3 %4 37
+						set %6 %1 + 2
+						set %7 %2 + 8
+						savepix %6 %7 1
+						if _ , #pixcol , _ %3 %4 14
+							set %6 %1 + 2
+							set %7 %2 + 13
+							savepix %6 %7 1
+							if _ , #pixcol , _ %3 %4 8
+								set %6 %1 + 4
+								set %7 %2 + 5
+								savepix %6 %7 1
+								if _ , #pixcol , _ %3 %4 2
+									set %1 8
+									return !KalOCR_B
+								set %1 7
+								return !KalOCR_E
+							set %1 7
+							return !KalOCR_F
+						set %6 %1 + 2
+						set %7 %2 + 9
+						savepix %6 %7 1
+						if _ , #pixcol , _ %3 %4 8
+							set %6 %1 + 2
+							set %7 %2 + 10
+							savepix %6 %7 1
+							if _ , #pixcol , _ %3 %4 2
+								set %1 8
+								return !KalOCR_R
+							set %1 8
+							return !KalOCR_P
+						set %7 %2 + 7
+						savepix %1 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 8
+							return !KalOCR_D
+						set %1 10
+						return %
+					set %6 %1 + 2
+					set %7 %2 + 8
+					savepix %6 %7 1
+					if _ , #pixcol , _ %3 %4 19
+						set %6 %1 + 2
+						set %7 %2 + 6
+						savepix %6 %7 1
+						if _ , #pixcol , _ %3 %4 7
+							set %7 %2 + 7
+							savepix %1 %7 1
+							if _ , #pixcol , _ %3 %4 2
+								set %1 8
+								return !KalOCR_N
+							set %1 8
+							return !KalOCR_X
+						set %6 %1 + 2
+						set %7 %2 + 9
+						savepix %6 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 8
+							return !KalOCR_K
+						set %1 8
+						return !KalOCR_H
+					set %7 %2 + 11
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 14
+						set %6 %1 + 2
+						set %7 %2 + 5
+						savepix %6 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 10
+							return !KalOCR_M
+						set %6 %1 + 2
+						set %7 %2 + 13
+						savepix %6 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 7
+							return !KalOCR_L
+						set %1 3
+						return !KalOCR_I
+					set %1 3
+					return !
+				set %6 %1 + 2
+				set %7 %2 + 11
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 12
+					set %7 %2 + 6
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 7
+						set %7 %2 + 8
+						savepix %1 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 6
+							return k
+						set %1 8
+						return 2
+					set %1 8
+					return >
+				set %6 %1 + 2
+				set %7 %2 + 8
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 8
+					set %6 %1 + 2
+					set %7 %2 + 13
+					savepix %6 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 6
+						return b
+					set %1 6
+					return h
+				set %7 %2 + 7
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 3
+					return l
+				set %1 3
+				return i
+			set %7 %2 + 11
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 53
+				set %6 %1 + 3
+				set %7 %2 + 8
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 22
+					set %7 %2 + 7
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 12
+						set %7 %2 + 4
+						savepix %1 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 8
+							return 5
+						set %7 %2 + 8
+						savepix %1 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 8
+							return !KalOCR_G
+						set %1 8
+						return !KalOCR_S
+					set %7 %2 + 10
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 8
+						return 8
+					set %1 8
+					return 3
+				set %6 %1 + 4
+				set %7 %2 + 5
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 16
+					set %6 %1 + 3
+					set %7 %2 + 9
+					savepix %6 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 9
+						return !KalOCR_Q
+					set %6 %1 + 5
+					set %7 %2 + 8
+					savepix %6 %7 1
+					if _ , #pixcol , _ %3 %4 4
+						set %1 8
+						if %0 = 5 && %5 = number
+							return 0
+						return !KalOCR_O
+					set %1 8
+					return !KalOCR_C
+				set %7 %2 + 4
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 8
+					return !KalOCR_U
+				set %1 8
+				return 6
+			set %6 %1 + 2
+			set %7 %2 + 9
+			savepix %6 %7 1
+			if _ , #pixcol , _ %3 %4 28
+				set %7 %2 + 4
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 13
+					set %7 %2 + 7
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 8
+						set %6 %1 + 6
+						set %7 %2 + 4
+						savepix %6 %7 1
+						if _ , #pixcol , _ %3 %4 2
+							set %1 8
+							return !KalOCR_V
+						set %1 12
+						return !KalOCR_W
+					set %1 9
+					return !KalOCR_Y
+				set %7 %2 + 6
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 7
+					set %7 %2 + 7
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 8
+						return 9
+					set %1 7
+					return ?
+				set %1 4
+				return 1
+			set %6 %1 + 1
+			set %7 %2 + 6
+			savepix %6 %7 1
+			if _ , #pixcol , _ %3 %4 12
+				set %7 %2 + 4
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 7
+					set %7 %2 + 6
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 8
+						return 4
+					set %1 3
+					return '
+				set %1 9
+				return \
+			set %7 %2 + 6
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 8
+				set %6 %1 + 1
+				set %7 %2 + 4
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 3
+					return `
+				set %1 4
+				return "
+			set %1 8
+			return 7
+		set %7 %2 + 9
+		savepix %1 %7 1
+		if _ , #pixcol , _ %3 %4 124
+			set %6 %1 + 4
+			set %7 %2 + 13
+			savepix %6 %7 1
+			if _ , #pixcol , _ %3 %4 61
+				set %7 %2 + 8
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 28
+					set %7 %2 + 12
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 13
+						set %7 %2 + 13
+						savepix %1 %7 1
+						if _ , #pixcol , _ %3 %4 8
+							set %6 %1 + 5
+							set %7 %2 + 8
+							savepix %6 %7 1
+							if _ , #pixcol , _ %3 %4 2
+								set %1 9
+								return m
+							set %1 6
+							return n
+						set %1 6
+						return y
+					set %7 %2 + 7
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 12
+						return @
+					set %7 %2 + 10
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 8
+						return w
+					set %1 6
+					return x
+				set %6 %1 + 2
+				set %7 %2 + 11
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 7
+					set %7 %2 + 10
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 6
+						return e
+					set %1 8
+					return <
+				set %6 %1 + 3
+				set %7 %2 + 14
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 7
+					set %7 %2 + 15
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 6
+						return g
+					set %1 6
+					return q
+				set %6 %1 + 3
+				set %7 %2 + 5
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 6
+					return d
+				set %1 6
+				return a
+			set %7 %2 + 12
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 28
+				set %7 %2 + 13
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 12
+					set %7 %2 + 6
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 8
+						return !KalOCR_A
+					set %7 %2 + 14
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 6
+						return p
+					set %1 6
+					return r
+				set %7 %2 + 8
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 6
+					return u
+				set %6 %1 + 3
+				set %7 %2 + 11
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 6
+					return o
+				set %1 6
+				return c
+			set %7 %2 + 8
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 12
+				set %7 %2 + 10
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 7
+					set %7 %2 + 11
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 6
+						return v
+					set %1 10
+					return ^
+				set %1 7
+				return +
+			set %7 %2 + 10
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 2
+				set %1 6
+				return s
+			set %6 %1 + 1
+			set %7 %2 + 4
+			savepix %6 %7 1
+			if _ , #pixcol , _ %3 %4 2
+				set %1 5
+				return {
+			set %1 6
+			return -
+		set %6 %1 + 1
+		set %7 %2 + 13
+		savepix %6 %7 1
+		if _ , #pixcol , _ %3 %4 55
+			set %7 %2 + 13
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 24
+				set %6 %1 + 1
+				set %7 %2 + 11
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 7
+					set %7 %2 + 4
+					savepix %1 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 8
+						return !KalOCR_Z
+					set %1 6
+					return z
+				set %7 %2 + 12
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 8
+					set %6 %1 + 1
+					set %7 %2 + 14
+					savepix %6 %7 1
+					if _ , #pixcol , _ %3 %4 2
+						set %1 3
+						return ,
+					set %1 3
+					return #dot
+				set %1 6
+				return j
+			set %7 %2 + 11
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 13
+				set %7 %2 + 6
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 3
+					return #smc
+				set %6 %1 + 1
+				set %7 %2 + 5
+				savepix %6 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 11
+					return &
+				set %1 8
+				return !KalOCR_J
+			set %7 %2 + 2
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 2
+				set %1 4
+				return )
+			set %7 %2 + 3
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 2
+				set %1 5
+				return }
+			set %1 6
+			return f
+		set %6 %1 + 2
+		set %7 %2 + 9
+		savepix %6 %7 1
+		if _ , #pixcol , _ %3 %4 28
+			set %6 %1 + 1
+			set %7 %2 + 10
+			savepix %6 %7 1
+			if _ , #pixcol , _ %3 %4 12
+				set %7 %2 + 8
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 6
+					return t
+				set %7 %2 + 10
+				savepix %1 %7 1
+				if _ , #pixcol , _ %3 %4 2
+					set %1 12
+					return #
+				set %1 9
+				return /
+			set %7 %2 + 2
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 2
+				set %1 5
+				return ]
+			set %7 %2 + 4
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 2
+				set %1 7
+				return !KalOCR_T
+			set %1 9
+			return $
+		set %6 %1 + 1
+		set %7 %2 + 11
+		savepix %6 %7 1
+		if _ , #pixcol , _ %3 %4 12
+			set %7 %2 + 4
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 2
+				set %1 10
+				return *
+			set %7 %2 + 6
+			savepix %1 %7 1
+			if _ , #pixcol , _ %3 %4 2
+				set %1 3
+				return :
+			set %1 6
+			return =
+		set %7 %2 + 1
+		savepix %1 %7 1
+		if _ , #pixcol , _ %3 %4 2
+			set %1 6
+			return ~
+		set %7 %2 + 15
+		savepix %1 %7 1
+		if _ , #pixcol , _ %3 %4 2
+			set %1 8
+			return _
+		set %1 8
+		return !KalOCR_SPC
+
+sub NoSpaces
+str pos %1 #spc
+while #strres > 0
+{
+set !_ #strres
+str del %1 !_ 1
+str ins #strres _ !_
+set %1 #strres
+str pos %1 #spc
+}
+return %1
+
+; similar to below readtext routine except stops after first double space
+
+sub scantext
+set !rt_xpos %1
+set !rt_ypos %2
+set !rt_op %3
+set !rt_color %4
+set !rt_mode %5
+set !rt_extent !KalOCR_SPC , !KalOCR_SPC
+set !rt_text
+while #true
+{
+gosub readchar !rt_xpos !rt_ypos !rt_op !rt_color !rt_mode
+if #pixcol = 4294967295
+break
+set !rt_xpos !rt_xpos + %1
+set !rt_text !rt_text , #result
+str pos !rt_text !rt_extent
+if #strres > 0
+break
+}
+str len !rt_text
+set #strres #strres - 2
+str mid !rt_text 1 #strres
+set %1 #strres
+return
+
+; %1 = xpos
+; %2 = ypos
+; %3 = operator
+; %4 = color(s)
+; %5 = number | text | both
+; %6 = extent (position beyond %1 to scan for text)
+; 	...on return
+; %1 = text that was read
+
+; use to read lines of text
+
+sub readtext
+set !rt_xpos %1
+set !rt_ypos %2
+set !rt_op %3
+set !rt_color %4
+set !rt_mode %5
+set !rt_extent !rt_xpos + %6
+set !rt_text
+while #true
+{
+gosub readchar !rt_xpos !rt_ypos !rt_op !rt_color !rt_mode
+if #pixcol = 4294967295
+break
+set !rt_xpos !rt_xpos + %1
+if !rt_xpos > !rt_extent
+break
+set !rt_text !rt_text , #result
+}
+set %1 !rt_text
+str len !rt_text
+for !Trim #strres 1
+{
+str mid !rt_text !Trim 1
+if #strres <> !KalOCR_SPC
+break
+}
+if !Trim = 0
+set !rt_text
+str left !rt_text !Trim
+set %1 #strres
+return

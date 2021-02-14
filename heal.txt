@@ -1,0 +1,299 @@
+                            ; ============================================================================================================
+    ; Script Name: Seg's Stable Bandage-Self Healer
+    ; Author: Seg
+    ; Version: 14.3
+    ; Client Tested with: 6.0.6.2
+    ; EUO version tested with: 1.5.137
+    ; Shard: Alexandria (RunUO 2.0)
+    ; Revision Date: 2008.05.11
+    ; Public Release: 2004.09.27
+    ; Global Variables Used: *BUSY . #CHARID
+    ; Purpose: Uses bandages in your backpack to heal and cure you as needed.
+    ; ============================================================================================================
+    ; Be sure to check EasyUO.com for updates to this script!
+    ; http://www.easyuo.com/forum/viewtopic.php?t=30535
+    ;
+    ; If you encounted a problem with this script please include the following information when posting...
+    ; 1. Your EasyUO version.
+    ; 2. Your UO client verion.
+    ; 3. The script version.
+    ; 4. If the script stops responding, pause it and include the line on which it stopped.
+    ; 5. Name of Shard
+    ;
+    ; If you include that information I will be able to help you more quickly.
+    ;
+    ; Thank you for choosing my script,
+    ; -Seg
+    ; ============================================================================================================
+
+    ; ============================================================================================================
+    ; Copyright Info:
+    ; This script is an original document protected by international copyright
+    ;  laws and the GPL License. For more information please visit:
+    ;  http://www.gnu.org/licenses/gpl.txt
+    ;  http://www.copyright.gov/faq.html
+    ; ============================================================================================================
+
+    namespace push
+    namespace global SegHealer , #CHARID
+
+    ; Set Variables
+    ; A low LPC value is no longer needed (as of v14); so set this as high as you want.
+    set #LPC 200
+
+    set !jStart #JINDEX
+    set !jMortal #JINDEX
+
+    ; If you have a macro programmed into Razor or UOA to apply bandages on keypress
+    ; then set !BandageHotKey to that hotkey.
+    ; To disable set !BandageHotKey to #FALSE
+    set !BandageHotKey #FALSE
+
+    ; If your freeshard has a bandageself command then set !UseFreeshardCommand to that command.
+    ; To disable set !UseFreeshardCommand to #FALSE
+    set !UseFreeshardCommand #FALSE
+
+    ; If you only want to search your main backpack for bandages set this to #TRUE. If you set
+    ; it to anything else then the script will search all open containers.
+    set !UseBackpack #TRUE
+
+    ; This script will start healing if you lose a single point of health, if you want to wait
+    ; until you've lost a larger amount of health then set !DamageOffset to that amount.
+    set !DamageOffset 1
+
+
+    ; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ; If you need to make changes below this line please let me know. I might want to
+    ; include them in a later release of the script. You will be given credit if I
+    ; use your mod! -Seg
+    ; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    set !BandageStarted You_begin_applying_the_bandages
+    set !BandageComplete You_finish_applying_the_bandages.
+    set !BandageComplete2 You_apply_the_bandages
+    set !BandageComplete3 You_heal_what_little_damage_your_patient_had.
+    set !NotDamaged That_being_is_not_damaged!
+    set !BleedHealed The_bleeding_wounds_have
+    set !MortalStart You_have_been_mortally_wounded!
+    set !MortalStop You_are_no_longer_mortally_wounded.
+    set !BandageProgress 0
+    set *BUSY . #CHARID 0
+    set !run #TRUE
+
+    ; List of gumps that, if present, should prevent bandage attempts
+    ;    (does not affect freeshard or uoa/razor command attempts)
+    set !GumpArray _drag_gump_amount_gump_stack_gump_
+
+    while !run = #TRUE
+    {
+            if #HITS < #MAXHITS - !DamageOffset || C in #CHARSTATUS
+            {
+                    gosub CheckMortal
+                    gosub AttemptBandage
+                    set *BUSY . #CHARID 0
+            }
+            if !BandageProgress = 1
+            {
+                    gosub CheckBandageStarted
+            }
+            if !BandageProgress = 2
+            {
+                    gosub CheckBandageFinished
+            }
+    }
+
+    ; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+    ; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+    sub CheckMortal
+            if #JINDEX > !jMortal
+            {
+                    set !Jto #JINDEX
+                    for !idx45 !jMortal !Jto
+                    {
+                            scanjournal !idx45
+                            if !MortalStart in #JOURNAL
+                            {
+                                    set !BandageProgress 2
+                            }
+                            if !MortalStop in #JOURNAL
+                            {
+                                    set !BandageProgress 0
+                            }
+                    }
+                    set !jMortal !Jto
+            }
+            if !BandageProgress = 2
+            {
+                    gosub SetFailsafeTime
+            }
+    return
+    ; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+    sub AttemptBandage
+            if H in #CHARSTATUS || *BUSY . #CHARID <> 0 || #LLIFTEDKIND = 1 || #CHARGHOST = YES || !BandageProgress <> 0 || _ , #CONTNAME , _ in !GumpArray
+            {
+                    return
+            }
+            set !jStart #JINDEX
+            set !Place C
+            if !UseBackpack = #TRUE
+            {
+                    set !Place C_ , #BACKPACKID
+            }
+            finditem ZLF !Place
+            if #FINDCNT < 1
+            {
+                    return
+            }
+            ; Are we using a hotkey set in UOA or Razor?
+            if !BandageHotKey <> #FALSE
+            {
+                    key !BandageHotKey
+                    set !BandageProgress 2
+                    gosub SetFailsafeTime
+                    return
+            }
+            ; Are we using a Freeshard command?
+            if !UseFreeshardCommand <> #FALSE
+            {
+                    event macro 1 0 !UseFreeshardCommand
+                    set !BandageProgress 2
+                    gosub SetFailsafeTime
+                    return
+            }
+
+            ; The only time we are going to be using the cursor is during the act of bandaging, all else is just journal
+            ; checking- so we only need to define *BUSY . #CHARID during this block. Let other scripts run while we wait to finish
+            ; bandaging.
+            set *BUSY . #CHARID seghealer
+            ; Bandage using bandages in backpack's top level or any open container If no bandages found, loop until we get more.
+            set !TargetTimeout #SCNT + 5
+            while #TARGCURS = 1 && #SCNT < !TargetTimeout
+            {
+                    wait 5
+            }
+            while #TARGCURS = 1
+            {
+                    key esc
+            }
+            if #TARGCURS = 1
+            {
+                    return
+            }
+
+            ;  Manual bandaging
+            ; Preserve previous #LOBJECTID setting, this is the only place where we set a system variable (other than #lpc)
+            set !orig_LOBJECTID #LOBJECTID
+            set #LOBJECTID #FINDID
+            event macro 17 0
+            set #LOBJECTID !orig_LOBJECTID
+
+            ; The target timeout can be adjusted for faster/slower connections. 3s is a good mid-range setting. If you are
+            ; using a slow connection try increasing it.
+            target 3s
+            set !TargetTimeout #SCNT + 5
+            while #TARGCURS = 1 && #SCNT < !TargetTimeout
+            {
+                    ; Some people have reported that the script fails to target self and gets stuck. This routine tries to
+                    ; targetself over and over for ~5 seconds
+                    event macro 23 0
+                    wait 10
+            }
+            if #TARGCURS = 0
+            {
+                    set !BandageProgress 1
+                    return
+            }
+            set !BandageProgress 0
+    return
+    ; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+    sub CheckBandageStarted
+            set !BandageProgress 0
+            if #JINDEX > !jStart
+            {
+                    set !Jto #JINDEX
+                    for !idx32 !jStart !Jto
+                    {
+                            scanjournal !idx32
+                            if !BandageStarted in #JOURNAL
+                            {
+                                    set !BandageProgress 2
+                            }
+                    }
+                    set !jStart !Jto
+            }
+            gosub SetFailsafeTime
+    return
+    ; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+    sub SetFailsafeTime
+            ; From Stratics...
+            ; http://uo.stratics.com/content/skills/healing.php
+            ; Dexterity Time per Bandage on Self
+            ; 10 - 19      11 Seconds
+            ; 20 - 39      10 Seconds
+            ; 40 - 59      9 Seconds
+            ; 60 - 79      8 Seconds
+            ; 80 - 99      7 Seconds
+            ; 100 - 119    6 Seconds
+            ; 120 - 139    5 Seconds
+            ; 140 - 159    4 Seconds
+            ;
+            ; Max delay is ~11 seconds, min is 1 second. With normal lag if #SCNT = 1 then #SCNT2 = 12
+            set !FailsafeAmount #SCNT2 + 112
+            ;20-39
+            if #DEX > 19
+                    set !FailsafeAmount #SCNT2 + 102
+            ;40-59
+            if #DEX > 39
+                    set !FailsafeAmount #SCNT2 + 92
+            ;60-79
+            if #DEX > 59
+                    set !FailsafeAmount #SCNT2 + 82
+            ;80-99
+            if #DEX > 79
+                    set !FailsafeAmount #SCNT2 + 72
+            ;100-119
+            if #DEX > 99
+                    set !FailsafeAmount #SCNT2 + 62
+            ;120-139
+            if #DEX > 119
+                    set !FailsafeAmount #SCNT2 + 52
+            ;140-159
+            if #DEX > 139
+                    set !FailsafeAmount #SCNT2 + 42
+            ;160-179
+            if #DEX > 159
+                    set !FailsafeAmount #SCNT2 + 32
+            ;180-199
+            if #DEX > 179
+                    set !FailsafeAmount #SCNT2 + 22
+            ;200+
+            if #DEX > 199
+                    set !FailsafeAmount #SCNT2 + 12
+    return
+    ; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+    sub CheckBandageFinished
+            if #CHARGHOST = YES
+            {
+                    set !BandageProgress 0
+                    return
+            }
+            if #JINDEX > !jStart
+            {
+                    set !Jto #JINDEX
+                    for !idx32 !jStart !Jto
+                    {
+                            scanjournal !idx32
+                            if !BandageComplete in #JOURNAL || !BandageComplete2 in #JOURNAL || !BandageComplete3 in #JOURNAL || !NotDamaged in #JOURNAL || !BleedHealed in #JOURNAL || !MortalStop in #JOURNAL
+                            {
+                                    set !BandageProgress 0
+                            }
+                            set !jStart !idx32
+                    }
+            }
+            ; Failsafe: If we have been healing for more than 12 seconds, break out of the loop.
+            ; Added to guard against against possible looping bug
+            if #SCNT2 >= !BandageTimeFailsafe
+            {
+                    set !BandageProgress 0
+            }
+    return

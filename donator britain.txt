@@ -1,0 +1,720 @@
+initevents
+;--------------------------------------------------------------
+;##############################################################
+; Name: Arabella's Craft and Donate----------------------------
+; Author: Arabella---------------------------------------------
+; Version 0.0.1------------------------------------------------
+; Client Tested With: 7.0.26.5---------------------------------
+; Revision Date: August 9, 2012--------------------------------
+; Purpose: Craft and donate items to the public collection in--
+; the Britain Library to collect rewards from donation points.-
+; Instructions: TBA--------------------------------------------
+; Acknoledgments: Cheffe, more to come.------------------------
+;##############################################################
+;--------------------------------------------------------------
+;==============================================================
+;-------------------Main Loop----------------------------------
+;==============================================================
+set %lpc 1000
+set %npc HS_IS_
+set %NPC_axe Kalb
+set %NPC_No_Dachi Imogene
+set %axe_amount 95
+set %No_Dachi_amount 40
+set %contSize 550_587
+set %Button_MakeLastX 280
+set %Button_MakeLastY 550
+set %Button_ToolsX 30
+set %Button_ToolsY 110
+set %Button_TongsX 230
+set %Button_TongsY 110
+set %Button_TinkerToolX 230
+set %Button_TinkerToolY 130
+set %Button_ScribePenX 230
+set %Button_ScribePenY 110
+set %Button_Next_PageX 380
+set %Button_Next_PageY 290
+set %Button_AxesX 30
+set %Button_AxesY 170
+set %Button_battleAxeX 230
+set %Button_battleAxeY 70
+set %Button_OtherX 30
+set %Button_OtherY 190
+set %Button_SpellbookX 230
+set %Button_SpellbookY 150
+set %Button_BladedX 30
+set %Button_BladedY 150
+set %Button_No_DachiX 230
+set %Button_No_DachiY 70
+set %TinkerTool JTL_KTL
+set %Tool TBG
+set %Tongs %Tool
+set %ScribePen PBG
+set %anvil ZAG
+set %ingots ENK
+set %scrolls DFF
+set %Full #FALSE
+set %gone #FALSE
+set %items BSF_HSF_FIK
+set %itemName Buckler
+set %resourceNumber 300
+set %donate %NPC_axe
+;-------------------END VARIABLES------------------------------
+
+display yesno For this script you will need the following Setup.  1) Two runebooks, Home and Library within 2 tiles of the NPC each set as the default. 2) An Anvil and your secure accessable by walking up the steps of your house in a straight line North from your marked home rune. 3) Iron Ingots in your secure.  Are you ready to begin?
+if #dispres = No
+{
+halt
+}
+ gosub setup
+ Loop:
+ gosub make
+ gosub Travel_NPC
+ gosub donate
+ gosub Travel_Home
+ goto loop
+;==============================================================
+;___________________Arabella's Subs____________________________
+;==============================================================
+;--------------------------------------------------------------
+;..................Sub Setup...................................
+;--------------------------------------------------------------
+sub Setup
+gosub Desktop_Setup
+;gosub Donate_Setup
+gosub Runebook_Setup
+gosub Travel_Setup
+gosub Rail_Setup
+gosub Travel_NPC
+gosub NPC_Setup
+gosub Travel_Home
+gosub Finish_Setup
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Desktop_Setup...........................
+;--------------------------------------------------------------
+sub Desktop_Setup
+event macro 9 1
+event macro 9 7
+event macro 9 2
+wait 10
+event macro 8 1 ; open paperdoll
+wait 20
+contpos 690 30  ;paperdoll position
+wait 10
+event macro 8 7 ;open inventory
+wait 20
+set #LOBJECTID #BACKPACKID
+contpos 750 350 ;backpack position
+wait 10
+event macro 8 2 ;open status
+wait 20
+contpos 550 540  ;status position
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub donate_Setup............................
+;--------------------------------------------------------------
+sub donate_Setup
+display yesno Yes = Mace_Shield | No = Folded_Steel
+if if #dispRes = yes
+{
+   set %items BSF_HSF_
+   set %itemName Axes
+   set %resource %ingots
+   set %resourceNumber 300
+   set %donate %NPC_axe
+}
+if if #dispRes = No
+{
+   set %itemName No , #SPC , Dachi
+}
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Runebook_Setup..........................
+;--------------------------------------------------------------
+sub Runebook_Setup
+display ok Please Target your HOME RuneBook.
+gosub Target_Home
+display ok Please Target your LIBRARY RuneBook.
+gosub Target_Library
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Travel_Setup............................
+;--------------------------------------------------------------
+sub Travel_Setup
+display yesno Yes = Magery (Recall) | No = Chivalry (Sacred Journey)
+if #dispres = Yes
+{
+set %Travel 31
+}
+if #dispres = No
+{
+set %Travel 210
+}
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Rail_Setup..............................
+;--------------------------------------------------------------
+Sub Rail_Setup
+set %hotkeyLoop #FALSE
+display ok this script will walk your Character into your house near your anvil. You can access your anvil from within 2 tiles.  Move your Character into your house in a straight line from your recall spot and then press the X key.
+wait 10
+RailMakeLoop:
+onhotkey x
+gosub hotkeyx
+if %hotkeyLoop = #FALSE
+{
+goto RailMakeLoop
+}
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub NPC_Setup...............................
+;--------------------------------------------------------------
+sub NPC_Setup
+display ok Please target the NPC you wish to donate to.
+gosub Target_NPC
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;...................Sub Finish_Setup...........................
+;--------------------------------------------------------------
+sub Finish_Setup
+display ok Setup Finished Press OK to start donating!
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;...................Sub Make...................................
+;--------------------------------------------------------------
+sub Make
+gosub CheckTools
+;gosub Rail %anvilX %anvilY #charposz
+gosub Craft
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub CheckTools..............................
+;--------------------------------------------------------------
+sub checkTools
+finditem %TinkerTool in C_ , #BackpackID
+if #findCnt < 2
+{
+gosub NewTinker
+}
+finditem %Tongs in C_ , #BackpackID
+if #findCnt < 2
+{
+gosub NewTongs
+}
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub NewTinker...............................
+;--------------------------------------------------------------
+sub NewTinker
+gosub replenish_Ingots
+TinkerLoop:
+finditem %TinkerTool in C_ , #BackpackID
+wait 1s
+if #findCnt < 2
+{
+set #LOBJECTID #FINDID
+wait 10
+event Macro 17 0
+}
+else
+{
+   if #CONTSIZE = %contsize
+      {
+      click %Click2X %Click2Y r
+      }
+   return
+}
+if #CONTSIZE <> %contSize
+{
+goto TinkerLoop
+}
+set %Click1X ( #CONTPOSX + %Button_ToolsX )
+set %Click1Y ( #CONTPOSY + %Button_ToolsY )
+set %Click2X ( #CONTPOSX + %Button_TinkerToolX )
+set %Click2Y ( #CONTPOSY + %Button_TinkerToolY )
+wait 10
+click %Click1X %Click1Y
+wait 10
+click %Click2X %Click2Y
+goto TinkerLoop
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub NewTongs................................
+;--------------------------------------------------------------
+sub NewTongs
+gosub replenish_Ingots
+TongsLoop:
+finditem %Tongs in C_ , #BackpackID
+wait 1s
+if #findCnt < 2
+{
+finditem %TinkerTool in C_ , #BackpackID
+set #LOBJECTID #FINDID
+wait 10
+event Macro 17 0
+}
+else
+{
+   if #CONTSIZE = %contsize
+      {
+      click %Click2X %Click2Y r
+      }
+   return
+}
+if #CONTSIZE <> %contSize
+{
+goto TongsLoop
+}
+set %Click1X ( #CONTPOSX + %Button_ToolsX )
+set %Click1Y ( #CONTPOSY + %Button_ToolsY )
+set %Click2X ( #CONTPOSY + %Button_Next_PageX )
+set %Click2Y ( #CONTPOSY + %Button_Next_PageY )
+set %Click3X ( #CONTPOSX + %Button_TongsX )
+set %Click3Y ( #CONTPOSY + %Button_TongsY )
+wait 10
+click %Click1X %Click1Y
+wait 10
+click %Click2X %Click2Y
+wait 10
+click %Click3X %Click3Y
+goto TongsLoop
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Craft...................................
+;--------------------------------------------------------------
+sub Craft
+gosub replenish_Ingots
+gosub CheckTools
+wait 10
+finditem %Tool in C_ , #BackpackID
+set #LOBJECTID #FINDID
+set %Curent_Tongs #FindID
+wait 10
+event Macro 17 0
+wait 1s
+if %itemName = Buckler
+{
+set %Click1X ( #CONTPOSX + %Button_AxesX )
+set %Click1Y ( #CONTPOSY + %Button_AxesY )
+set %Click2X ( #CONTPOSX + %Button_battleAxeX )
+set %Click2Y ( #CONTPOSY + %Button_battleAxeY )
+set %Click3X ( #CONTPOSX + 1 )
+set %Click3Y ( #CONTPOSX + 1 )
+}
+if %itemName = No , #SPC , Dachi
+{
+set %Click1X ( #CONTPOSX + %Button_BladedX )
+set %Click1Y ( #CONTPOSY + %Button_BladedY )
+set %Click2X ( #CONTPOSX + %Button_Next_PageX )
+set %Click2Y ( #CONTPOSY + %Button_Next_PageY )
+set %Click3X ( #CONTPOSX + %Button_No_DachiX )
+set %Click3Y ( #CONTPOSY + %Button_No_DachiY )
+}
+wait 10
+click %Click1X %Click1Y
+wait 10
+click %Click2X %Click2Y
+wait 10
+click %Click3X %Click3Y
+wait 1s
+finditem %items in C_ , #BackpackID
+if #findCnt >= 1
+{
+gosub fastCraft
+}
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Rail....................................
+;--------------------------------------------------------------
+sub Rail
+repeat
+ {
+ event pathfind %1 %2 %3
+ wait 20
+ }
+until #charposx = %1 && #charposy = %2
+;finditem %anvil G_10
+;if #findcnt => 1
+;repeat
+; {
+; set %X ( #FINDX + 1 )
+; set %Y #FINDY
+; set %Z #FINDZ
+; event pathfind %X %Y %Z
+; }
+; until #charposx = %X && #charposy = %Y
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub hotkeyx.................................
+;--------------------------------------------------------------
+sub hotkeyx
+set %anvilX #CHARPOSX
+set %anvilY #CHARPOSY
+set %hotkeyLoop #TRUE
+Display ok Please Target your secure container.
+gosub Target_Secure
+gosub Display
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Target_Secure...........................
+;--------------------------------------------------------------
+sub Target_Secure
+set #targcurs 1
+wait 10
+while #targcurs = 1
+wait 1
+set %secure #LTARGETID
+gosub Display1
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Target_NPC..............................
+;--------------------------------------------------------------
+sub Target_NPC
+set #targcurs 1
+wait 10
+while #targcurs = 1
+wait 1
+gosub DisplayNPC
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Target_Home.............................
+;--------------------------------------------------------------
+sub Target_Home
+set #targcurs 1
+wait 10
+while #targcurs = 1
+wait 1
+set %HOME #LTARGETID
+gosub Display1
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Target_Library..........................
+;--------------------------------------------------------------
+sub Target_Library
+set #targcurs 1
+while #targcurs = 1
+wait 1
+set %LIBRARY #LTARGETID
+gosub Display1
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Display1................................
+;--------------------------------------------------------------
+sub Display1
+set #sysmsgcol 4000
+event sysmessage Last Target ID  #LTARGETID
+finditem #LTARGETID
+if #FINDCNT > 0
+{
+  event Property #findID
+}
+set #sysmsgcol 9101
+event sysmessage Object Name #Property
+event sysmessage Find Type #FindType
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;..................Sub DisplayNPC..............................
+;--------------------------------------------------------------
+sub DisplayNPC
+set #sysmsgcol 4000
+event sysmessage Last Target ID  #LTARGETID
+finditem #LTARGETID
+if #FINDCNT > 0
+{
+  event Property #findID
+}
+set #sysmsgcol 9101
+event sysmessage Object Name #Property
+event sysmessage Find Type #FindType
+set %NPC #FindType
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Travel_Home.............................
+;--------------------------------------------------------------
+sub Travel_Home
+set #LTARGETID %HOME
+event Macro 15 %Travel
+TravelLoopHOME:
+if #targcurs <> 1
+{
+goto TravelLoopHOME
+}
+finditem %HOME C_ , #BACKPACKID
+set #LTARGETID #FINDID
+wait 10
+event macro 22 0
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Travel_NPC..............................
+;--------------------------------------------------------------
+sub Travel_NPC
+set #LTARGETID %Library
+event Macro 15 %Travel
+TravelLoopNPC:
+if #targcurs <> 1
+{
+goto TravelLoopNPC
+}
+finditem %LIBRARY C_ , #BACKPACKID
+set #LTARGETID #FINDID
+wait 10
+event macro 22 0
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub replenish_Ingots.....................
+;--------------------------------------------------------------
+sub replenish_Ingots
+set #LOBJECTID %secure
+event macro 17 0
+wait 30
+finditem %ingots in C_ , #BackpackID
+if #FINDSTACK > 14
+{
+return
+}
+else
+{
+finditem %ingots in C_ , %secure
+wait 10
+if #FINDSTACK > 1
+    {
+	  Exevent Drag #findid 100
+	  wait 10
+	  Exevent Dropc #backpackid
+	  wait 10
+    }
+    else
+    {
+    display ok Out of ingots in your secure. Halting Script
+    halt
+    }
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub fastCraft...............................
+;--------------------------------------------------------------
+sub fastCraft
+set %Click1X ( #CONTPOSX + %Button_MakeLastX )
+set %Click1Y ( #CONTPOSY + %Button_MakeLastY )
+fast_craft_loop:
+gosub replenish_Ingots
+gosub Weight_Check
+gosub Tool_Check
+if %Full = #TRUE || %gone = #True
+{
+click %Click1X %Click1Y r
+return
+}
+wait 10
+click %Click1X %Click1Y f
+goto fast_craft_loop
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Donate..................................
+;--------------------------------------------------------------
+sub Donate
+gosub open_Gump
+turninLoop:
+gosub check_Gump
+gosub turnin
+finditem %items C_ , #BackpackID
+if #findCnt > 1
+{
+goto turninLoop
+}
+gosub close_Gump
+return
+;--------------------------------------------------------------
+;..................Sub open_Gump...............................
+;--------------------------------------------------------------
+sub open_Gump
+ open:
+finditem %npc G_4
+event property #findid
+if %donate notin #property
+{
+   ignoreitem #findid npc
+   goto open
+}
+set #LOBJECTID #FINDID
+wait 10
+event Macro 17 0
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub close_Gump..............................
+;--------------------------------------------------------------
+sub close_Gump
+wait 10
+click %Button_Axe_GemX %Button_Axe_GemY r
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub check_Gump..............................
+;--------------------------------------------------------------
+sub check_Gump
+if #CONTNAME <> generic_gump || #CONTSIZE <> 345_359
+{
+gosub open_Gump
+}
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub turnin..................................
+;--------------------------------------------------------------
+sub turnin
+set %Button_Axe_GemX ( #CONTPOSX + 40 )
+set %Button_Axe_GemY ( #CONTPOSY + 260 ) ;285 battle axe
+wait 10
+gem:
+click %Button_Axe_GemX %Button_Axe_GemY
+wait 10
+finditem %items C_ , #BACKPACKID
+wait 5
+msg #findcnt $
+set #LTARGETID #FINDID
+wait 10
+event macro 22 0
+gosub Item_Count
+if %count > 0
+{
+goto gem
+}
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Item_Count..............................
+;--------------------------------------------------------------
+sub Item_Count
+set #LPC 10000
+set %Count 0
+count_loop:
+finditem %items in C_ , #backpackID
+if #FindCnt = 0
+{
+ignoreitem reset
+set #sysmsgcol 9101
+event sysmessage There are %Count , #SPC , %itemName , #SPC , in your pack , #DOT
+set #LPC 1000
+return
+}
+set %count ( %count + 1 )
+ignoreitem #findID
+goto count_loop
+set #LPC 1000
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Tool_Check..............................
+;--------------------------------------------------------------
+sub Tool_Check
+set %gone #False
+finditem %Curent_Tongs in C_ , #BackpackID
+if #FindCnt = 0
+{
+set %gone #True
+}
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;--------------------------------------------------------------
+;..................Sub Weight_Check............................
+;--------------------------------------------------------------
+sub Weight_Check
+set %Full #FALSE
+if #weight > ( #MAXWEIGHT - 100 )
+{
+set %Full #TRUE
+}
+gosub Item_Count
+return
+;--------------------------------------------------------------
+;**************************************************************
+;--------------------------------------------------------------
+;==============================================================
+;**************************************************************
+;==============================================================

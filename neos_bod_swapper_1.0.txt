@@ -1,0 +1,1783 @@
+;===================================================================================
+; Script Name: neo's Bod Swapper Public Edition
+; Author: neo
+; Version: 1.0
+; Client Tested With: 7.0.18.0
+; EUO version tested with: 1.50 202
+; Shard OSI / FS: OSI
+; Revision Date: 09/22/2011
+; Public Release: 09/06/2011
+; Purpose: Swaps filled bods at NPC. Will recall home to drop off stuff.
+;          Only for Smith BODS!
+;-----------------------------------------------------------------------------------
+; Special Thanks: - TM for his NGFS and Recall subs.
+;                 - 12timesover for his XIIxMaxWeight sub
+;                 - MeWonUo who's the co-author of our private edition :)
+;                 - Newsman for debugging v0.2 with me for people with low ping!
+;-----------------------------------------------------------------------------------
+; Url:     http://www.scriptuo.com/index.php?topic=8460.0
+;------------------------------------------------------------------------------------
+; Version   1.0 Lots of changes:
+;               - Changed recall subs. You can now choose whatever runes for all 4
+;                 runes you wish to use
+;               - Redid menu, and the way setup works
+;               - Saving will now work properly
+;               - If an NPC can't be found within 2 tiles, it will search for an NPC up
+;                 to 7 tiles away, and then walk over to them to do the swapping.
+;                 Won't open doors though, so make sure there aren't any doors
+;                 between you and the NPC. And it won't pathfind either, so have a
+;                 clear path to the NPC! Thank you TM for this suggestion! :)
+;               - Will now finish putting away your stuff after the last bod is swapped.
+;               - Removed gloves from 'return item' list. Turns out you can't return
+;                 gloves, and I had forgotten about it! :)
+;               - Added gargoyle pickaxes to 'return item' list
+;-------------------------------------------------------------------------------------
+; Version   0.4 - Changed #findrep back to 7, which is fixed in EUO 1.50 202
+;-------------------------------------------------------------------------------------
+; Version   0.3 - Made the script a little slower to prevent issues to people with
+;                 low ping.
+;               - A few minor fixes
+;-------------------------------------------------------------------------------------
+; Version   0.2 - Fixed not finding NPC issue with new EUO/Client version
+;               - Added option to chose your travel method
+;-------------------------------------------------------------------------------------
+; Instructions: - You must setup your containers at home for each kind of reward. You
+;                 can chose some rewards that you don't want to keep to be returned to
+;                 the NPC. If a container for your mining stuff (ie pickaxes, prospect, etc.)
+;                 gets full, those items will be added to the return list, and start being
+;                 returned to the NPC.
+;               - You must write the rune numbers of both runes for each location in the edit box
+;                 in the menu.
+;                 2 runes for smith, 2 runes for home. They MUST be consecutive runes
+;                 in your book, i.e. 7 & 8 for your home runes, or 3 & 4 for you smithy runes
+;                 Remember to mark runes close enough to the NPCs
+;               - You can save/load your setup, so that you don't have to set your containers and rune books
+;                 every time you run the script
+;               - After everything is set, you must recall to the smithy and hit the start button ONLY WHEN
+;                 YOU'RE AT THE SMITHY! If you hit start being somewhere else, the script won't work
+;---------------------------------------------------------------------------------------------------------
+; This is a variation of a personal script I wrote for personal use, so I decided to modify it a bit
+; and post this public version. Hope to get some feedback so I can keep fixing
+; and improving this until it's stable enough for everyone to run it flawlessly.
+;-----------------------------------------------------------------------------------------------------
+
+set %bodinfopos 2
+set %bodstuff TWF_QPF_NPF_KKH_XKH_BMH_GBG_EWH_KEG_TLH_TVH
+set %sturdy QPF_TWF
+set %shovel TWF
+set %pickaxe QPF
+set %gargoyle NPF
+set %gargoyles NPF_QPF
+set %glove KKH_XKH_BMH
+set %deed EWH
+set %pof KEG
+set %hammer TLH
+set %scroll TVH
+set %prospect GBG
+set %location npc
+;======= TM Stuff =======
+gosub TM_AddUnderscore #CHARNAME
+set %charname #RESULT
+;========================
+gosub menu
+set #menubutton N/A
+
+repeat
+  if #menubutton <> N/A
+    gosub #menubutton
+until #false
+
+
+
+;======= Gumpwait Sub =======
+sub gumpwaitneo
+  namespace push
+  namespace local gumpwait
+  set !contname %1
+  set !contsize %2
+  set !timeout #SCNT + 5
+  if !contsize = null
+  {
+    repeat
+    until #contname = !contname || #scnt >= !timeout
+    {
+      if #contname = !contname
+      {
+        namespace pop
+        return #true
+      }
+      namespace pop
+      return #false
+    }
+  }
+  repeat
+  until ( #contname = !contname && #contsize = !contsize ) || #scnt >= !timeout
+  if #contname = !contname && #contsize = !contsize
+  {
+    namespace pop
+    return #true
+  }
+  namespace pop
+return #false
+;======= End Sub =======
+
+;======= find vendor sub =======
+sub findvendor
+  namespace push
+  namespace local fv
+  for !i 2 7
+  {
+    finditem HS_IS G_ . !i
+    if #findcnt > 0
+    {
+      for #findindex 1 #findcnt
+      {
+        if #findrep = 7
+        {
+          event property #findid
+          wait 5
+          if blacksmith in #property || armourer in #property
+          {
+            set !vendor #findid
+            set #result !vendor
+            namespace pop
+            return #result
+          }
+        }
+      }
+    }
+  }
+display No NPC's found. Halting
+halt
+;======= end sub =======
+
+;======= turnbodin sub =======
+sub turnbodin
+  finditem %vendor G_7
+  if #findcnt < 1
+  {
+    display Error finding vendor. Please report this on SUO.
+    halt
+  }
+  set %distx ( #charposx - #findx ) abs
+  set %disty ( #charposy - #findy ) abs
+  if %distx > 2 || %disty > 2
+    gosub movecloser #findx #findy
+  set %findbodtimeout #SCNT + 5
+  repeat
+    finditem EYM C_ , #backpackid
+  until #findcnt > 0 || #SCNT >= %findbodtimeout
+  wait 10
+  exevent drag #findid #findstack
+  wait 10
+  exevent dropc %vendor
+  wait 10
+  ignoreitem #findid
+return
+;======= end sub =======
+
+;======= movecloser sub =======
+sub movecloser
+  namespace push
+  namespace local movecloser
+  set !targetx %1
+  set !targety %2
+  repeat
+    set !direction 8
+    set !distx !targetx - #charposx abs
+    set !disty !targety - #charposy abs
+    if !distx > 2 || !disty > 2
+    {
+      if !disty > 2
+      {
+        if #charposx < !targety
+          set !direction 5
+        if #charposy > !targety
+          set !direction 1
+      }
+      if !distx > 2
+      {
+        if #charposx > !targetx
+        {
+          if !direction = 5
+            set !direction 6
+          if !direction = 1
+            set !direction 0
+          if !direction = 8
+            set !direction 7
+        }
+        if #charposx < !targetx
+        {
+          if !direction = 5
+            set !direction 4
+          if !direction = 1
+            set !direction 2
+          if !direction = 8
+            set !direction 3
+        }
+      }
+    }
+    event macro 5 !direction
+  until !distx <= 2 && !disty <= 2
+  namespace pop
+return
+;======= end sub =======
+
+;======= checkload sub =======
+sub checkload
+  gosub XIIxMaxWeight 30
+  if #weight > #result
+    return #true
+  event property #backpackid
+  wait 5
+  str pos #property Contents
+  set %start #strres + 10
+  str mid #property %start 3
+  set %property #strres
+  if / in %property
+  {
+    str left %property 2
+    set %property #strres
+  }
+  if %property > 110
+    return #true
+return #false
+;======= end sub =======
+
+
+;======= putaway sub =======
+sub putaway
+  set %old_lpc #lpc
+  set #lpc 100
+  finditem %return C_ , #backpackid
+  wait 10
+  if %returnpickaxe
+  {
+    for #findindex 1 #findcnt
+    {
+      if #findcol = 2419
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %vendor
+        wait 10
+      }
+      if %gargoyle in %return
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %vendor
+        wait 10
+      }
+      if %gargoyle notin %return
+      {
+        if #findcol = 545 && #findtype = QPF
+          ignoreitem #findid
+      }
+    }
+  }
+  if %returnpickaxe <> #true
+  {
+    for #findindex 1 #findcnt
+    {
+      if #findcol <> 545 && #findtype = QPF
+      {
+        ignoreitem #findid
+      }
+      else
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %vendor
+        wait 10
+      }
+    }
+    ignoreitem reset
+    wait 10
+    gosub checkload
+    if #result
+    {
+      finditem %bodstuff C_ , #backpackid
+      wait 10
+      if #findcnt > 0
+        gosub dropoff
+      wait 20
+      if %location <> npc
+      {
+        set %charposx #charposx
+        set %charposy #charposy
+        set %rune %npcrune1
+        repeat
+          gosub neotravel %npcbook %rune RE 7
+          if #result <> #true
+          {
+            if %rune = %npcrune1
+              set %rune %npcrune2
+            else
+              set %rune %npcrune1
+            wait 20
+          }
+        until #result
+      }
+      set %location npc
+    }
+  }
+  event macro 9 7
+  wait 5
+  event macro 8 7
+  gosub gumpwaitneo container_gump 230_204
+  contpos 400 650
+  set #lpc %old_lpc
+return
+;======= end sub =======
+
+;======= dropoff =======
+sub dropoff
+  if %location <> home
+  {
+    set %rune %homerune1
+    repeat
+      gosub neotravel %homebook %rune RE 7
+      if #result <> #true
+      {
+        if %rune = %homerune1
+          set %rune %homerune2
+        else
+          set %rune %homerune1
+        wait 20
+      }
+    until #result
+  }
+  set %location home
+  repeat
+    finditem %hammer C_ , #backpackid
+    wait 10
+    if #findkind <> -1
+    {
+      for #findindex 1 #findcnt
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %hammer_cont
+        wait 10
+      }
+    }
+  until #findkind = -1
+  repeat
+    finditem %scroll C_ , #backpackid
+    wait 10
+    if #findkind <> -1
+    {
+      for #findindex 1 #findcnt
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %scroll_cont
+        wait 10
+      }
+    }
+  until #findkind = -1
+  repeat
+    finditem %deed C_ , #backpackid
+    wait 10
+    if #findkind <> -1
+    {
+      for #findindex 1 #findcnt
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %deed_cont
+        wait 10
+      }
+    }
+  until #findkind = -1
+  repeat
+    finditem %pof C_ , #backpackid
+    wait 10
+    if #findkind <> -1
+    {
+      for #findindex 1 #findcnt
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %pof_cont
+        wait 10
+      }
+    }
+  until #findkind = -1
+  repeat
+    event property %gargoyle_cont
+  until Stones in #property
+  str pos #property Contents
+  set %start #strres + 10
+  str mid #property %start 3
+  set %property #strres
+  if / in %property
+  {
+    str left %property 2
+    set %property #strres
+  }
+  if %property >= 125
+  {
+    if %return = N/A
+    {
+      set %return %gargoyle , _ . %pickaxe
+    }
+    else
+    {
+      set %return %return , _ . %gargoyle , _ . %pickaxe
+    }
+  }
+  repeat
+    finditem %gargoyle C_ , #backpackid
+    wait 10
+    if #findkind <> -1 && %gargoyle notin %return
+    {
+      for #findindex 1 #findcnt
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %gargoyle_cont
+        wait 10
+      }
+    }
+  until #findkind = -1 || %gargoyle in %return
+  repeat
+    finditem %pickaxe C_ , #backpackid
+    wait 10
+    if #findkind <> -1 && %gargoyle notin %return
+    {
+      for #findindex 1 #findcnt
+      {
+        if #findcol = 545
+        {
+          exevent drag #findid #findstack
+          wait 10
+          exevent dropc %gargoyle_cont
+          wait 10
+        }
+        ignoreitem #findid
+      }
+    }
+  until #findkind = -1 || %gargoyle in %return
+  ignoreitem reset
+  repeat
+    event property %sturdy_cont
+  until Stones in #property
+  str pos #property Contents
+  set %start #strres + 10
+  str mid #property %start 3
+  set %property #strres
+  if / in %property
+  {
+    str left %property 2
+    set %property #strres
+  }
+  if %property >= 125
+  {
+    set %returnpickaxe #true
+    if %return = N/A
+    {
+      set %return %pickaxe , _ . %shovel
+    }
+    else
+    {
+      set %return %return , _ . %pickaxe , _ . %shovel
+    }
+  }
+  repeat
+    finditem %pickaxe C_ , #backpackid
+    wait 10
+    if #findkind <> -1 && %returnpickaxe <> #true
+    {
+      for #findindex 1 #findcnt
+      {
+        if #findcol = 2419
+        {
+          exevent drag #findid #findstack
+          wait 10
+          exevent dropc %sturdy_cont
+          wait 10
+        }
+        ignoreitem #findid
+      }
+    }
+  until #findkind = -1 || %returnpickaxe = #true
+  ignoreitem reset
+  repeat
+    finditem %shovel C_ , #backpackid
+    wait 10
+    if #findkind <> -1 && %returnpickaxe <> #true
+    {
+      for #findindex 1 #findcnt
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %sturdy_cont
+        wait 10
+      }
+    }
+  until #findkind = -1 || %returnpickaxe = #true
+  repeat
+    finditem %glove C_ , #backpackid
+    wait 10
+    if #findkind <> -1
+    {
+      for #findindex 1 #findcnt
+      {
+        exevent drag #findid #findstack
+        wait 10
+        exevent dropc %glove_cont
+        wait 10
+      }
+    }
+  until #findkind = -1
+  repeat
+    event property %prospect_cont
+  until Stones in #property
+  str pos #property Contents
+  set %start #strres + 10
+  str mid #property %start 3
+  set %property #strres
+  if / in %property
+  {
+    str left %property 2
+    set %property #strres
+  }
+  if %property >= 125
+  {
+    if %return = N/A
+    {
+      set %return %prospect
+    }
+    else
+    {
+      set %return %return , _ . %prospect
+    }
+  }
+  repeat
+    finditem %prospect C_ , #backpackid
+    wait 10
+    if #findkind <> -1 && %prospect notin %return
+    {
+      for #findindex 1 #findcnt
+      {
+        if #findcol = 2419
+        {
+          exevent drag #findid #findstack
+          wait 10
+          exevent dropc %prospect_cont
+          wait 10
+        }
+        ignoreitem #findid
+      }
+    }
+  until #findkind = -1 || %prospect in %return
+return
+;======= end sub =======
+
+;======= start_button =======
+sub start_button
+  set %return N/A
+  wait 10
+  menu get travelbox
+  if #menures = 1
+    set %travel_method RE
+  if #menures = 2
+    set %travel_method SJ
+  menu get sturdy_chk
+  if #menures
+  {
+    set %returnpickaxe #true
+    if %return = N/A
+      set %return %sturdy
+    else
+      set %return %return , _ . %sturdy
+  }
+  menu get gargoyle_chk
+  if #menures
+  {
+    if %return = N/A
+      set %return %gargoyles
+    else
+      set %return %return , _ . %gargoyles
+  }
+  menu get deed_chk
+  if #menures
+  {
+    if %return = N/A
+      set %return %deed
+    else
+      set %return %return , _ . %deed
+  }
+  menu get prospect_chk
+  if #menures
+  {
+    if %return = N/A
+      set %return %prospect
+    else
+      set %return %return , _ . %prospect
+  }
+  menu get scroll_chk
+  if #menures
+  {
+    if %return = N/A
+      set %return %scroll
+    else
+      set %return %return , _ . %scroll
+  }
+  set %location npc
+  event sysMessage Select book of filled BODs.
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %filledbook #ltargetid
+  event sysMessage Select book for empty BODs.
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %emptybook #ltargetid
+  repeat
+    gosub findvendor
+  until #result <> #false
+  set %vendor #result
+  repeat
+    gosub checkload
+    if #result
+      gosub putaway
+    repeat
+      exevent popup %vendor
+      gosub gumpwaitneo normal_gump null
+    until #result = #true
+    set %x #contposx + 30
+    set %y #contposy + ( 19 * %bodinfopos )
+    click %x %y f dmc
+    gosub gumpwaitneo generic_gump null
+    if #result
+    {
+      set %contsize #contsize
+      str mid %contsize 5 3
+      set %contheight #strres
+      set %clicky %contheight - 27
+      set %x #contposx + 115
+      set %y #contposy + %clicky
+      click %x %y f dmc
+      set %findbodtime #scnt + 5
+      repeat
+        finditem EYM C_ , #backpackid
+      until #findcnt > 0 || #SCNT >= %findbodtime
+      wait 10
+      exevent drag #findid
+      wait 10
+      exevent dropc %emptybook
+      wait 10
+      ignoreitem #findid
+      gosub gumpwaitneo generic_gump 620_459
+      if #result = #true
+      {
+        set %clickx #contposx + 390
+        set %clicky #contposy + 428
+        click %clickx %clicky f dmc
+      }
+    }
+    wait 5
+    gosub dropbod
+    wait 5
+    gosub turnbodin
+    wait 5
+  until #false
+return
+;======= end sub =======
+
+;======= drop bod sub =======
+sub dropbod
+  repeat
+    finditem %filledbook
+    event property #findid
+  until weight in #property
+  str pos #property Deeds
+  set %start #strres + 15
+  str mid #property %start 1
+  set %bodinbook #strres
+  if %bodinbook = 0
+  {
+    gosub dropoff
+    gosub putaway
+    display All done!
+    halt
+  }
+  set #lobjectid %filledbook
+  event macro 17
+  gosub gumpwaitneo generic_gump 620_459
+  if #result = #true
+  {
+    set %clickx #contposx + 40
+    set %clicky #contposy + 105
+    click %clickx %clicky f dmc
+    gosub gumpwaitneo generic_gump 620_459
+    if #result = #true
+    {
+      set %clickx #contposx + 390
+      set %clicky #contposy + 428
+      click %clickx %clicky f dmc
+    }
+  }
+return
+;======= end sub =======
+
+
+;======= Save_Button Sub =======
+sub save_button
+  Display yesno Are you sure you want to save?
+  if #dispres = no
+  {
+    set #menubutton N/A
+    return
+  }
+  menu get home_rune1
+  set %homerune1 #menures
+  menu get home_rune2
+  set %homerune2 #menures
+  menu get npc_rune1
+  set %npcrune1 #menures
+  menu get npc_rune2
+  set %npcrune2 #menures
+  menu get travelbox
+  if #menures <> 2
+    set %travel_method RE
+  if #menures = 2
+    set %travel_method SJ
+  menu get sturdy_chk
+  if #menures
+  {
+    set %returnpickaxe #true
+    if %return = N/A
+      set %return %sturdy
+    else
+      set %return %return , _ . %sturdy
+  }
+  menu get gargoyle_chk
+  if #menures
+  {
+    if %return = N/A
+      set %return %gargoyles
+    else
+      set %return %return , _ . %gargoyles
+  }
+  menu get deed_chk
+  if #menures
+  {
+    if %return = N/A
+      set %return %deed
+    else
+      set %return %return , _ . %deed
+  }
+  menu get prospect_chk
+  if #menures
+  {
+    if %return = N/A
+      set %return %prospect
+    else
+      set %return %return , _ . %prospect
+  }
+  menu get scroll_chk
+  if #menures
+  {
+    if %return = N/A
+      set %return %scroll
+    else
+      set %return %return , _ . %scroll
+  }
+  gosub TM_NGFS_InitializeScript frneopublicswapper
+  gosub TM_NGFS_RegisterVariables frneopublicswapper std std gargoyle_cont sturdy_cont prospect_cont glove_cont hammer_cont scroll_cont deed_cont pof_cont
+  gosub TM_NGFS_RegisterVariables frneopublicswapper std std homebook homerune2 npcbook homerune1 npcrune2 npcrune1 travel_method return returnpickaxe
+  gosub TM_NGFS_SaveVariables frneopublicswapper
+  set #menubutton N/A
+  Display Settings Saved
+return
+;======= End Sub =======
+
+;======= Load_button sub =======
+sub load_button
+  gosub TM_NGFS_InitializeScript frneopublicswapper
+  gosub TM_NGFS_DoesSaveExist frneopublicswapper
+  if #result = #false
+  {
+    Display No save found
+    set #menubutton N/A
+    return
+  }
+  if #result
+  {
+    gosub TM_NGFS_LoadVariables frneopublicswapper
+    if %gargoyle_cont = N/A
+    {
+      Display No save found for this character
+      set #menubutton N/A
+      return
+    }
+  if %returnpickaxe
+    menu set sturdy_chk #true
+  if %gargoyles in %return
+    menu set gargoyle_chk #true
+  if %deed in %return
+    menu set deed_chk #true
+  if %prospect in %return
+    menu set prospect_chk #true
+  if %scroll in %return
+    menu set scroll_chk #true
+  display Config successfully loaded
+  }
+  set #menubutton N/A
+  menu delete setup_button
+  menu Button start_button 88 224 95 25 Start
+return
+;======= End Sub =======
+
+;======= gargoyle_button =======
+sub setup_button
+  event sysMessage Target the container for your Gargoyle Pick's
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %gargoyle_cont #ltargetid
+  wait 10
+  event sysMessage Target the container for your Sturdy Stuff
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %sturdy_cont #ltargetid
+  wait 10
+  event sysMessage Target the container for your Prospector Tools
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %prospect_cont #ltargetid
+  wait 10
+  event sysMessage Target the container for your gloves
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %glove_cont #ltargetid
+  wait 10
+  event sysMessage Target the container for your hammers
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %hammer_cont #ltargetid
+  wait 10
+  event sysMessage Target the container for your scrolls
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %scroll_cont #ltargetid
+  wait 10
+  event sysMessage Target the container for your deeds
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %deed_cont #ltargetid
+  set #menubutton N/A
+  wait 10
+  event sysMessage Target the container for your POF
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %pof_cont #ltargetid
+  set #menubutton N/A
+  menu delete setup_button
+  menu Button start_button 88 224 95 25 Start
+return
+;======= end sub =======
+
+;======= home_button =======
+sub home_button
+  event sysMessage Target your home runebook
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %homebook #ltargetid
+  menu get home_rune1
+  set %homerune1 #menures
+  menu get home_rune2
+  set %homerune2 #menures
+  set #menubutton N/A
+return
+;======= end sub =======
+
+;======= npc_button =======
+sub npc_button
+  event sysMessage Target your npc runebook
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set %npcbook #ltargetid
+  menu get npc_rune1
+  set %npcrune1 #menures
+  menu get npc_rune2
+  set %npcrune2 #menures
+  set #menubutton N/A
+return
+;======= end sub =======
+
+
+
+
+
+;===================================================================================
+; Script Name: neo's Runebook Travel Sub
+; Author: neo
+; Version: 0.2
+; Client Tested With: 7.0.16.3
+; EUO version tested with: 1.50 199
+; Shard OSI / FS: OSI
+; Revision Date: 09/08/2011
+; Public Release: N/A
+; Purpose: Uses recall or sacred journey to travel from selected runebook
+;-----------------------------------------------------------------------------------
+; Instructions:  Just call this sub with the four needed parameters:
+;                - Rune book ID: ID of your rune book
+;                - Rune number: 1-16
+;                - Method: RE for recall, SJ for SJ
+;                - Timeout: number in seconds of time to wait after attempting to recall
+;                  to return #false in case position hasn't changed.
+;
+; Example:       gosub neotravel %runebookid 10 RE 5
+;                -> Will attempt to travel from %runebookid, rune number 10, using
+;                   Recall. If after 5 seconds the position hasn't changed, #false
+;                   will be returned.
+;----------------------------------------------------------------------------------------
+;======= neotravel sub =======
+sub neotravel
+if ( %0 <> 4 || %2 < 1 || %2 > 16 || %3 notin RE_SJ )
+   return #false
+namespace push
+namespace local neotravel
+set !_runebook %1
+set !_runenumber %2
+set !_method %3
+set !_wait %4
+if #contname = generic_gump && #contsize = 452_236
+{
+  set !closex #contposx + 250
+  set !closey #contposy + 100
+  click !closex !closey r f dmc
+  wait 5
+}
+set !location #charposx , _ . #charposy
+repeat
+set #lobjectid !_runebook
+event macro 17
+gosub neogumpwait generic_gump 452_236
+if #result = #false
+{
+  event macro 9 7
+  wait 1
+  nextCPos 776 577
+  event macro 8 7
+  gosub gumpwait container_gump N/A #backpackid
+  wait 15
+}
+until #result
+set !contposx #contposx
+set !contposy #contposy
+wait 5
+set !page ( !_runenumber / 2 ) + ( !_runenumber % 2 )
+set !page_start 105
+set !page_y 197
+set !page_x ( !page_start + ( !page * 35 ) )
+if !page > 4
+   set !page_x !page_x + 30
+set !travel_x 140
+if ( !_runenumber % 2 ) = 0
+   set !travel_x !travel_x + 160
+if !_method = RE
+   set !travel_y 145
+if !_method = SJ
+   set !travel_y 180
+set !x !contposx + !page_x
+set !y !contposy + !page_y
+click !x !y f dmc
+wait 5
+gosub TM_AdvJournalSync neotravel 100
+set !x !contposx + !travel_x
+set !y !contposy + !travel_y
+click !x !y f dmc
+repeat
+until !_runebook <> #contid
+set !timeout #scnt + !_wait
+repeat
+set !newlocation #charposx , _ . #charposy
+gosub TM_AdvJournalScan neotravel VALID Something_is_blocking is_blocked
+if #result = #true
+{
+  namespace pop
+  return blocked
+}
+gosub TM_AdvJournalScan neotravel VALID not_yet_recovered time_to_recharge
+if #result = #true
+{
+  namespace pop
+  wait 40
+  return #false
+}
+gosub TM_AdvJournalScan neotravel VALID spell_fizzles
+if #result = #true
+{
+  namespace pop
+  wait 30
+  return fizzle
+}
+until !newlocation <> !location || #scnt > !timeout
+if !newlocation <> !location
+{
+  namespace pop
+  return #true
+}
+namespace pop
+return #false
+;======= end sub =======
+
+;======= neoGumpwait Sub =======
+sub neogumpwait
+  namespace push
+  namespace local neogumpwait
+  set !contname %1
+  set !contsize %2
+  set !timeout #SCNT + 5
+  if !contsize = null
+  {
+    repeat
+    until #contname = !contname || #scnt >= !timeout
+    {
+      if #contname = !contname
+      {
+        namespace pop
+        return #true
+      }
+      namespace pop
+      return #false
+    }
+  }
+  repeat
+  until ( #contname = !contname && #contsize = !contsize ) || #scnt >= !timeout
+  if #contname = !contname && #contsize = !contsize
+  {
+    namespace pop
+    return #true
+  }
+  namespace pop
+return #false
+;======= End Sub =======
+
+;======= tm stuff =======
+;-------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
+; %1 - Journal Name
+; %2 - #LPC setting (optional)
+; Brings !_jindex up to the most recent #journal entry
+sub TM_AdvJournalSync
+  namespace push
+  namespace local TM_AdvJS_ , %1
+  set !_jindex #jindex + 1
+  if %0 > 1
+    set !lpc_set %2
+  namespace pop
+  set !TM_FunctionCalled #TRUE
+return
+;-------------------------------------------------------------------------------
+; %1 - Journal Name
+; %2 - NONE, ADVANCE , ( _VALID ) - advances jindex pointer, anything else
+; %3, %4, %5, etc strings to match
+; returns #TRUE for match, #FALSE for no match
+;  Will not advance !_jindex pointer to allow for scanning journal history for more than one search.
+;  Also searches for : , #SPC in journal entry to be sure someone isn't spamming the text
+;  About %2 arguments:
+;    NONE: defaults to basic journal scan (no SPAM checking, no #jindex pointer copy advancing)
+;    ADVANCE: no spam checking, advances #jindex copy
+;    VALID: invokes SPAM filtering, no advance of #jindex copy
+;    VALID_ADVANCE, VALIDADVANCE, ADVANCE_VALID, etc.: invokes SPAM filtering, advances of #jindex copy
+sub TM_AdvJournalScan
+  namespace push
+  namespace local TM_AdvJS_ , %1
+  set !args %2
+  set !temp_lpc #LPC
+  if !lpc_set = N/A
+    set #LPC 1000
+  else
+    set #LPC !lpc_set
+  set !num_args %0
+  set !first_arg 3
+  set !sampled_jindex #JINDEX
+  if !_jindex = N/A
+    set !_jindex !sampled_jindex
+  if !charname = N/A
+  {
+    set !charname #CHARNAME
+AdvJournalScan_loop1:
+    str pos !charname #SPC
+    if #STRRES <> 0
+    {
+      set !val #STRRES - 1
+      str left !charname !val
+      set !left #STRRES
+      set !val !val + 1
+      str del !charname 1 !val
+      set !charname !left , _ , #STRRES
+      goto AdvJournalScan_loop1
+    }
+  }
+  set !index !first_arg
+  repeat
+    set !temp_jindex !_jindex
+    set !text % . !index
+    while !temp_jindex <= !sampled_jindex
+    {
+      scanjournal !temp_jindex
+      str pos #JOURNAL !charname 1
+      set !namepos #STRRES
+      str count #JOURNAL !charname
+      set !namecnt #STRRES
+      str pos #JOURNAL :_ 1
+      set !smcpos #STRRES
+      str pos #JOURNAL !text 1
+      set !textpos #STRRES
+      if !textpos < !smcpos && !smcpos <> 0 || !smcpos = 1 || :_ notin #JOURNAL || VALID notin !args
+        set !pass #TRUE
+      else
+        set !pass #FALSE
+      if ( !text in #journal && ( ( !namepos = 1 && !namecnt <= 1 ) || !pass ) )
+      {
+        set !temp_jindex !temp_jindex + 1
+        if ADVANCE in !args
+          set !_jindex !temp_jindex
+        set #LPC !temp_lpc
+        namespace pop
+        set !TM_FunctionCalled #TRUE
+        return #TRUE
+      }
+      set !temp_jindex !temp_jindex + 1
+    }
+    set !index !index + 1
+  until !index - !first_arg > !num_args - !first_arg
+  set %10 !sampled_jindex - !_jindex
+  set %10 %1 , _ , %10 ; for debugging purposes
+  set #LPC !temp_lpc
+  namespace pop
+  set !TM_FunctionCalled #TRUE
+return #FALSE
+
+
+
+
+;======= menu sub =======
+sub menu
+  menu Clear
+  menu Window Title neo's Bod Swapper Public Edition
+  menu Window Color BtnFace
+  menu Window Size 255 260
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name Arial
+  menu Font Size 9
+  menu Font Style b
+  menu Font Color WindowText
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Text EUOLabel10 16 60 Rune Books
+  menu Font Size 8
+  menu Font Style
+  menu Text EUOLabel11 16 108 Home
+  menu Text EUOLabel13 16 132 NPC's
+  menu Font Size 9
+  menu Font Style b
+  menu Text EUOLabel14 164 12 Return Items
+  menu Font Size 8
+  menu Font Style
+  menu Text EUOLabel12 16 76 Write the number of your
+  menu Text EUOLabel16 16 88 runes in the boxes below
+  menu Font Size 9
+  menu Font Style b
+  menu Text EUOLabel17 16 12 Travel Method
+  menu Font Size 8
+  menu Font Style
+  menu Font BGColor Window
+  menu Edit home_rune1 56 108 29
+  menu Font BGColor BtnFace
+  menu Button home_button 116 108 31 17 set
+  menu Font BGColor Window
+  menu Edit home_rune2 84 108 29
+  menu Edit npc_rune2 84 132 29
+  menu Font BGColor BtnFace
+  menu Button npc_button 116 132 31 17 set
+  menu Check sturdy_chk 164 32 97 17 #false Sturdy Stuff
+  menu Check deed_chk 164 48 97 17 #false Deeds
+  menu Check prospect_chk 164 64 97 17 #false Prospector
+  menu Check scroll_chk 164 96 97 17 #false Scrolls
+  menu Font BGColor Window
+  menu Edit npc_rune1 56 132 29
+  menu Font BGColor BtnFace
+  menu Button save_button 20 164 95 25 Save Config
+  menu Button load_button 20 192 95 25 Load Config
+  menu Button setup_button 88 224 95 25 Setup
+  menu Font Name MS Sans Serif
+  menu Font BGColor Window
+  menu Combo Create travelbox 16 32 145
+  menu Combo Add travelbox Recall
+  menu Combo Add travelbox Sacred Journey
+  menu Font Name MS Sans Serif
+  menu Font BGColor BtnFace
+  menu Check gargoyle_chk 164 80 97 17 #false Gargoyle
+  menu Show
+return
+;======= end sub =======
+
+;======= tm stuff =======
+;============================================================
+; Script Name: TrailMyx's Next Generation File System (TM_NGFS)
+; Author: TrailMyx
+; Version: 0.3
+; Shard OSI / FS: Any
+; Revision Date: 8/1/2010
+; Purpose:
+;     This powerful set of routines fully automates the script author's ability to save and restore large amounts of data
+;   to the Windows registry.  These functions allow you to save/restore data to local/global namespaces as well.
+;
+; Limitations:
+;     .  Not yet able to save data sets to file.
+;
+; Functions:
+;     TM_NGFS_InitializeScript
+;     TM_NGFS_RegisterVariables
+;     TM_NGFS_SaveVariables
+;     TM_NGFS_LoadVariables
+;     TM_NGFS_DoesSaveExist
+;     TM_NGFS_DeleteName
+;     TM_NGFS_ForceDelete
+;     TM_NGFS_GetFSIndexVal
+;
+; Support functions (internal use for TM_NGFS):
+;     TM_ReadVariables
+;     AddUnderscore
+;     AddSpace
+;
+; Example code:
+;    gosub TM_NGFS_InitializeScript test_script
+;    set !test 25
+;    set !this 35
+;    set !variable 45
+;    set %newvar another_value
+;    ;gosub TM_NGFS_RegisterVariables local std test this variable ; local:std namespace Notice you can register more than one per line!
+;    gosub TM_NGFS_RegisterVariables test_script local std test ; from local:std !test
+;    gosub TM_NGFS_RegisterVariables test_script local std this ; from local:std !this
+;    gosub TM_NGFS_RegisterVariables test_script local std variable ; from local:std !variable
+;    gosub TM_NGFS_RegisterVariables test_script std std newvar  ; denotes a %var
+;    gosub TM_NGFS_SaveVariables test_script
+;    stop
+;    -----------------------------------
+;    gosub TM_NGFS_DoesSaveExist new_script2
+;    if #RESULT = #TRUE
+;      display ok new_script2 save exists
+;    gosub TM_NGFS_DoesSaveExist new_script2 generic
+;    if #RESULT = #TRUE
+;      display ok new_script2 generic save exists
+;    stop
+;    -----------------------------------
+;    gosub TM_NGFS_InitializeScript test_script
+;    gosub TM_NGFS_LoadVariables test_script
+;    stop
+;
+;============================================================
+; Revision History:
+;   v0.1 - Released to Elites to play with
+;   v0.2 - internal debug version
+;   v0.3 - added TM_NGFS_DeleteName, TM_NGFS_ForceDelete, TM_NGFS_GetFSIndexVal
+;          Also added warnings when TM_FS is not initialized correctly; just for 12X
+;------------------------  Call interface  -----------------------
+;=================================================================
+
+set !TM_FunctionCalled #FALSE
+if %0 = 1 && !TM_FunctionCalled = #FALSE
+  gosub %1
+if %0 = 2 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2
+if %0 = 3 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3
+if %0 = 4 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3 %4
+if %0 = 5 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3 %4 %5
+if %0 = 6 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3 %4 %5 %6
+if %0 = 7 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3 %4 %5 %6 %7
+if %0 = 8 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3 %4 %5 %6 %7 %8
+if %0 = 9 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3 %4 %5 %6 %7 %8 %9
+if %0 = 10 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10
+if %0 = 11 && !TM_FunctionCalled = #FALSE
+  gosub %1 %2 %3 %4 %5 %6 %7 %8 %9 %10 %11
+if %0 > 11
+{
+  display ok Too many arguments for "call", edit the call header.
+  stop
+}
+
+if !TM_FunctionCalled = #TRUE ; successfully called function.
+  exit
+if %0 = N/A
+  display ok You may not run this script directly.
+else
+  display ok Function " , %1 , " not found.
+stop
+;--------------------------------------------------------------------
+;---------------------  Base User Functions -------------------------
+;--------------------------------------------------------------------
+; TM_NGFS_InitializeScript
+; %1 - ScriptName
+; %2 = (opt) generic : add this tag to create a generic (non-character relative data set)
+sub TM_NGFS_InitializeScript
+  namespace push
+  namespace local TM_NGFS , _ , %1
+  namespace clear
+  set !lpc #LPC
+  set #LPC 10000
+  if %0 = 0
+  {
+    display ok You must name your script, spaces will be converted to underscores.
+    stop
+  }
+  set !TM_FSSIZE 1000 ; do not change this!!
+  set !script_name %1
+  set !args %0
+  gosub AddUnderscore !script_name
+  set !script_name #RESULT
+  if !args = 1
+  {
+    gosub AddUnderscore #SHARD
+    set !slot #CHARID , _ , #RESULT , _ , !script_name , _vars
+  }
+  else
+  {
+    set !slot generic , _ , !script_name , _vars
+  }
+  set ! . !slot
+  set !varcnt 0
+  set !index 0
+  set !script_index N/A
+  while *TM_FS . !index <> N/A
+  {
+    if *TM_FS . !index = !slot
+    {
+      set !script_index !index
+      break
+    }
+    set !index !index + 1
+  }
+  if !script_index = N/A
+  {
+    set !script_index !index
+    set *TM_FS . !script_index !slot
+  }
+  set #LPC !lpc
+  namespace pop
+  set !TM_Function_found #TRUE
+return
+;--------------------------------------------------------------------
+; TM_NGFS_RegisterVariables
+; %1 - ScriptName
+; %2 - NSType (local, global, std)  --> std is a %var
+; %3 - NSName (std) --> std is a %var
+; %4, %5, %6, etc. variable names (don't include the % or ! - so %var becomes var, etc)
+sub TM_NGFS_RegisterVariables
+  if %0 <= 3
+  {
+    display ok Not enough arguments
+    stop
+  }
+  namespace push
+  namespace local TM_NGFS , _ , %1
+  if !slot = N/A
+  {
+    display ok You must name your script and also run TM_NGFS_InitializeScript first.
+    stop
+  }
+  set !nstype %2
+  set !nsname %3
+  for !i 4 %0
+  {
+    set !var % . !i
+    if !nstype ,  , !nsname ,  , !var notin ! . !slot
+    {
+      set !newval ! . !slot
+      set ! . !slot !newval , !nstype ,  , !nsname ,  , !var , 
+      set !varcnt !varcnt + 1
+    }
+  }
+  namespace pop
+  set !TM_Function_found #TRUE
+return
+;--------------------------------------------------------------------
+; TM_NGFS_SaveVariables
+; %1 - ScriptName
+; assuming you have registered the variables, then everything will be saved in one call
+sub TM_NGFS_SaveVariables
+  if %0 = 0
+  {
+    display ok You must name your script, spaces will be converted to underscores.
+    stop
+  }
+  namespace push
+  namespace local TM_NGFS , _ , %1
+  if !TM_FSSIZE = N/A
+  {
+    display ok You must first call TM_NGFS_InitializeScript and have$registered variables with TM_NGFS_RegisterVariables - STOPPING.
+    stop
+  }
+  set !lpc #LPC
+  set #LPC 10000
+  set !outstring
+  set !start 1
+  set !sepcnt 1
+  set !line_count 0
+  set !temp_str ! . !slot
+
+  for !i 1 !varcnt
+  {
+    gosub ReadItem ! . !slot
+    set !nstype #RESULT
+    gosub ReadItem ! . !slot
+    set !nsname #RESULT
+    gosub ReadItem ! . !slot
+    set !var #RESULT
+    if std in !nstype
+    {
+      set !val % . !var
+    }
+    else
+    {
+      namespace copy !var from !nstype !nsname
+      set !val ! . !var
+    }
+    set !outstring !outstring , !nstype ,  , !nsname ,  , !var ,  , !val , 
+    str len !outstring
+    if #STRRES >= !TM_FSSIZE
+    {
+      set * . !slot , !line_count !outstring
+      set !outstring
+      set !line_count !line_count + 1
+      set !start !start - 1
+      str del ! . !slot 1 !start
+      set ! . !slot #STRRES
+      set !start 1
+      set !sepcnt 1
+    }
+  }
+  str len !outstring
+  if #STRRES > 0
+  {
+    set * . !slot , !line_count !outstring
+    set !line_count !line_count + 1
+  }
+  set * . !slot , !line_count N/A ; make sure there's nothing left at end of the list
+  set #LPC !lpc
+  set ! . !slot !temp_str
+  namespace pop
+  set !TM_Function_found #TRUE
+return
+;--------------------------------------------------------------------
+; TM_NGFS_LoadVariables
+; %1 - ScriptName
+; note you have to call TM_NGFS_InitializeScript
+sub TM_NGFS_LoadVariables
+  if %0 = 0
+  {
+    display ok You must name your script, spaces will be converted to underscores.
+    stop
+  }
+  namespace push
+  namespace local TM_NGFS , _ , %1
+  if !TM_FSSIZE = N/A
+  {
+    display ok You must first call TM_NGFS_InitializeScript - STOPPING.
+    stop
+  }
+  set !lpc #LPC
+  set #LPC 10000
+  set !start 1
+  set !sepcnt 1
+  set !line_count 0
+  set !temp !slot , !line_count
+  set !string * . !temp
+  set ! . !slot
+  set !varcnt 0
+  set !continue #TRUE
+  while !continue = #TRUE
+  {
+    gosub ReadItem !string
+    if !continue = #TRUE
+    {
+      set !nstype #RESULT
+      gosub ReadItem !string
+      set !nsname #RESULT
+      gosub ReadItem !string
+      set !var #RESULT
+      gosub ReadItem !string
+      set !val #RESULT
+      if std in !nstype
+      {
+        set % . !var !val
+      }
+      else
+      {
+        set ! . !var !val
+        namespace copy !var to !nstype !nsname
+      }
+      set !newval ! . !slot
+      set ! . !slot !newval , !nstype ,  , !nsname ,  , !var , 
+      set !varcnt !varcnt + 1
+    }
+    if !continue = #FALSE
+    {
+      set !line_count !line_count + 1
+      set !temp !slot , !line_count
+      set !string * . !temp
+      set !start 1
+      set !sepcnt 1
+      if !string <> N/A
+        set !continue #TRUE ; still more to process
+    }
+  }
+  set #LPC !lpc
+  namespace pop
+  set !TM_Function_found #TRUE
+return
+;--------------------------------------------------------------------
+; Used internally
+sub ReadItem
+  str pos %1  !sepcnt
+  if #STRRES <> 0
+  {
+    set !len #STRRES - !start
+    str mid %1 !start !len
+    set !start !start + !len + 1
+    set !sepcnt !sepcnt + 1
+    return #STRRES
+  }
+  set !continue #FALSE
+return #TRUE
+;--------------------------------------------------------------------
+; Used internally
+; %1 - string to mung
+sub AddUnderscore
+  namespace push
+  namespace local AU
+  set !tempstring %1
+AddUnderscore_loop1:
+  str pos !tempstring #SPC
+  if #STRRES <> 0
+  {
+    set !val #STRRES - 1
+    str left !tempstring !val
+    set !left #STRRES
+    set !val !val + 1
+    str del !tempstring 1 !val
+    set !tempstring !left , _ , #STRRES
+    goto AddUnderscore_loop1
+  }
+  set #RESULT !tempstring
+  namespace pop
+return #RESULT
+;--------------------------------------------------------------------
+;----------------  Advanced File System Functions -------------------
+;--------------------------------------------------------------------
+; TM_NGFS_DoesSaveExist
+; %1 - ScriptName
+; #RESULT = #TRUE - exists, #FALSE - doesn't exist
+; note: this is relative to the current character.
+sub TM_NGFS_DoesSaveExist
+  namespace push
+  namespace local TM_NGFS , _ , %1
+  set !lpc #LPC
+  set #LPC 10000
+  set !script_name %1
+  set !args %0
+  gosub AddUnderscore !script_name
+  set !script_name #RESULT
+  if !args = 1
+  {
+    gosub AddUnderscore #SHARD
+    set !tempslot #CHARID , _ , #RESULT , _ , !script_name , _vars
+  }
+  else
+  {
+    set !tempslot generic , _ , !script_name , _vars
+  }
+  set !index 0
+  set #RESULT #FALSE
+  while *TM_FS . !index <> N/A
+  {
+    if *TM_FS . !index = !tempslot
+    {
+      set #RESULT #TRUE
+      break
+    }
+    set !index !index + 1
+  }
+  set #LPC !lpc
+  namespace pop
+  set !TM_Function_found #TRUE
+return #RESULT
+;--------------------------------------------------------------------
+; TM_NGFS_DeleteName
+; %1 = script name tag
+; %2 = (opt) generic : add this tag to create a generic (non-character relative data set)
+; note: this will also clean up the data stored within the data set
+sub TM_NGFS_DeleteName
+  namespace push
+  namespace local TM_NGFS , _ , %1
+  set !lpc #LPC
+  set #LPC 10000
+  set !script_name %1
+  set !args %0
+  gosub AddUnderscore !script_name
+  set !script_name #RESULT
+  if !args = 1
+  {
+    gosub AddUnderscore #SHARD
+    set !tempslot #CHARID , _ , #RESULT , _ , !script_name , _vars
+  }
+  else
+  {
+    set !tempslot generic , _ , !script_name , _vars
+  }
+  set !index 0
+  set #RESULT #FALSE
+  set !start #FALSE
+  while *TM_FS . !index <> N/A
+  {
+    if *TM_FS . !index = !tempslot
+      set !start #TRUE
+    if !start = #TRUE
+    {
+      set !next !index + 1
+      set *TM_FS . !index *TM_FS . !next
+    }
+    set !index !index + 1
+  }
+  if !start = #TRUE
+  {
+    set !index 0
+    while !tempslot . !index <> N/A
+    {
+      set !tempslot . !index N/A
+      set !index !index + 1
+    }
+  }
+  set #LPC !lpc
+  namespace pop
+  set !TM_Function_found #TRUE
+return #RESULT
+;--------------------------------------------------------------------
+; TM_NGFS_ForceDelete
+; %1 = Force delete when entire *TM_FSn var value is known - (get from TM_NGFS_GetFSIndexVal)
+; full names are made up like this:  XXYYZZ_Shard_ScriptName_vars (XXYYZZ = CHARID, _vars is required)
+; note: this will also clean up the data stored within the data set
+sub TM_NGFS_ForceDelete
+  namespace push
+  namespace local TM_NGFS , _ , %1
+  set !lpc #LPC
+  set #LPC 10000
+  set !full_name %1
+  set !index 0
+  set #RESULT #FALSE
+  set !start #FALSE
+  while *TM_FS . !index <> N/A
+  {
+    if *TM_FS . !index = !full_name
+      set !start #TRUE
+    if !start = #TRUE
+    {
+      set !next !index + 1
+      set *TM_FS . !index *TM_FS . !next
+    }
+    set !index !index + 1
+  }
+  if !start = #TRUE
+  {
+    set !index 0
+    while !full_name . !index <> N/A
+    {
+      set !full_name . !index N/A
+      set !index !index + 1
+    }
+  }
+  set #LPC !lpc
+  namespace pop
+  set !TM_Function_found #TRUE
+return #RESULT
+;--------------------------------------------------------------------
+; TM_NGFS_GetFSIndexVal
+; %1 = retrieves the *TM_FSn value.  This will be terminated by N/A at the end of the list
+; index value is integer starting at 0 to n
+sub TM_NGFS_GetFSIndexVal
+  namespace push
+  namespace local TM_NGFS , _ , %1
+  set #RESULT *TM_FS . %1
+  namespace pop
+  set !TM_Function_found #TRUE
+return #RESULT
+;--------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+; %1 = Gumpname 1
+; %2 = Gumpname 2
+; #TRUE gump occured before timeout
+sub GumpWait
+  namespace push
+  namespace local GW
+  wait 10
+  set !timedelay #SCNT
+  while #SCNT <= !timedelay + 7
+  {
+    if #CONTNAME = %1 || #CONTNAME = %2
+    {
+      namespace pop
+      return #TRUE
+    }
+  }
+  namespace pop
+return #FALSE
+;======= 12x's stuff =======
+;####################
+;SUB XIIxMaxWeight
+;####################
+; %1 = Maxweight offset
+sub XIIxMaxWeight
+  Namespace Push
+  Namespace Local nsXIIxMaxWeight
+  set !offset %1
+  If #maxweight = N/A
+  {
+    event macro 8 2
+    wait 5
+    event macro 10 2
+  }
+
+  set !MaxWeight #MaxWeight
+
+  finditem #CHARID
+  if #findtype NOTIN AV_XU_OCB_NCB ;char is human
+    set !MaxWeight !MaxWeight + 60
+
+  if !MaxWeight > 550
+    set !MaxWeight 550 ;Backpack maximum
+
+  set !MaxWeight !MaxWeight - !offset ;Adjust as see fit for overfull buffer
+  set #RESULT !MaxWeight
+  Namespace pop
+Return #RESULT
+
+

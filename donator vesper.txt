@@ -1,0 +1,77 @@
+set %chest DVELLMD
+set %runetochest LPOGKMD
+set %runetovesper VPOGKMD
+set %wood TLK
+set %chestvesper LMGWJMD
+set %i 1
+set %x 40
+set %y 259  ; 236 oak // ash 259  // frost 184 // blood 161  // 287 yew
+set %f #false
+
+loop:
+gosub recalltobox
+wait 5
+gosub recalltovesper
+goto loop
+
+sub recalltovesper
+event macro 15 31 ;sacred journey 210
+  target 8s
+  set #ltargetid %runetovesper
+  set #ltargetkind 1
+  event macro 22 0
+  wait 2s
+  repeat
+  set #lobjectid %chestvesper
+  event macro 17 0
+  wait 5
+  until #contsize = 345_359
+  set #contposx 0
+  set #contposy 0
+  wait 2s
+  if %f = #true
+  {
+  click 307 343
+  wait 5
+  set #contposx 0
+  set #contposy 0
+  }
+  click %x %y
+  wait 10
+  finditem %wood C_, #backpackid
+  if findkind <> -1
+  {
+  msg #findstack $
+  }
+  wait 10
+  }
+return
+
+sub recalltobox
+  event macro 15 31 ;sacred journey 210
+  target 8s
+  set #ltargetid %runetochest
+  set #ltargetkind 1
+  event macro 22 0
+  wait 3s
+  set #lobjectid %chest
+  event macro 17 0
+  wait 20
+  finditem %wood C_ , %chest
+  if #findkind <> -1
+  {
+  Exevent Drag #findid 300
+  wait 15
+  Exevent Dropc #backpackid
+  wait 15
+  }
+  else
+  {
+  display No more wood
+  halt
+  }
+  }
+return
+
+
+

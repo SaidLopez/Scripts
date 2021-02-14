@@ -1,0 +1,25 @@
+set %my_items DCI_FWL_RTI_JCP_LJN_UWAB_PQS_GLH_WVI_RDI_EDI_VKH
+set %tijeras JAG
+set %1 0
+
+repeat
+{
+finditem %my_items C_ , #backpackid
+if findkind <> -1
+   {
+ 	 SET #LTARGETID #findid
+	 set #lTargetKind 1
+  gosub tijeras
+   	wait 5
+   	EVENT MACRO 17 0
+   	TARGET 3s
+   	EVENT MACRO 22
+	wait 1s
+}
+}
+
+
+sub tijeras
+finditem %tijeras C_ , #backpackid
+SET #LOBJECTID #findid
+return

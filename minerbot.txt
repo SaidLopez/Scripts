@@ -1,0 +1,2559 @@
+;================================== 
+; Script Name:   WalkingMumblingMinerBot 
+; Author: Heretic
+; Version: 3.11
+; Client Tested with: OSI 4.0.1b
+; EUO version tested with: 1.41 (build 0067)
+; Shard OSI / FS: OSI and current RunUO shards
+; Revision Date: 2/11/2004
+; Public Release: 1/25/2004
+; Global Variables Used: none
+; Purpose: Fully autonomous miner, who appears to be intelligent (in actions and answers). He talks while mining, answers if asked, calls guards when needed, flees home when wounded, tinkers his tools and and and...  Includes a Windows style easy setup for items and rails (it cant be easier). 
+;================================== 
+; v1.01: optimized some waittimes
+; v1.02: had to add some waits ;) and added an "already hidden" check.
+; v1.03: script now detects bankID and backpackID itself without user help.
+; v1.04: Some minor improvements.
+; v1.05: separated variables from program
+; v2.00: corrected several bugs, uses new type TWMMBrailfile.cfg tuned for new Setup wizard
+; v2.01: optimized several subs, added task engine
+; v2.02: minor fixes
+; v3.00: merged setup and minerbot to one
+; v3.01: added interface for Auto-relogon upon conn loss.
+; v3.02: removed hiding sub for OSI - shards (due to stupid hiding timer, which prevents any skill use for 10 secs after hiding)
+; v3.03: Several OSI shard bugs fixed in tinkering, waittimes, endless loops, finditem,... - also added combining of ore in backpack.
+; v3.04: Fixed some more OSI endless loops at bank and drop ore adjusted, might be ok now ...
+; v3.05: Fixed Rail Wizard - also: sometimes marked a forge twice, with x,y too far away on 2nd mark - corrected
+; v3.10: Optimized Drop Ore sub, added Pick up Ore sub, Optimized reliability for Murder report, Optimized reliability of ressurection window detection, added more escapes out of loops, added error checks, added pickup tinker tool and pickup miner tool
+; v3.11: Optimized code for current RunUO shards
+; => THERE IS NOTHING TO CHANGE IN THIS PROGRAM
+; => LEAVE IT THE WAY IT IS!
+; => (experienced programers may change Miner's answers)
+; ==============================================
+
+;=====CurrentTask: ===== 
+; - Also, a rather insidious trick I witnessed is to open a gate in front of the miner's path. 
+; - optimize the other current subs 
+; - releasing the finished stuff. 
+; - 1. GUI when the script is running, how much ore mined, how many ingots created, how many shovel's used, time being ran etc. etc. 
+
+;=====ToDo: ===== 
+; - Language for other journals besides English => set at end of script 
+; - improved thief protection needed. 
+; - Heal with bandaids, emergency recall, trapped pouch use, and being able to save and pick from multiple rails would be cool. 
+; - How about a forensic eval option that allows you to detect members of thieves guild? 
+; - I think it would be good if you could include the hiding before mining etc. options in the GUI menu. Something like when you press 'Start mumbling miner bot' you get all the gameplay options ; - like that. I couldnt actually find where %hiding was eithere, besides in the if statement.. so I just had to delete the if seeing as my miner has no skill in hiding. 
+; - I'd like to see emergency recall in there. So as soon as it detects a murderer, it KOPs to the bank. 
+; - Some support for a mining house would be really great. I have a good spot near a mine that would probably be more productive than the stuff near the bank. It's hard for me to even test it with all the shitheads around. Do you have any suggestions of an area that would be good for testing? 
+; - I think it would be nice if there was an option to mine to a locked box on your person to help prevent thieves. Maybe the option also to have trapped pouches in case PK type paralyzes you. 
+
+;=====Bugs: ==== 
+; - no bugs known as of now
+
+; ===========================
+; Variable declaration
+; ===========================
+
+set %TWMMBcfg minerbot.cfg
+set %TWMMBsetupVer 110
+set %TWMMBcfgVer 0
+
+set %TWMMBrailVer 110
+set %TWMMBrailcfgVer 0
+
+set %TWMMBrailFile TWMMBrail.cfg
+
+; Internal client build number and version required of EasyUO
+set %euoBuildReq 105
+set %euoVersionReq 1.41
+
+; Required options to be set in EasyUO client
+set %euoOpt1 SYS
+set %euoOpt2 EXEC
+
+; Some internal variables
+Set %CFGmaxsteps 6
+set %RAILmaxsteps 6
+set %waittime 2s
+set %HidingTimeOut #time
+
+
+; ===========================
+; Initialize
+; ===========================
+
+initevents
+
+; ======================================== Start of pre start checks ========================================
+
+gosub CheckEUOBuild %euoBuildReq
+if ! #result
+{
+	display ok Your EasyUO version needs to be updated$to run$The Mumbling Walking Miner Bot.$$Please update to EasyUO version %euoVersionReq $and download a newer version from:$http://www.easyuo.com
+	halt
+}
+CheckEUOoptions:
+if  ( %euoOpt1 notin #opts ) || ( %euoOpt2 notin #opts )
+{
+	display okcancel Your EasyUO options are not set to run The Mumbling Walking Miner Bot!$$In your EasyUO Client under Options - Configuration:$1.) Please enable "allow execute".$2.) Please check "Enable Event Sysmessage".$$Press ok when done or cancel to stop program.
+	If #dispres = cancel
+		halt
+	If #dispres = ok
+		goto CheckEUOoptions
+}
+
+TWMMBversionChecks:
+deletevar TWMMBcfgVer
+call %TWMMBcfg
+if %TWMMBsetupVer <> %TWMMBcfgVer
+{
+	display okcancel The Walking Mumbling Miner Bot configuration is missing or from a previous version.$$Press OK to start Setup wizard or press cancel to exit.
+	If #dispres = cancel
+		halt
+	If #dispres = ok
+	{
+		gosub ShowBaseWindow
+		goto SetupWizard
+		goto TWMMBversionChecks
+	}
+}
+gosub ShowBaseWindow
+
+; ======================================== End of pre start checks ========================================
+
+; ======================================== Start of Main Menu ========================================
+
+StartMainMenu:
+gosub ResetWindowLayout
+gosub ShowMainMenu
+set %AccountPasswordflag #false
+MainMenuwaitonclick:
+if #menubutton = SetupTWMMB
+{
+	goto SetupWizard
+}
+if #menubutton = RailWizard
+{
+	goto RailSetupWizard
+}
+if #menubutton = StartTWMMB 
+{
+	menu hide
+	menu get AccountPassword
+	set %AccountPassword #menures
+	TWMMBRailversionChecks:
+	deletevar TWMMBrailcfgVer
+	call %TWMMBcfg
+	call %TWMMBrailFile
+	if %TWMMBRailVer <> %TWMMBrailcfgVer
+	{
+		display okcancel The Walking Mumbling Miner Bot rail file is missing or from a previous version.$$Press OK to start Rail wizard or press cancel to exit.
+		If #dispres = cancel
+			halt
+		If #dispres = ok
+		{
+		gosub ShowBaseWindow
+		goto RailSetupWizard
+		}
+	}
+	goto MinerBot
+}
+if #menubutton = ExitTWMMB
+{
+	menu hide
+	halt
+}
+if #menubutton = CLOSED
+{
+	menu hide
+	halt
+}
+if #menubutton = AutoLogin
+{
+	menu delete AutoLogin
+	menu delete Relogon
+	menu text warning 13 290 Enter UO password Relogon filename at own risk:
+	menu edit AccountPassword 10 310 380 N/A
+	set %AccountPasswordFlag #true
+	set #menubutton N/A
+}
+goto MainMenuwaitonclick
+
+; ======================================== End of Main Menu ========================================
+
+; ======================================== Start of Setup Wizard ======================================== 
+
+; ===========================
+; SetupWizard Base Window
+; ===========================
+SetupWizard:
+	menu hide
+	display yesno Is this Setup for an OSI shard?$$Press Yes if your shard is an OSI shard,$Press No if you are playing on a freeshard.
+	if #dispres = yes
+		set %OSIshard #true
+	if #dispres = no
+		set %OSIshard #false
+	menu show
+	Set %CurrentStep 0
+	gosub SetupWizardLayout
+	menu text intro 113 110 Welcome to The Walking Mumbling Miner Bot
+	if %OSIshard
+		menu text intro 113 125 Setup Wizard for OSI shards.
+	if ! %OSIshard
+		menu text intro 113 125 Setup Wizard for non OSI shards.
+	menu text intro 113 155 Choose your operating system:
+	menu Combo create OperatingSystem 110 175 280
+	menu Combo add OperatingSystem Windows NT, 2000, XP and higher
+	menu Combo add OperatingSystem Windows 95, 98 or ME
+	menu text intro 113 220 Press Next to start Setup, press Exit to cancel.
+	menu button Exit 110 240 130 30 Exit
+	menu button Next 260 240 130 30 Next >
+	menu activate Next
+
+	SetupBasePress:
+	menu get OperatingSystem
+	if #menubutton = Exit || #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = Next 
+	{
+		If #menures > 0
+			goto BaseToStep1
+		menu hide
+		display ok Please choose your Operating System$before you continue.
+		menu show
+		set #menubutton N/A
+	}
+	goto SetupBasePress
+
+; ===========================
+; SetupWizard Step 1 Window
+; ===========================
+	BaseToStep1:
+	if #menures = 1
+		Set %cmd cmd.exe
+	if #menures = 2
+		Set %cmd command.com
+	Set %currentStep %CurrentStep + 1
+	gosub SetupWizardLayout
+	gosub ShowProgressBar %CurrentStep %CFGmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 1:
+	menu font style
+	menu text info 10 185 Identify basic
+	menu text info 10 200 items.
+	gosub SetFontDefault
+	menu font style b
+	menu text intro 113 110 Get these items (for non OSI default):
+	gosub SetFontDefault
+	menu text intro 113 125 1) An Ore pile (color doesn't matter) - also get a
+	menu text intro 127 140  small and medium pile, if existant on your shard.
+	if %OSIshard
+		menu text intro 113 155 2) An Ingot you mined (color doesn't matter)
+	if ! %OSIshard
+		menu text intro 113 155 2) An Ingot (color doesn't matter)
+	if %OSIshard
+		menu text intro 113 170 3) 2 shovels (1 Player crafted, 1 NPC)
+	if ! %OSIshard
+		menu text intro 113 170 3) A shovel
+	menu text intro 113 185 4) Any other mining tools you use (like pickaxe)
+	menu text intro 113 200 5) Optional: tinker's tools (Player crafted)
+	menu text intro 113 220 Press Next, when you got all items.
+	menu button Next 260 240 130 30 Next >
+	menu activate Next
+	SetupStep1Press:
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = Next 
+	{
+		gosub ResetSetupStep2Values
+		if %OSIshard
+			gosub SetOSIToolDefault
+		Set %currentStep %CurrentStep + 1
+		goto Step1ToStep2
+	}
+	goto SetupStep1Press
+
+; ===========================
+; SetupWizard Step 2 Window
+; ===========================
+	Step1ToStep2:
+	gosub SetupWizardLayout
+	gosub ShowProgressBar %CurrentStep %CFGmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 2:
+	menu font style
+	menu text info 10 185 Press the
+	menu text info 10 200 buttons to
+	menu text info 10 215 target the
+	menu text info 10 230 items.
+	gosub SetFontDefault
+	menu button Ore 110 110 130 20 Target Ore(s)
+	menu text info 250 112 %OreType
+	menu button Ingot 110 132 130 20 Target Ingot
+	menu text info 250 134 %IngotType
+	menu button MiningTool 110 154 130 20 Target mining tools
+	menu text info 250 156 %MiningTools
+	menu button TinkerTool 110 176 130 20 Target tinker's tools
+	menu text info 250 178 %TinkerTool
+	menu button DisableTinker 110 198 280 20 Disable Tinkering
+	menu button ResetStep2 110 240 130 30 Reset Values
+	menu button Next 260 240 130 30 Next >
+	menu activate Ore
+	SetupStep2Press:
+	if #menubutton = Ore
+	{
+	; itemType of Ore
+	gosub getTargetIDType Type
+	if %OreType = none
+		set %OreType #result
+	if #result notin %OreType
+		set %OreType #result  , _ , %OreType
+	goto Step1ToStep2
+	}
+	if #menubutton = Ingot
+	{
+		; itemType of Ingots
+		gosub getTargetIDType Type
+		set %IngotType #result
+		goto Step1ToStep2	
+	}
+	if #menubutton = MiningTool
+	{
+		; itemType of MiningTool Shovel or pickaxe
+		gosub getTargetIDType Type
+		if %MiningTools = None
+			set %MiningTools #result
+		if #result notin %Miningtools
+			set %MiningTools %MiningTools , _ , #result
+		goto Step1ToStep2
+	}
+	if #menubutton = TinkerTool
+	{
+		; itemType of your tinker tool.
+		gosub getTargetIDType Type
+		if %TinkerTool = Inactive
+			set %TinkerTool #result
+		if #result notin %TinkerTool
+			set %TinkerTool %TinkerTool , _ , #result
+		goto Step1ToStep2		
+	}
+	if #menubutton = DisableTinker
+	{
+		set %TinkerTool Inactive
+		goto Step1ToStep2
+	}
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = ResetStep2 
+	{
+		gosub ResetSetupStep2Values
+		goto Step1ToStep2
+	}
+	if #menubutton = Next 
+	{
+		gosub CheckStep2Done
+		if #result
+			goto Step2ToStep3
+		menu hide
+		display ok Not all items were identified.$Please finish this step before you continue.
+		menu show
+		set #menubutton N/A
+	}
+	goto SetupStep2Press
+
+; ===========================
+; SetupWizard Step 3 Window
+; ===========================
+	Step2ToStep3:
+	Set %currentStep %CurrentStep + 1
+	gosub SetupWizardLayout
+	gosub ShowProgressBar %CurrentStep %CFGmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 3:
+	menu font style
+	menu text info 10 185 Get an
+	menu text info 10 200 ingot bag.
+	gosub SetFontDefault
+	menu font style b
+	menu text intro 113 110 Please get a container (bag, chest, crate,...)
+	gosub SetFontDefault
+	menu text intro 113 125 Buy or make a container if you do not have
+	menu text intro 113 140 one already. This container will be your ingot
+	menu text intro 113 155 bag. 
+	menu text intro 113 170 Your ingot bag is the bag, where your miner
+	menu text intro 113 185 puts the ingots in which he smelted.
+	menu font style b
+	menu text intro 113 200 Go near a banker when you got a container.
+	menu font style
+	menu text intro 113 220 Press Next, when done.
+	menu button LastStep 110 240 130 30 < Back to Step 1
+	menu button Next 260 240 130 30 Next >
+	menu activate Next
+
+	SetupStep3Press:
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = Next 
+	{
+		goto Step3ToStep4
+	}
+	if #menubutton = LastStep
+	{
+		set %currentstep 0
+		goto BaseToStep1
+	}
+	goto SetupStep3Press
+
+; ===========================
+; SetupWizard Step 4 Window
+; ===========================
+	Step3ToStep4:
+	Set %currentStep %CurrentStep + 1
+	gosub SetupWizardLayout
+	gosub ShowProgressBar %CurrentStep %CFGmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 4:
+	menu font style
+	menu text info 10 185 Define your
+	menu text info 10 200 ingot bag.
+	gosub SetFontDefault
+	menu text intro 113 110 Press the button "Define Ingot Bag" to
+	menu text intro 113 125 target your Ingot Bag.
+	menu button DefineIngotBag 150 150 200 20 Target Ingot Bag
+	menu text intro 113 220 Press Next, when done.
+	menu button LastStep 110 240 130 30 < Back
+	menu button Next 260 240 130 30 Next >
+	menu activate DefineIngotBag
+
+	SetupStep4Press:
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = DefineIngotBag
+	{
+		menu Delete DefineIngotBag
+		gosub getTargetIDType ID
+		set %IngotBag #result
+		set #lobjectid %IngotBag
+		event macro 17 0
+		Set %starttime #time
+
+		SetIngotBagContSize:
+		if %IngotBag <> #contid
+		{
+			if 5 < ( #time - %starttime )
+			{
+				FailedToFindIngotBag:
+				menu hide
+				display ok Failed to recognize Ingot bag. Please retry.
+				menu show
+				set %currentstep %currentstep - 1
+				goto Step3ToStep4
+			}
+			goto SetIngotBagContSize
+		}
+		set %IngotBagContSize #contsize
+		wait 1s
+		gosub OpenBackpackBank
+		wait 1s
+		finditem %IngotBag C_ , %bankID
+		menu font style b
+		event drag %IngotBag
+		Set %starttime #time
+
+		waitforIngotBagdrag:
+		if 5 < ( #time - %starttime )
+		{
+			click 10 300
+			goto FailedToFindIngotBag
+		}
+		if #ContName <> drag_gump
+			goto waitforIngotBagdrag
+		set %FindModx #cursorx - #contposx
+		set %FindMody #cursory - #contposy
+		if %OSIshard
+			set %FindMody %FindMody + 5
+		if %findmodx < 2 || %findmody < 2 || %findmox > 100 || %findmody > 100
+		{
+			click 10 300
+			goto FailedToFindIngotBag
+		}
+		set %IngotBagFindMod %FindModx , _ , %FindMody
+		click 10 300
+		menu text intro 113 165 Ingot Bag check done.
+		menu text intro 113 180 Please leave Ingot Bag in bank box.
+		gosub SetFontDefault
+		set #menubutton N/A
+		menu activate Next
+	}
+
+	if #menubutton = Next 
+	{
+		goto Step4ToStep5
+	}
+	if #menubutton = LastStep
+	{
+		set %currentstep %currentstep - 2
+		goto Step2ToStep3
+	}
+	goto SetupStep4Press
+
+; ===========================
+; SetupWizard Step 5 Window
+; ===========================
+	Step4ToStep5:
+	Set %currentStep %CurrentStep + 1
+	gosub SetupWizardLayout
+	gosub ShowProgressBar %CurrentStep %CFGmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 5:
+	menu font style
+	menu text info 10 185 Saving
+	menu text info 10 200 settings.
+	gosub SetFontDefault
+	menu font style b
+	menu text saving 113 110 Please wait - saving settings ...
+	gosub SetFontDefault
+	menu text saving 113 140 This will take a while.
+	gosub SetFontDefault
+	gosub MakeMinerBotFile
+	menu delete saving
+	menu delete progresstext
+	menu delete progressbox
+	Set %currentStep %CurrentStep + 1
+	gosub ShowProgressBar %CurrentStep %CFGmaxsteps
+	menu text intro 113 140 Done.
+	menu text intro 113 220 Press Return to exit to Main Menu.
+	menu button MainMenu 110 240 280 30 Return
+	menu activate MainMenu
+	SetupStep5Press:
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = MainMenu
+	{
+		set %TWMMBrailcfgver 0
+		call %TWMMBrailFile
+		if %TWMMBrailcfgver = 0
+		{
+			menu hide
+			display ok Your rail file does not exist or is not up to date.$$Press OK to start Rail Wizard.
+			menu show
+			goto RailSetupWizard	
+		}
+		goto StartMainMenu
+	}
+	goto SetupStep5Press
+; ======================================== End of Setup Wizard ======================================== 
+
+; ======================================== Start of Rail Wizard ======================================== 
+
+; ===========================
+; Rail Wizard Welcome
+; ===========================
+
+RailSetupWizard:
+	gosub RailWizardLayout
+	set %EndSpot 0
+	menu text intro 113 110 Welcome to The Walking Mumbling Miner Bot
+	menu text intro 113 125 Rail Setup Wizard. Press Next to start Setup,
+	menu text intro 113 140 press Exit to cancel.
+	menu button Exit 110 240 130 30 Exit
+	menu button Next 260 240 130 30 Next >
+	menu activate Next
+
+	RailWizardBasePress:
+	if #menubutton = Exit || #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = Next 
+	{
+		goto RailStep1
+	}
+	goto RailWizardBasePress
+
+; ===========================
+; Rail Wizard Step1
+; ===========================
+RailStep1:
+	Set %CurrentStep 1
+	gosub RailWizardLayout
+	gosub ShowProgressBar %CurrentStep %RAILmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 1:
+	menu font style
+	menu text info 10 185 Record your
+	menu text info 10 200 start point.
+	gosub SetFontDefault
+	menu font style b
+	menu text intro 113 110 Please go to a bank close to your mining area:
+	gosub SetFontDefault
+	menu text intro 113 125 1) Stand on a spot, where a bank box always
+	menu text intro 127 140 opens
+	menu text intro 113 155 2) Stand outside of bank, but close to the wall.
+	menu text intro 113 170 3) When you found such a spot, press Start.
+	menu text intro 113 220 Press Start, when ready.
+	menu button Start 110 240 280 30 Start
+	menu activate Start
+	RailStep1Press:
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = Start
+	{
+		gosub markspot bank #true
+		goto RailStep2
+	}
+	goto RailStep1Press
+
+; ===========================
+; Rail Wizard Step2
+; ===========================
+RailStep2:
+	Set %CurrentStep %CurrentStep + 1
+	gosub RailWizardLayout
+	gosub ShowProgressBar %CurrentStep %RAILmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 2:
+	menu font style
+	menu text info 10 185 Recording
+	menu text info 10 200 the rail.
+	gosub SetFontDefault
+	menu font style b
+	menu text intro 113 110 Please go directly to mining:
+	gosub SetFontDefault
+	menu text intro 113 125 1) Make sure you got alot of mining tools in
+	menu text intro 127 140 your backpack (usually more than 4).
+	menu text intro 113 155 2) Go directly to mine Ore.
+	menu text intro 113 170 3) Make sure to use any forges on your way
+	menu text intro 127 185 by smelting Ore.
+	menu text intro 113 220 Press Done, when you finished mining.
+	menu button Done 110 240 280 30 Done
+	menu activate Done
+	set #lpc 100
+	call %TWMMBcfg
+	RailStep2Press:
+	gosub CheckSpot
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = Done 
+	{
+		Set %ForgeInRail #False
+		for %counter 1 %endspot
+		{
+			if Forge in %A . %counter
+				set %ForgeInRail #true
+		}
+		If %ForgeInRail
+		{
+			gosub MarkSpot walk
+			goto RailStep3
+		}
+		menu hide
+		display ok As of now, we did not mark a forge to smelt Ore.$We need at least one forge to smelt.$$Press OK to continue and to smelt Ore at a forge.
+		menu show
+		set #menubutton N/A
+	}
+	goto RailStep2Press
+
+; ===========================
+; Rail Wizard Step3
+; ===========================
+RailStep3:
+	Set %CurrentStep %CurrentStep + 1
+	gosub RailWizardLayout
+	gosub ShowProgressBar %CurrentStep %RAILmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 3:
+	menu font style
+	menu text info 10 185 Setting
+	menu text info 10 200 end spot.
+	gosub SetFontDefault
+	menu font style b
+	menu text intro 113 110 To finish the main rail:
+	gosub SetFontDefault
+	menu text intro 113 125 Please go to closest bank and stand
+	menu text intro 127 140 on a spot where a bank box always
+	menu text intro 127 155 opens.
+	menu text intro 113 220 Press Next, when done.
+
+	menu button Next 110 240 280 30 Next
+	menu activate Next
+
+	RailStep3Press:
+	gosub CheckSpot
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = Next
+	{
+		gosub MarkSpot Bank
+		goto RailStep4
+	}
+	goto RailStep3Press
+
+; ===========================
+; Rail Wizard Step4
+; ===========================
+RailStep4:
+	Set %CurrentStep %CurrentStep + 1
+	gosub RailWizardLayout
+	gosub ShowProgressBar %CurrentStep %RAILmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 4:
+	menu font style
+	menu text info 10 185 Setting up
+	menu text info 10 200 Healer shop.
+	gosub SetFontDefault
+	menu font style b
+	menu text intro 113 110 To finish recording:
+	gosub SetFontDefault
+	menu text intro 113 125 Please go directly to closest healer
+	menu text intro 113 140 shop. Make sure, that healers are
+	menu text intro 113 155 always around.
+	menu text intro 113 220 Press Finish, when done.
+	menu button Finish 110 240 280 30 Finish
+	menu activate Finish
+
+	RailStep4Press:
+	gosub CheckSpot
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = Finish
+	{
+		gosub MarkSpot Healer
+		goto RailStep5
+	}
+	goto RailStep4Press
+
+; ===========================
+; Rail Wizard Step 5
+; ===========================
+RailStep5:
+	Set %CurrentStep %CurrentStep + 1
+	gosub RailWizardLayout
+	gosub ShowProgressBar %CurrentStep %RAILmaxsteps
+	menu font style b
+	menu font color $B00000
+	menu text info 10 170 Step 5:
+	menu font style
+	menu text info 10 185 Saving
+	menu text info 10 200 rail file.
+	gosub SetFontDefault
+	menu font style b
+	menu text save 113 110 Saving rail, this will take a while ...
+	gosub SetFontDefault
+	gosub MakeRailFile
+	menu delete save
+	menu font style b
+	menu text saved 113 110 Rail saved.
+	gosub SetFontDefault
+	menu delete progresstext
+	menu delete progressbox
+	Set %currentStep %CurrentStep + 1
+	gosub ShowProgressBar %CurrentStep %CFGmaxsteps
+	menu text intro 113 220 Press Return to exit to Main Menu.
+	menu button MainMenu 110 240 280 30 Return to Main Menu
+	menu activate MainMenu
+
+	RailStep5Press:
+	if #menubutton = Closed
+	{
+		menu hide
+		halt
+	}
+	if #menubutton = MainMenu
+	{
+		goto StartMainMenu
+	}
+	goto RailStep5Press
+
+; ======================================== End of Rail Wizard ======================================== 
+
+; ======================================== Start of Setup Subs ======================================== 
+; ===========================
+; Check if EasyUO build is ok
+; ===========================
+sub CheckEUOBuild
+	str Pos #euover _
+	str Del #euover 1 #strres
+	set !build #strres
+	str Pos !build _
+	str Del !build 1 #strres
+return ( #strres >=  %1 )
+
+; ===========================
+; Clear Menu window and make base settings
+; ===========================
+sub ResetWindowLayout
+	menu clear
+	menu shape splitline1 0 50 400 1 3 7 7 $99a8ac
+	menu shape splitline2 0 51 400 1 3 7 7 $F0FBff
+	menu shape splitline1 0 280 400 1 3 7 7 $99a8ac
+	menu shape splitline2 0 281 400 1 3 7 7 $F0FBff
+	menu shape splitline3 99 51 1 230 3 7 7 $99a8ac
+	menu shape splitline4 100 51 1 230 3 7 7 $F0FBff
+	menu font size 20
+	menu font name Garamond
+	menu text intro 15 10 The Walking Mumbling Miner Bot
+	gosub SetFontDefault
+	set #menubutton N/A
+return
+
+; ===========================
+; Check if EasyUO build is ok
+; Set current default values for
+; OSI shards
+; ===========================
+sub SetOSIToolDefault
+	SET %MININGTOOLS TWF_QPF_WWF
+	SET %ORETYPE TVJ_EWJ_DWJ_GWJ
+	SET %TINKERTOOL GTL_KTL_JTL  
+	SET %INGOTTYPE ENK
+return
+
+; ===========================
+; Show Base Window
+; ===========================
+sub ShowBaseWindow
+	set !winwidth 400
+	set !winheigth 350
+	set !winposx #clileft + ( #clixres - !winwidth ) / 2 
+	set !winposy #clitop + ( #cliyres - !winheigth ) / 2 
+	menu clear
+	menu Window Title
+	menu Window Color $d8e9ec
+	menu Window Size !winwidth !winheigth
+	menu show !winposx !winposy
+	set %CheckError SetupWizard
+return
+
+
+; ===========================
+; Show Main Menu
+; ===========================
+sub ShowMainMenu
+	set #MenuButton N/A
+	menu font name wingdings
+	menu font size 100
+	menu font style b
+	menu Font Color $007090
+	menu text symbol 11 80 6
+	menu font style
+	menu Font Color $00C0F0
+	menu text symbol 11 80 6
+	gosub SetFontDefault
+	menu font size 15
+;	menu font color $000090
+	menu text intro 200 70 Main Menu
+	gosub SetFontDefault
+	menu window title TWMMB - Main Menu
+	menu button SetupTWMMB 120 110 260 30 Start Setup Wizard
+	menu button RailWizard 120 150 260 30 Start Rail Wizard
+	menu button StartTWMMB 120 190 260 30 Start The Walking Mumbling Miner Bot 
+	menu button ExitTWMMB 120 240 260 30 Exit
+	menu font style b
+	menu text relogon 13 305 Auto relogon - set this option at your own risk.
+	gosub SetFontDefault
+	menu button AutoLogin 300 302 80 20 Auto Relogon
+	menu activate StartTWMMB 
+return
+
+
+
+; ===========================
+; Default font settings
+; ===========================
+sub SetFontDefault
+	menu Font Transparent #true
+	menu font style
+	menu font color $000000
+	menu font name arial
+	menu font size 9
+return
+
+; ===========================
+; Layout for Setup Wizard
+; ===========================
+sub SetupWizardLayout
+	Set !MinorVer %TWMMBsetupVer % 100
+	Set !MajorVer ( %TWMMBsetupVer - !MinorVer ) / 100
+	Set !Version !MajorVer , #dot , !MinorVer
+	gosub ResetWindowLayout
+	menu window title Setup Wizard v !Version
+	menu font size 15
+;	menu font color $000090
+	menu text intro 188 70 Setup Wizard
+	gosub SetFontDefault
+	menu font size 8
+	menu text version 305 335 Setup Wizard v !Version
+	gosub SetFontDefault
+	menu font name wingdings
+	menu font size 100
+	menu font style b
+	menu Font Color $007090
+	menu text symbol 6 60 C
+	menu font style
+	menu Font Color $00C0F0
+	menu text symbol 6 60 C
+	gosub SetFontDefault
+return
+
+; ===========================
+; Layout for Rail Setup Wizard
+; ===========================
+sub RailWizardLayout
+	Set !MinorVer %TWMMBrailVer % 100
+	Set !MajorVer ( %TWMMBrailVer - !MinorVer ) / 100
+	Set !Version !MajorVer , #dot , !MinorVer
+	gosub ResetWindowLayout
+	menu window title Rail Wizard v !Version
+	menu font size 15
+;	menu font color $000090
+	menu text intro 188 70 Rail Wizard
+	gosub SetFontDefault
+	menu font size 8
+	menu text version 315 335 Rail Wizard v !Version
+	gosub SetFontDefault
+	menu font name wingdings
+	menu font size 70
+	menu font style b
+	menu Font Color $000060
+	menu text symbol 1 60 P
+	menu font style
+	menu Font Color $2040F0
+	menu text symbol 1 60 P
+	gosub SetFontDefault
+return
+
+; ===========================
+; Create SetupProgressBar
+; %1 = Current step
+; %2 = Maximum steps
+; ===========================
+sub ShowProgressBar
+	set !currstep %1
+	set !maxstep %2
+	set !progress 1 + !currstep * 374 / !maxstep
+
+	menu text progresstext 12 284 progress bar:
+	menu shape progressbox 10 310 380 1 3 7 7 $99a8ac
+	menu shape progressbox 11 311 378 1 3 7 7 $607377
+	menu shape progressbox 10 311 1 20 3 7 7 $99a8ac
+	menu shape progressbox 11 312 1 18 3 7 7 $607377
+	menu shape progressbox 11 330 378 1 3 7 7 $F0FBff
+	menu shape progressbox 389 311 1 20 3 7 7 $F0FBff
+	menu shape progressbox 12 312 377 18 3 7 7 $FFFFFF 7 $FFFFFF
+	menu shape progressbox 13 313 !Progress 16 3 7 7 $B00000 7 $B00000
+return
+
+; ===========================
+; Make a targetcursor and
+; get an ItemID or ItemType
+; %1 = ID to get an ID
+; %1 = Type to get a Type
+; ===========================
+sub GetTargetIDType
+	set #targCurs 1
+	targLoop:
+	if #targCurs = 1
+		goto targLoop
+	finditem #lTargetID
+	if %1 = Type
+		return #FINDTYPE
+return #lTargetID
+
+; ===========================
+; OpenBackPackBank
+; Lag proof opening of
+; bank and backpack
+; ===========================
+
+sub OpenBackpackBank
+	gosub OpenBackPack
+	gosub OpenBank
+return
+
+; ===========================
+; Reset the vars of Setup Wizard Step 2
+; Another wait sub for Lag
+; ===========================
+sub ResetSetupStep2Values
+	set %OreType none
+	set %IngotType none
+	set %MiningTools none
+	set %TinkerTool Inactive
+Return
+
+; ===========================
+; Check if Step 2 of Setup Wizard done
+; ===========================
+sub CheckStep2Done
+return ( NONE notin OreType ) && ( NONE notin %IngotType ) && ( NONE notin %MiningTools )
+
+; ===========================
+; Mark Spots
+; %1 = Type of Spot (walk, bank, mine, forge)
+; saves current spot to the rail array
+; ===========================
+sub MarkSpot
+	if Bank in %1
+		set %guard #true
+	set %counter %endspot
+	set %endspot %endspot + 1
+	set %A . %endspot %1
+	set %Guard . %endspot %Guard
+	set %x . %endspot #charposx
+	set %y . %endspot #charposy
+	set %z . %endspot #charposz
+	set %Tx . %endspot #ltargetx
+	set %Ty . %endspot #ltargety
+	set %Tz . %endspot #ltargetz
+	set %Tkind . %endspot #ltargetkind
+	set %Ttile . %endspot #ltargettile
+	set %TID . %endspot #ltargetid
+	set #SYSMSGCOL 74
+	event SysMessage Marking %1 spot
+return
+
+; ===========================
+; Check Spot
+; Checks if a current spot needs to be saved to the rail array.
+; Saves current spot if needed.
+; ===========================
+sub CheckSpot
+	gosub CalculateDistance #charposx #charposy %x . %endspot %y . %endspot
+	set %dist #result
+	if ( ( #ltargetx <> %Tx . %endspot ) || ( #ltargety <> %Ty . %endspot ) ) && ( #lobjecttype in %MiningTools )
+	{
+		if %NoMetalHereToMine in #sysmsg || %YouLoosenSomeRocks in #sysmsg || %YouDigSome in #sysmsg
+		{
+			gosub MarkSpot Mine
+			return
+		}
+	}
+	if %dist > 8
+	{
+		gosub MarkSpot Walk
+		return
+	}
+	if #lObjecttype in %OreType && ( %YouSmeltTheOre in #sysmsg || %YouBurnAwayTheImpurities in #sysmsg || %ThereIsNotEnough in #sysmsg )
+	{
+		if ( #charposx <> %x . %endspot || #charposy <> %y . %endspot ) && %A . %endspot notin Forge
+			gosub MarkSpot Forge
+	}
+	if %GuardZone in #sysmsg
+		set %Guard #true
+	if %NoGuardZone in #sysmsg
+		set %Guard #false
+return
+
+; ===========================
+; Save Rail File
+; Saves the current rail array to file %TWMMBrailFile
+; ===========================
+sub MakeRailFile
+	menu text SavingSpot 113 140 Saving header data.
+	execute %cmd /c echo Set % , endspot %endspot > %TWMMBrailFile
+	menu delete SavingSpot
+	for %counter 1 %endspot
+	{
+		menu text SavingSpot 113 140 Saving spot %counter of %endspot
+		execute %cmd /c echo set % , A , %counter %A . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , Guard , %counter %Guard . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , x , %counter %x . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , y , %counter %y . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , z , %counter %z . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , Tx , %counter %Tx . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , Ty , %counter %Ty . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , Tz , %counter %Tz . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , Tkind , %counter %Tkind . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , Ttile , %counter %Ttile . %counter >> %TWMMBrailFile
+		execute %cmd /c echo set % , TID , %counter %TID . %counter >> %TWMMBrailFile
+		menu delete SavingSpot 
+	}
+	menu text SavingSpot 113 140 Saving version data.
+	execute %cmd /c echo set % , TWMMBrailcfgVer %TWMMBrailVer >> %TWMMBrailFile
+	execute %cmd /c echo exit >> %TWMMBrailFile
+	menu delete SavingSpot
+return
+
+; ===========================
+; Create minerbot cfg file as %TWMMBcfg
+; ===========================
+sub MakeMinerBotFile
+
+	; Journal entry when a spot is dry of Ore.
+	set %NoMetalHereToMine There_is_no_metal
+
+	; Journal entry when you notice someone stealing from someone.
+	set %TryingToStealFrom trying_to_steal_from
+
+	; Journal entry when you notice someone attacking you.
+	set %IsAttackingYou is_attacking_you
+
+	; Journal entry when you dig on a mining spot without getting ore.
+	set %YouLoosenSomeRocks You_loosen_some_rocks
+
+	; Journal entry when you dig on a mining spot sucessfully.
+	set %YouDigSome You_dig_some
+
+	; Journal entry when you smelt ore
+	set %YouSmeltTheOre voce_transformou 
+	set %YouBurnAwayTheImpurities voce_transformou
+	set %ThereIsNotEnough voce_transformou
+
+	; SysMessage for Guard Zone
+	set %NoGuardZone You_Have_Left_The_Protection_Of_The_Town_Guards
+	set %GuardZone You_Are_Now_Under_The_Protection_Of_The_Town_Guards
+
+	; Does our miner try to hide?
+	set %hiding 0
+
+	; Determines the minimum amount of mining tools our miner takes with him for mining.
+	set %MiningToolsInBackPack 3
+
+	; Coward tells, how many ingots our miner mines, before he returns home. With a lot of thieves around, you should set it to "1". Still "100" should be a kewl value.
+	set %coward 100
+
+	; While walking it is checked, if our miner says anything. This value determines the percent chance of our miner answering. 10% seems to be a good value.
+	set %ChancetoMumble 3
+
+	; Whenever our miner sees his name in journal he can react while walking. Set this to "1" to make sure he always answers. Set this to "0" to make sure he never answers.
+	set %AnswerWhenAsked 1
+
+	; Should our miner be wounded, he always runs to bank. At bank he tries to ask people around him for help every 15 seconds. ChanceCryHeal is the percent chance, that our miner shouts for a heal. 50% seems to be fine. When higher people may become annoyed, when lower peopel might not help. Adjust to your liking.
+	set %ChanceCryHeal 10
+
+	; how many journalentries do we check for results? 10 is optimal but less makes our miner faster.
+	set %scanjournal 6
+
+	; In cases where I got no alternative to a wait, %waittime is used. In general the setting 2s seems to be perfect. Should the program stop due to lag, increase the value.
+	set %waitTime 2s 
+
+	; The color of Iron Ingots
+	set %IronIngotCol 0
+
+	execute %cmd /c echo Set % , cmd %cmd > %TWMMBcfg
+	execute %cmd /c echo Set % , AnswerWhenAsked %AnswerWhenAsked >> %TWMMBcfg
+	execute %cmd /c echo Set % , TWMMBRailFile %TWMMBRailFile >> %TWMMBcfg
+	execute %cmd /c echo Set % , ChanceCryHeal %ChanceCryHeal >> %TWMMBcfg
+	execute %cmd /c echo Set % , ChancetoMumble %ChancetoMumble >> %TWMMBcfg
+	execute %cmd /c echo Set % , Coward %Coward >> %TWMMBcfg
+	execute %cmd /c echo Set % , GuardZone %GuardZone >> %TWMMBcfg
+	execute %cmd /c echo Set % , Hiding %Hiding >> %TWMMBcfg
+	execute %cmd /c echo Set % , IngotBag %IngotBag >> %TWMMBcfg
+	execute %cmd /c echo Set % , IngotBagFindMod %IngotBagFindMod >> %TWMMBcfg
+	execute %cmd /c echo Set % , IngotBagContSize %IngotBagContSize >> %TWMMBcfg
+	execute %cmd /c echo Set % , IngotType %IngotType >> %TWMMBcfg
+	execute %cmd /c echo Set % , IronIngotCol %IronIngotCol >> %TWMMBcfg
+	execute %cmd /c echo Set % , IsAttackingYou %IsAttackingYou  >> %TWMMBcfg
+	execute %cmd /c echo Set % , MiningTools %MiningTools >> %TWMMBcfg
+	execute %cmd /c echo Set % , MiningToolsInBackPack %MiningToolsInBackPack >> %TWMMBcfg
+	execute %cmd /c echo Set % , NoGuardZone %NoGuardZone >> %TWMMBcfg
+	execute %cmd /c echo Set % , NoMetalHereToMine %NoMetalHereToMine >> %TWMMBcfg
+	execute %cmd /c echo Set % , OreType %OreType >> %TWMMBcfg
+	execute %cmd /c echo Set % , OSIshard %OSIshard >> %TWMMBcfg
+	execute %cmd /c echo Set % , scanjournal %scanjournal >> %TWMMBcfg
+	execute %cmd /c echo Set % , ThereIsNotEnough %ThereIsNotEnough >> %TWMMBcfg
+	execute %cmd /c echo Set % , TinkerTool %TinkerTool >> %TWMMBcfg
+	execute %cmd /c echo Set % , TryingToStealFrom %TryingToStealFrom >> %TWMMBcfg
+	execute %cmd /c echo Set % , waitTime %waitTime >> %TWMMBcfg
+	execute %cmd /c echo Set % , YouBurnAwayTheImpurities %YouBurnAwayTheImpurities >> %TWMMBcfg
+	execute %cmd /c echo Set % , YouDigSome %YouDigSome >> %TWMMBcfg
+	execute %cmd /c echo Set % , YouLoosenSomeRocks %YouLoosenSomeRocks >> %TWMMBcfg
+	execute %cmd /c echo Set % , YouSmeltTheOre %YouSmeltTheOre >> %TWMMBcfg
+	execute %cmd /c echo Set % , TWMMBcfgVer %TWMMBsetupVer >> %TWMMBcfg
+	execute %cmd /c echo Exit >> %TWMMBcfg
+return
+
+; ======================================== End of Setup Subs ======================================== 
+
+
+; =================================================================================
+; => Initialize MinerBot <=
+; Bring MinerBot to a defined status
+; =================================================================================
+
+MinerBot:
+; ===========================
+; Variable Declaration for Main Program
+; (all variables are set in the file
+; minerbot.cfg)
+; ===========================
+set #SYSMSGCOL 16
+event sysmessage Welcome to:
+event sysmessage The Walking Mumbling Miner Bot.
+set #SYSMSGCOL 74
+event sysmessage Setting up screen.
+gosub OpenStatusBar
+gosub OpenBackPack
+set %CurrentTask 0
+gosub FindRail
+if %rail >= %endspot
+	set %Direction -
+set #SYSMSGCOL 74
+event sysmessage The Walking Mumbling Miner Bot
+event sysmessage now working.
+set %TaskDone #True
+set %UnderAttack #false
+event ExMsg #charID 3 256 I am your Walking Mumbling Miner Bot!
+
+; =================================================================================
+; => MainLoop <=
+; The program starts here!
+; =================================================================================
+MainLoop:
+gosub GetTask
+if #result <> %CurrentTask || %TaskDone
+{
+	set %TaskDone #False
+	Set %CurrentTask #result
+	gosub GetTargetSpot %CurrentTask
+	set %Direction +
+	if %TargetSpot < %rail
+		set %Direction -
+}
+if ( #charposx <> %x . %rail || #charposy <> %y . %rail ) && %A . %rail in %CurrentTask
+{
+	gosub FindRail
+	goto MainLoop
+}
+if %A . %rail in %CurrentTask && ! %TaskDone
+{
+	if #weight =< ( %maxweight - 25 )
+	{
+		finditem %_tools G_2
+		if #findkind <> -1
+			gosub PickUpTools
+		finditem %OreType G_2
+		if #findkind <> -1
+			gosub PickUpOre
+	}
+	set %GosubTask %CurrentTask
+	str Pos %CurrentTask _
+	if #strres > 0
+	{
+		set %counter #strres - 1
+		str Left %CurrentTask %counter	
+		set %GosubTask #strres
+	}
+	if #charposx = %x . %rail && #charposy = %y . %rail
+		gosub %GosubTask
+}
+gosub CheckDirection %Direction %CurrentTask
+set %Direction #result
+if ! %TaskDone
+	gosub GoToPos %Direction
+goto MainLoop
+
+halt
+
+; =================================================================================
+; => Subs <=
+; Subs used by MinerBot V3 
+; =================================================================================
+
+; ===========================
+; => Relogin <=
+; What do we do, if we lost connection?
+; ===========================
+sub Relogin
+	if #contsize = 203_121 && #contname = waiting_gump
+	{
+		set %xclick #contposx + 107
+		set %yclick #contposy + 118
+		click %xclick %yclick
+	}
+	ReloginMainMenuLoop:
+	if #contname <> MainMenu_Gump
+		goto ReloginMainMenuLoop
+	if ! %AccountPasswordflag
+		halt
+	call %AccountPassword
+return
+
+; ===========================
+; => AnswerSomeone <=
+; Trying to say something
+; which makes sense, when
+; someone mentioned our name.
+; ===========================
+sub AnswerSomeone
+      set %AnsweringCount 10
+      set %talk #Random % %Answeringcount
+      if %talk = 0
+      {
+            msg $huh? $
+      }
+      if %talk = 1
+      {
+            msg $sup? $
+      }
+      if %talk = 2
+      {
+            msg $Rofl $
+      }
+      if %talk = 3
+      {
+            msg $ack$
+      }
+      if %talk = 4
+      {
+            msg $u sure? $
+      }
+      if %talk = 5
+      {
+            msg $ohh $
+      }
+      if %talk = 6
+      {
+            msg $ermm$
+      }
+      if %talk = 7
+      {
+            msg $Aye? $
+      }
+      if %talk = 8
+      {
+            msg $yup$
+      }
+      if %talk = 9
+      {
+            msg $Parlez-vous francaise? $
+      }
+      wait %waittime
+	set %SomeoneTalkingToUs #false
+return
+
+; ===========================
+; => DropItemInBank <=
+; Moving an item from any bag
+; into our bankbox at bank.
+; ===========================
+sub DropItemInBank
+	finditem %1 C_ , %2
+	event drag #findid 
+	click 9 412
+return
+
+; ===========================
+; => DropItemInBackpack <=
+; Moving an item from any bag
+; into our backpack at bank.
+; %0 = number of parameters given
+; %1 = which item to drop
+; %2 = take item from whcih bag?
+; %3 = ContSize of item to drag
+; %4 = amount of items to drag
+; ===========================
+sub DropItemInBackpack
+	Set %_OptionsSet %0
+	Set %_ItemToFind %1
+	Set %_BagToFindIn %2
+	if %_OptionsSet > 2
+	{
+		set %_itemContSize %3
+		set %_amount %4
+	}
+	WaitForDraggingToDropItemInBackPack:
+	finditem %_ItemToFind C_ , %_BagToFindIn
+	event drag #findid 
+	if %_OptionsSet > 3
+	{
+		WaitForDragItemAmountWindow:
+		gosub WaitForVar ContSize = 168_74 2
+		if #result = #false && #findID = #LliftedID
+			goto WaitForDragItemAmountWindow
+		if #result = #false
+			goto WaitForDraggingToDropItemInBackPack
+		msg %_amount $
+	}
+	if %_OptionsSet > 2
+	{
+		gosub WaitForVar ContSize = %_itemContSize
+		if #result = #false && #findID <> #LliftedID
+			goto WaitForDraggingToDropItemInBackPAck
+	}
+	wait %waittime
+	click 111 51
+	wait %waittime
+return
+
+; ===========================
+; => LoadTools <=
+; Load the Tools and Ingots you
+; need at bank
+; ===========================
+sub LoadTools
+	gosub Bank
+	LoadMiningTools:
+	finditem %MiningTools C_ , %bankID
+	if #findkind <> -1
+	{
+		gosub CountItem %MiningTools %BackPackID #false
+		if #result < %MiningToolsInBackPack
+		{
+			gosub DropItemInBackpack %MiningTools %BankID
+			goto LoadMiningTools
+		}
+	}
+	gosub Countitem %TinkerTool %BackPackID #false
+	if #result < 1 && inactive notin %TinkerTool
+	{
+		finditem %TinkerTool C_ , %bankID
+		if #findkind = -1
+		{
+			display ok No Mining Tools and no Tinkering...$Can not continue.$$TWMMB terminating.
+			halt
+		}
+		gosub DropItemInBackpack %TinkerTool %BankID
+		goto LoadMiningTools
+	}
+	gosub Countitem %TinkerTool %BackPackID #false
+	if #result < 2 && inactive notin %TinkerTool
+	{
+		gosub CheckIngotForTinkering
+		gosub Tinker
+		goto LoadMiningTools
+	}
+	gosub CountItem %MiningTools %BackPackID #false
+	if #result < %MiningToolsInBackPack && inactive notin %TinkerTool
+	{
+		gosub CheckIngotForTinkering
+		gosub Tinker
+		goto LoadMiningTools
+	}
+	gosub CountItem %TinkerTool %BankID #false
+	if #result < 5 && inactive notin %TinkerTool
+	{
+		gosub DropItemInBank %TinkerTool %BackPackID
+		goto LoadMiningTools
+	}
+	gosub Bank
+	set %taskDone #true
+return
+
+; ===========================
+; => CheckIngotForTinkering <=
+; Are there enough ingots to tinker?
+; if not, get some from ingot bag
+; ===========================
+sub CheckIngotForTinkering
+	gosub FindIronIngotID %BackPackID
+	gosub CountItem %IronIngotID %BackPackID #true
+	if #result < 20 && inactive notin %TinkerTool
+	{
+		gosub DropIngotsInIngotBag
+		OpenIngotBagLoop:
+		set #lObjectID %IngotBag
+		event Macro 17 0
+		gosub WaitForVar Contsize = %IngotBagContSize 2
+		if ! #result || #contid <> %IngotBag
+			goto OpenIngotBagLoop
+		contpos 217 0
+		if %OSIshard
+			wait %waittime
+		LoadToolsFindIronIngotID:
+		gosub FindIronIngotID %IngotBag
+		if %IronIngotID = 0
+			goto LoadToolsFindIronIngotID
+		gosub DropItemInBackPack %IronIngotID %IngotBag 49_40 50
+		if %OSIshard
+			wait %waittime
+	}
+return
+
+; ===========================
+; => DropIngotsInIngotBag <=
+; Moving Ingots from backpack
+; into our ingotbag at bank.
+; ===========================
+sub DropIngotsInIngotBag
+      IngotDroploop: 
+            finditem %IngotType C_ , %backpackID 
+            if #findkind <> -1 && #findstack > 1
+            {
+			if %OSIshard
+				wait %waittime
+			event drag #findid 
+                  gosub waitForVar ContSize = 168_74 2
+                  msg $ 
+                  gosub waitForVar ContSize = 49_40 2
+                  finditem %IngotBag 
+                  set #findmod %IngotBagFindMod 
+		if %OSIshard
+			wait %waittime
+                  click #findx #findy 
+		if %OSIshard
+			wait %waittime
+                  gosub waitForVar ContSize <> 49_40 2
+                  goto IngotDroploop
+            }
+            finditem %IngotType C_ , %backpackID 
+            if #findkind <> -1 && #findstack < 2
+	{
+		if %OSIshard
+			wait %waittime
+                  event drag #findid 
+                  gosub waitForVar ContSize = 44_35 2
+                  finditem %IngotBag 
+                  set #findmod %IngotBagFindMod 
+		if %OSIshard
+			wait %waittime
+                  click #findx #findy 
+		if %OSIshard
+			wait %waittime
+                  gosub waitForVar ContSize <> 44_35 2
+                  goto IngotDroploop
+	}
+return
+
+; ===========================
+; => Check Special <=
+; Check for special happenings
+; while walking
+; ===========================
+sub CheckSpecial
+	if #contsize = 400_350 && #Contname = generic_gump
+	{
+		if ! %OSIshard
+		{
+			set %xclick #contposx + 79
+			set %yclick #contposy + 238
+			click %xclick %yclick
+		}
+		if %OSIshard
+		{
+			set %xclick #contposx + 38
+			set %yclick #contposy + 138
+			click %xclick %yclick
+		}
+
+		set %xclick #contposx + 79
+		set %yclick #contposy + 238
+		click %xclick %yclick
+
+		set %xclick #contposx + 38
+		set %yclick #contposy + 138
+		click %xclick %yclick
+
+		set %xclick #clileft + #CliXres / 2 
+		set %yclick #clitop + #CliYres / 2
+		click %xclick %yclick r
+
+		set %xclick #clileft + #CliXres / 4
+		set %yclick #clitop + #CliYres / 4
+		click %xclick %yclick r
+
+		set %xclick #clileft + #CliXres / 4
+		set %yclick #clitop + 3 * ( #CliYres / 4 )
+		click %xclick %yclick r
+
+		set %xclick #clileft + 3 * ( #CliXres / 4 )
+		set %yclick #clitop + #CliYres / 4
+		click %xclick %yclick r
+
+		set %xclick #clileft + 3 * ( #CliXres / 4 )
+		set %yclick #clitop + 3 * ( #CliYres / 4 )
+		click %xclick %yclick r
+	}
+	if #contsize = 626_532
+	{
+		click 271 310
+	}
+	if #contsize = 203_121 && #contname = waiting_gump
+	{
+		gosub Relogin
+	}
+	if #contsize = 640_480 && #Contname = MainMenu_gump
+	{
+		gosub Relogin
+	}
+	str Len %SmeltCheck
+	set %SmeltCheckLen #strres
+return
+
+; ===========================
+; => Bank <=
+; We are at bank
+; - move Ingots to Ingotbag
+; - move missing or too much tools
+; ===========================
+sub Bank
+	set %UnderAttack #false
+	; No matter what, we first put our ingots in bank.
+	gosub OpenBackPack
+	gosub OpenBank
+	gosub DropIngotsInIngotBag
+	set %TaskDone #True
+return
+
+; ===========================
+; => OpenBank <=
+; Lag proof opening of
+; bank
+; ===========================
+sub OpenBank
+	OpenBankLoop:
+	msg bank$ 
+	gosub waitForVar ContSize = 180_240 2
+	if ! #result
+		goto OpenBankLoop
+	contpos 0 228
+	set %bankID #contID
+	gosub HideMiner
+return
+
+; ===========================
+; => GetTask <=
+; Determine Status of the minerbot
+; and set the appropriate task.
+; ===========================
+sub GetTask
+	set #lpc 100
+	gosub CheckSpecial
+	set %task 0
+	if #Charname = N/A
+		gosub OpenStatusBar
+	for %counter %scanjournal 1
+	{
+		scanJournal %counter
+		if %NoMetalHereToMine in #journal 
+		{ 
+			set %spotdry #true
+		}
+		if %SmeltCheck in #journal && %SmeltCheckLen > 16
+		{
+			goto %CheckError
+		}
+		if %TryingToStealFrom in #journal 
+		{
+			if %guard . %rail
+				msg Guards a Thief! $
+		}
+		if #CharName in #journal && %AnswerWhenAsked = 1
+		{
+			str Len #Charname
+			set %CharNameLength #strRes
+			str Left #journal %CharNameLength
+			if #strRes <> #Charname
+			{
+				set %SomeoneTalkingToUs #true
+			}
+			if %IsAttackingYou in #journal
+			{
+				set %UnderAttack #true
+				set %GuardYellCounter 0
+			}
+		}
+		deleteJournal
+	}
+	if %underAttack
+	{
+		if %Guard . %rail && %GuardYellCounter < 4
+		{
+			msg ! Guards, flood fire, famine!$
+			set %GuardYellCounter %GuardYellCounter + 1
+		}
+		set %Task Bank
+	}
+	gosub CountItem %IngotType %BackPackID #true
+	if #result >= %coward && %Task = 0
+		set %Task Bank
+
+	; What to do, when we are at bank?
+	if %A . %rail = bank && %Task = 0
+	{
+		gosub Countitem %MiningTools %BackPackID #false
+		if #result < %MiningToolsInBackPack
+			set %task LoadTools_bank
+		gosub Countitem %IngotType %BackPackID #true
+		if #result > 0 && %task = 0
+			set %Task Bank
+		gosub CountItem %TinkerTool %BackPackID #false	
+	}
+	gosub Countitem %MiningTools %BackPackID #false
+	if #result > 0 && %Task = 0
+		set %Task Mine
+	if #result = 0 && %task = 0
+	{
+		finditem %TinkerTool C_ , %BackPackID
+		if #findkind = -1
+		{
+			set %Task Bank
+		}
+		if #findkind <> -1
+		{
+			gosub FindIronIngotID %BackPackID
+			gosub Countitem %IronIngotID %BackPackID #true
+			set %Task Tinker_Walk_Bank_Mine_Forge
+		}
+	}
+	if #hits < ( #maxhits - 5 ) 
+	{
+		if bank notin %A . %rail
+			Set %task Bank
+		if bank in %A . %rail
+			set %task HealMe_Bank
+	}
+	if #weight > ( %maxweight - 25 )
+	{
+		if #weight > #maxweight
+			gosub DropOre
+		set %Task Forge
+	}
+	if Yes in #Charghost
+		set %Task Healer
+	if %SomeoneTalkingToUs
+		gosub AnswerSomeOne
+	gosub MumbleMining
+	set #lpc 10
+return %task
+
+; ===========================
+; => FindRail <=
+; Determine if a rail spot is close enough to go there
+; - If yes, go to closest rail spot
+; - If no: halt
+; ===========================
+sub FindRail
+	set #SYSMSGCOL 74
+	event sysmessage Standby, calculating closest Rail Spot...
+	set #lpc 100
+	gosub findClosest x y #charposx #charposy %endspot
+	if %dist >= 15
+	{
+		display ok You are too far away from your rail.$Program terminating.
+		halt
+	}
+	set #SYSMSGCOL 74
+	event sysmessage Moving to closest Rail Spot.
+	set %rail #result - 1
+	set #lpc 10
+	gosub GoToPos +
+return
+
+; ===========================
+; => OpenBackpack <=
+; Lag proof opening of
+; backpack
+; ===========================
+sub OpenBackPack
+	OpenBackPackLoop:
+	event macro 8 7
+	gosub waitForVar ContSize = 230_204 2
+	if ! #result && #CharGhost = NO
+	{
+		goto OpenBackPackLoop
+	}
+	set %BackPackID #contID
+	contpos 0 0
+return
+
+; ===========================
+; => GoToPos <=
+; The macro that moves us.
+; %1 = + to move to %rail + 1, - to move to %rail - 1
+; ===========================
+sub GoToPos 
+	set %rail %rail %1 1
+	set %x %x . %rail 
+	set %y %y . %rail 
+	set %z %z . %rail 
+	set %counter 4
+	set %blockdetect -1
+	set %TimeCheck #time
+	set %_tools %MiningTools
+	if inactive notin %TinkerTool
+		set %_tools %TinkerTool , _ , %MiningTools
+	if #weight =< ( %maxweight - 25 )
+	{
+		finditem %_tools G_2
+		if #findkind <> -1
+			gosub PickUpTools
+		finditem %OreType G_2
+		if #findkind <> -1
+			gosub PickUpOre
+	}
+	MoveMiner:
+	gosub CalculateDistance #charposx #charposy %x %y
+	if #result < 4 && %A . %rail notin %CurrentTask
+	{
+		return
+	}
+	if #weight > ( %maxweight - 25 )
+	{
+		if #weight > #maxweight
+		{
+			event pathfind #charposx #charposy #charposz
+			gosub DropOre
+			return
+		}
+	}
+	set %_TimeCheck #time - %TimeCheck abs
+	if %blockdetect = 2 && %_TimeCheck > 4
+	{
+		event macro 32 0
+		set %blockdetect -1
+		set %TimeCheck #time
+	}
+	if ( #charPosX <> %x || #charPosY <> %y ) && #charposx = %lastx && #charposy = %lasty || %counter = 4
+	{
+		if %counter = 4
+			set %blockdetect %blockdetect + 1
+		set %counter 0
+		set %lastx #charposx
+		set %lasty #charposy
+		event PathFind %x %y %z
+		gosub CheckSpecial
+		goto MoveMiner 
+	}
+	if  #charPosX <> %x || #charPosY <> %y
+	{
+		set %counter %counter + 1
+		gosub CheckSpecial
+		goto MoveMiner
+	}
+return 
+
+; ===========================
+; => PickUpTools <=
+; Pick Up Tools close to you
+; ===========================
+sub PickUpTools
+	set %_timeCheck #time
+	gosub OpenBackPack
+	wait %waittime
+	click 56 62
+	PickUpToolsLoop:
+	finditem %_tools G_2
+	if #findkind <> -1 && ( #time - %_timecheck ) < 15 && #weight < ( #maxweight - 25 )
+	{
+		msg $
+		event drag #findID
+		wait %waittime
+		click 56 62
+		goto PickUpToolsLoop
+	}
+return
+
+; ===========================
+; => PickUpOre <=
+; Pick Up Ore Close to you
+; ===========================
+sub PickUpOre
+	set %_timeCheck #time
+	gosub OpenBackPack
+	wait %waittime
+	click 56 62
+	PickUpOreLoop:
+	finditem %OreType G_2
+	if #findkind <> -1 && ( #time - %_timecheck ) < 15 && #weight < ( #maxweight - 25 )
+	{
+		if #findstack > 1
+		{
+			msg $
+			event drag #findID
+			gosub WaitForVar ContSize = 168_74 8
+			wait %waittime
+			if #lliftedtype = #findtype
+				msg 2 $
+			click 56 62
+		}
+		if #findstack = 1
+		{
+			msg $
+			event drag #findID
+			wait 10
+			click 56 62
+		}
+		goto PickUpOreLoop
+	}
+return
+
+; ===========================
+; => MineOre <=
+; Mine the Ore on a Mining spot
+; ===========================
+sub Mine
+	MineMore:
+	gosub HideMiner
+	set %spotdry #false
+	set %mineX %Tx . %rail 
+	set %mineY %Ty . %rail 
+	set %mineZ %Tz . %rail
+	set %mineK %Tkind . %rail
+	set %mineT %Ttile . %rail
+	gosub mineXY %mineX %mineY %mineZ %mineK %mineT
+	gosub Gettask
+	if #charposx <> %x . %rail || #charposy <> %y . %rail
+		return
+	if #result = %CurrentTask && ! %spotdry
+		goto MineMore
+return 
+
+; ===========================
+; => minexy <=
+; The real sub for mining
+; ===========================
+sub mineXY 
+      finditem %MiningTools C_ , %backpackID
+	wait 1s
+      set #lobjectid #findID
+      event macro 17 0 
+      set #lTargetX %1 
+      set #lTargetY %2
+      set #lTargetZ %3 
+      set #lTargetKind %4
+      set #lTargetTile %5 
+      target 
+      event macro 22 
+	if ! %OSIshard
+		wait 1s
+return
+
+; ===========================
+; => Sub   <=
+; Smelt the Ore at the Forge
+; ===========================
+sub Forge
+	gosub Gettask
+	if #result <> %CurrentTask
+		return
+	SmeltOre:
+	Str Mid %NoMetalHereToMine 2 4
+	Set %_SmeltCheck #strres
+	gosub HideMiner
+	finditem %OreType C_ , %backpackID
+	if #findkind <> -1 && #findstack > 1
+	{
+		set #lobjectid #findid 
+		if %OSIshard
+			wait %waittime
+		event macro 17 0 
+		if %OSIshard
+			wait %waittime
+		set #lTargetID %TID . %rail 
+		set #lTargetKind %TKind . %rail
+		target 
+		event macro 22
+		if %OSIshard
+			wait %waittime
+		goto SmeltOre
+	}
+	Str Mid %NoGuardZone 25 2
+	Set %_SmeltCheck %_SmeltCheck , #strres
+	if #findstack < 2 && #findkind <> -1
+	{
+		set #lobjectid #findid 
+		if %OSIshard
+			wait %waittime
+		event macro 17 0 
+		if %OSIshard
+			wait %waittime
+		set #lTargetID %TID . %rail 
+		set #lTargetKind %TKind . %rail
+		target 
+		event macro 22 
+		if %OSIshard
+			wait %waittime
+		ignoreitem #findID
+		goto SmeltOre
+	}
+	set %_LoopTimer #time
+	Str Mid %NoGuardZone 24 1
+	Set %_SmeltCheck %_SmeltCheck , #strres
+	CombineOreLoop:
+	ignoreitem reset
+	gosub CounItem %OreType %BackPackID #false
+	set %i #result - 1
+	Str Mid %NoMetalHereToMine 6 4
+	Set %SmeltCheck %_SmeltCheck , #strres
+	finditem %OreType C_ , %backpackID
+	if #findkind <> -1 && %i > 0 && %OSIshard
+	{
+		set %_CompareID #findID
+		set %_CompareCol #findCol
+		ignoreitem #findID
+		for %counter 1 %i
+		{
+			finditem %OreType C_ , %backpackID
+			if #findkind <> -1 && #findCol = %_CompareCol
+			{
+				set #lobjectID %_CompareID
+		if %OSIshard
+			wait %waittime
+				event macro 17 0
+				set #lTargetID #findID
+				target
+				event macro 22
+		if %OSIshard
+			wait %waittime
+			}
+			ignoreitem #findID
+		}
+		if ( #time - %_LoopTimer ) < 20
+			goto CombineOreLoop
+	}
+	Str Right %YouSmeltTheOre 23
+	Set %SmeltCheck %SmeltCheck , #strres
+	If %_SmeltCheck in %SmeltCheck
+		Set %taskdone #true
+return
+
+; ===========================
+; => Sub CheckDirection <=
+; Check Direction and suggest new
+; direction.
+; %1 = Current Direction
+; %2 = Task to check for
+; ===========================
+sub CheckDirection
+	if %rail = 1
+	{
+		set %_Direction +
+		return %_Direction
+	}
+	if %rail = %endspot
+	{
+		set %_Direction -
+		return %_Direction
+	}
+	set %_DirectionOK #false
+	set %EndValue 1
+	If %1 = +
+		set %EndValue %endspot
+	set %StartValue %rail %1 1
+	for %counter %StartValue %EndValue
+	{
+		if %A . %counter in %2
+			set %_DirectionOK #true
+	}
+	Set %_Direction %1
+	if ! %_DirectionOK
+	{
+		set %_Direction -
+		if %1 = -
+			set %_Direction +
+	}
+return %_Direction
+
+; ===========================
+; => DropOre <=
+; Drop Ore to ground if we are over
+; weight
+; ===========================
+sub DropOre
+	set %_attempt 0
+	set %DropLocX #clileft + #CliXRes / 2
+	set %DropLocY #clitop + #CliYRes / 2
+	DropOreLoop:
+	set %_attempt %_attempt + 1
+	finditem %OreType C_ , %backpackID
+	if #findstack > 4
+	{
+		event drag #findID
+		if %OSIshard
+			wait %waittime
+		set %_timecheck #time
+		DragOreToGround:
+		gosub WaitForVar ContSize = 168_74 8
+		if #result = #false && ( #time - %_timecheck ) < 200
+			goto DragOreToGround
+		msg 2 $
+
+		set %ClickDropLocX %DropLocX - 34
+		set %ClickDropLocY %DropLocY - 9
+		wait 10
+		click %ClickDropLocX %ClickDropLocY
+
+		set %ClickDropLocX %DropLocX + 36
+		set %ClickDropLocY %DropLocY - 10
+		wait 10
+		click %ClickDropLocX %ClickDropLocY
+
+		set %ClickDropLocX %DropLocX + 25
+		set %ClickDropLocY %DropLocY + 18
+		wait 10
+		click %ClickDropLocX %ClickDropLocY
+
+		set %ClickDropLocX %DropLocX + 2
+		set %ClickDropLocY %DropLocY + 36
+		wait 10
+		click %ClickDropLocX %ClickDropLocY
+
+		set %ClickDropLocX %DropLocX - 31
+		set %ClickDropLocY %DropLocY + 24
+		wait 10
+		click %ClickDropLocX %ClickDropLocY
+	}
+	if #findstack < 5
+		ignoreitem #findid
+	set %DropLocX #clileft + #CliXRes / 2
+	set %DropLocY #clitop + #CliYRes / 2
+	if #weight > #maxweight && %_attempt < 10
+		goto DropOreLoop
+	if #weight > #maxweight
+		display ok I am lost here. Please report...
+	ignoreitem reset
+return
+
+; ===========================
+; => HealMe <=
+; At bank we ask ppl for heal
+; ===========================
+sub HealMe
+	gosub Bank
+	Healing:
+	if %ChanceCryHeal > 0
+	{
+		if #Random % 100 < %ChanceCryHeal
+		{
+			msg ! Someone please drop me a Heal? $
+		}
+		set #SYSMSGCOL 16
+		event sysmessage Waiting for full Health ...
+		event ExMsg #charID 3 16 I am waiting for full health....
+	}
+	gosub HideMiner
+	wait 8s
+	event ExMsg #charID 3 16 Please standby until I am healthy again...
+	gosub GetTask
+	if #result <> %CurrentTask
+	{
+		set %TaskDone #true
+		return
+	}
+	if #Hits < ( #Maxhits - 1 )
+		goto Healing
+	msg ! Thank you alot! $
+	wait %waittime
+	msg : sigh $
+	set %TaskDone #true
+return
+
+;--------- EasyUO Menu Designer Code Begin ---------
+sub ShowStatus
+	menu Clear
+	menu Window Title EUOMenu1
+	menu Window Color BtnFace
+	menu Window Size 279 88
+	menu Font Transparent #true
+	menu Font Name MS Sans Serif
+	menu Font Size 8
+	menu Font Style 
+	menu Font Color WindowText
+	menu Font BGColor BtnFace
+	menu Text EUOLabel1 8 40 Ingots smelted:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel2 8 56 Ingots in Backpack:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel3 144 8 Script active:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel4 144 40 Times died:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel5 144 56 Times being attacked:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel6 8 24 Ore pick ups:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel7 8 8 Ore mined:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel8 8 72 Tools tinkered:
+	menu Font BGColor BtnFace
+	menu Text EUOLabel9 144 72 Times thief noticed:
+	menu Show 421 270
+return
+;--------- EasyUO Menu Designer Code End ---------
+
+; =================================================================================
+; => Subs <=
+; Subs used by MinerBot V3 and which are optimized
+; =================================================================================
+; ===========================
+; => HideMiner <=
+; If we want our miner to hide
+; (hiding = 1) we test if he is 
+; already hidden. If not he tries to hide.
+; ===========================
+sub HideMiner
+	set %HidingTimeOutCheck #time - %HidingTimeOut abs
+	if %hiding = 1 && %HidingTimeOutCheck > 9 && ! %OsiShard
+	{
+		if H notIn #CharStatus
+		{
+			event macro 13 21 
+			set %HidingTimeOut #time
+		}
+	}
+return
+
+; ===========================
+; => Calculate Distance <=
+; %1 = x of Spot a
+; %2 = y of Spot a
+; %3 = x of Spot b
+; %4 = y of Spot b
+; #result = Distance
+; ===========================
+sub CalculateDistance
+	set %_return abs ( %1 - %3 ) 
+	set %_dy abs ( %2 - %4 ) 
+	if %_return < %_dy 
+		set %_return %_dy 
+return %_return
+
+;================================== 
+; Script Name: Sub FindClosest 
+; Author: Quintok, completly re-written by the.WZA - 
+; minor modifications by Heretic 
+; Version: 2.01 
+; Client Tested with: 4.0.1a 
+; EUO version tested with: V1.40 [Build 005C] 
+; Shard OSI / FS: OSI 
+; Revision Date: 
+; Public Release: 14th November 2003 
+; Purpose: Returns the closest x/y co-ord of a list of variables 
+;================================== 
+; %1 = x var name ie "ltargetx" if you have variables %ltargetx1 %ltargetx2 etc 
+; %2 = y var name ie "ltargety" if you have variables %ltargety1 %ltargety2 etc 
+; %3 = comparison X value 
+; %4 = comparison Y value 
+; %5 = number of comparisons 
+; #result = the number of the closest variable that is available 
+sub findClosest 
+	set #lpc 100
+	set %VarX %1
+	set %VarY %2
+	set %StartX %3
+	set %StartY %4
+	set %Spots %5
+	set %_x %VarX , 1 
+	set %_y %VarY , 1 
+	set %dist abs ( % . %_x - %StartX ) + abs ( % . %_y - %StartY ) + 1 
+	for %i 1 %Spots
+	{
+		set %_x %Varx , %i 
+		set %_y %Vary , %i 
+		gosub CalculateDistance % . %_x % . %_y %StartX %StartY
+		if #result < %dist
+		{ 
+			set %dist #result 
+			set %return %i 
+		} 
+	} 
+	set #lpc 10
+return %return
+
+; ===========================
+; => CalculateDistInPath <=
+; %1 = Number of Spot a in rail
+; %2 = Number of Spot b in rail
+; #result = sum of distance of each single spot ^2
+; #result = -1 if Spot a number or spot b number invalid
+; ===========================
+sub CalculateDistInPath
+	set #lpc 100
+	if %1 < 1 || %2 < 1
+		return -1
+	if %2 = %1
+		return 0
+	set %low %1
+	set %high %2
+	if %2 < %1
+	{
+		set %low %2
+		set %high %1
+	}
+	set %high %high - 1
+	set %Distance 0
+	for %countera %low %high
+	{
+		set %counterb %countera + 1
+		gosub CalculateDistance %x . Countera %y . %Countera %x . Counterb %y . Counterb
+		set %Distance %Distance + #result
+	}
+	set #lpc 10
+return %Distance
+
+; ===========================
+; => GetTargetSpot <=
+; %1 = Task to check
+; Determine which rail spot is closest to
+; perform our Task
+; #return = number of closest rail spot
+; ===========================
+sub GetTargetSpot
+	set #lpc 100
+	set %TargetSpotLow 0
+	set %TargetSpotHigh 0
+	for %counter 1 %rail
+	{
+		if %A . %counter in %1
+			set %TargetSpotLow %counter
+	}
+	for %counter %endspot %rail
+	{
+		if %A . %counter in %1 
+			set %TargetSpotHigh %counter
+	}
+	gosub CalculateDistInPath %TargetSpotLow %rail
+	set %distlow #result
+	gosub CalculateDistInPath %TargetSpotHigh %rail
+	set %disthigh #result
+
+	set %TargetSpot %TargetSpotHigh
+	if %disthigh > %distlow
+		set %TargetSpot %TargetSpotLow
+	if %distlow = -1
+		set %TargetSpot %TargetSpotHigh
+	if %disthigh = -1
+		set %TargetSpot %TargetSpotLow
+	set #lpc 10
+return %TargetSpot
+
+; ===========================
+; => FindIronIngotID <=
+; Find the ID of IronIngots
+; in any bag.
+; ===========================
+sub FindIronIngotID
+	FindIronIngotIDloop: 
+	finditem %IngotType C_ , %1 
+	if #findCol <> %IronIngotCol
+	{ 
+		ignoreitem #findid
+		goto FindIronIngotIDloop
+	}
+	if #findtype <> %IngotType
+		set %IronIngotID 0
+	if #findtype = %IngotType
+		set %IronIngotID #findID
+	ignoreitem reset
+return %IronIngotID
+
+; ===========================
+; => WaitForVar <=
+; Another wait sub for Lag
+; %1 = var (eg. #contname, #contID,...)
+; %2 = Operator (eg. =, <, <>, ...)
+; %3 = Value
+; %4 = timeout (in seconds)
+; Returns #true if sucessfull
+; ===========================
+sub waitForVar
+	set %timeout #time + 5
+	if  %0 > 3
+		set %timeout #time + %4
+	waitForVarLoop: 
+	if # . %1 %2 %3
+		return #true
+	if #time >= %timeout
+		return #false
+	goto waitForVarLoop
+
+; ===========================
+; => CountItem <=
+; Here we count our items when
+; needed.
+; %1 = Item Type to search for
+; %2 = Which container to search
+; %3 = #true if stackable
+; ===========================
+sub CountItem
+	set %ItemAmount 0
+	set %Stack #false
+	if %0 > 2
+		set %Stack %3
+	CountItemLoop: 
+	Finditem %1 C_ , %2
+	if #findkind <> -1 
+	{ 
+		if %Stack
+			set %ItemAmount %ItemAmount + #findstack 
+		if ! %Stack
+			set %ItemAmount %ItemAmount + 1
+		ignoreitem #findid 
+		goto CountItemLoop
+	} 
+	ignoreitem reset
+return %ItemAmount
+
+; ===========================
+; => OpenStatusBar <=
+; Open status window.
+; ===========================
+sub OpenStatusBar
+	event macro 8 2
+	gosub WaitForVar ContSize = 432_184 5
+	event macro 10 2
+	contpos 430 30
+	set %maxweight #maxweight
+	if %maxweight > 400
+		set %maxweight 400
+return
+
+; =========================== 
+; => Tinker <= 
+; Tinkering our tools at bank. 
+; =========================== 
+sub Tinker
+	gosub HideMiner
+	set %yClickCorrection -5 
+	if %OSIshard 
+		set %yClickCorrection 5 
+	gosub CountItem %TinkerTool %backpackID #false
+	if %ItemAmount < 2 
+	{ 
+		finditem %TinkerTool C_ , %backpackID 
+		set #lobjectID #findID 
+		event macro 17 0 
+		wait %waittime
+		gosub WaitForVar ContSize = 530_437 2
+		set %yclickval 149 + %yClickCorrection 
+		click 66 %yclickval 
+		wait %waittime
+		gosub WaitForVar ContSize = 530_437 2
+		set %yclickval 169 + %yClickCorrection 
+		click 272 %yclickval 
+		wait %waittime
+		gosub WaitForVar ContSize = 530_437 2
+		set %yclickval 453 + %yClickCorrection 
+		click 66 %yclickval 
+		wait %waittime
+		return
+	} 
+	finditem %TinkerTool C_ , %backpackID 
+	set #lobjectID #findID 
+	event macro 17 0 
+	wait %waittime
+	gosub WaitForVar ContSize = 530_437 2
+	set %yclickval 162 + %yClickCorrection 
+	click 68 %yclickval 
+	wait %waittime
+	gosub WaitForVar ContSize = 530_437 2
+	set %yclickval 311 + %yClickCorrection 
+	click 424 %yclickval 
+	wait %waittime
+	gosub WaitForVar ContSize = 530_437 2
+	set %yclickval 112 + %yClickCorrection 
+	click 273 %yclickval 
+	wait %waittime
+	gosub WaitForVar ContSize = 530_437 2
+	set %yclickval 453 + %yClickCorrection 
+	click 66 %yclickval 
+	wait %waittime
+	set %TaskDone #true
+return
+
+; =========================== 
+; => Healer <= 
+; Do what you have to do at a healer
+; atm nothing ;)
+; =========================== 
+sub Healer
+	if %Charghost = No
+		set %taskdone #true
+	HealerLoop:
+	event Macro 9 2
+	if ! #CharName = N/A
+	{
+		if %OSIshard
+			wait %waittime
+		goto HealerLoop
+	}
+return
+
+; ===========================
+; => MumbleMining <=
+; Try to talk while macroing
+; ===========================
+sub MumbleMining
+      set %MumbleMineCount 10
+      if %ChancetoMumble > 0
+      {
+            if #Random % 500 < %ChancetoMumble
+            {
+                  set %mumble #Random % %MumbleMineCount
+                  if %mumble = 0
+                  {
+                        msg $Rofl$
+                  }
+                  if %mumble = 1
+                  {
+                        msg $: grin $
+                  }
+                  if %mumble = 2
+                  {
+                        msg $pfft$
+                  }
+                  if %mumble = 3
+                  {
+                        msg $: sob$
+                  }
+                  if %mumble = 4
+                  {
+                        msg $: shit$
+                  }
+                  if %mumble = 5
+                  {
+                        msg $damn$
+                  }
+                  if %mumble = 6
+                  {
+                        msg $feck$
+                  }
+                  if %mumble = 7
+                  {
+                        msg $Oh yea $
+                  }
+                  if %mumble = 8
+                  {
+                        msg $grrr$
+                  }
+                  if %mumble = 9
+                  {
+                        msg $: dang$
+                  }
+                  wait %waittime
+            }
+      }
+return
+

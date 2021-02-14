@@ -1,0 +1,26 @@
+finditem ME G_16
+set %findkind #FINDKIND
+set %un_balron #FINDID
+if %findkind <> -1
+{
+  if %un_balron <> %balron_actual
+  {
+    set %balron_actual %un_balron
+    exevent Popup SZCG 4
+    target
+    set #LTARGETID #FINDID
+    event macro 22 0
+  }
+  else
+  {
+      repeat
+      {
+            finditem %balron_actual G_16
+            set %findkind #FINDKIND
+      }
+      until %findkind = -1
+      exevent Popup SZCG 1
+      set %balron_actual IIIII
+      wait 40
+  }
+}

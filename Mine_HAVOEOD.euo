@@ -1,0 +1,61 @@
+Call RuneFunctions.euo FindRunebook HAVOEOD
+Set %sdlbook %return
+If %sdlBook > 0
+{
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 1 597 426 40 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 1 598 425 40 3 1342
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 1 599 426 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 1 597 427 40 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 2 587 431 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 2 588 430 40 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 2 589 431 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 2 588 432 40 3 1342
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 3 604 437 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 3 605 436 40 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 3 606 437 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 3 605 438 40 3 1342
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 4 618 427 40 3 1342
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 4 617 428 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 4 618 429 40 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 4 619 428 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 5 630 432 40 3 1342
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 5 629 431 40 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 5 628 432 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 5 629 433 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 6 629 442 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 6 628 443 40 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 6 629 444 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 6 630 443 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 7 630 453 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 7 629 452 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 7 628 453 40 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 7 629 454 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 8 629 461 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 8 630 462 40 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 8 629 463 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 8 628 462 40 3 1342
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 9 621 473 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 9 622 472 40 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 9 621 471 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 9 620 472 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 10 628 483 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 10 629 484 40 3 1340
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 10 630 483 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 10 629 482 40 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 11 1861 700 -85 2 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 11 1862 699 -79 2 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 12 4022 337 0 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 12 4022 338 0 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 12 4019 336 0 3 1341
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 12 4020 338 0 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 13 604 417 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 13 603 418 40 3 1342
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 13 604 419 40 3 1343
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 13 605 418 40 3 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 14 1906 778 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 14 1907 778 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 15 1884 724 -90 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 15 1888 724 -88 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 16 1956 752 -89 2 1339
+   Call RuneFunctions.euo SetUserDigCoord %sdlBook 16 1956 749 -89 2 1339
+}

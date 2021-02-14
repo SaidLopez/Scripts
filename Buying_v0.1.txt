@@ -1,0 +1,198 @@
+
+; types:
+set %regs RWF_WUF_QQD_WUF_RZF_KZF_KUF_JUF_MZF_JZF_WZF_DPF_SZF_DUD_DPF_DUF_UZF_TZF_IUF_YZF_GVF_NVF_UVF_HVF_RVF_VVF_BVF_ZVF_EVF_QQD_PQD_DUD_RWF ; TYPES OF THE OBJECTS YOU WILL BE BUYING
+set %runebook1 KNOCQND       ; ID FROM THE RUNEBOOK WITH THE NPC LOCATIONS
+set %runebook2 GTBJPMD
+set %runebook3 WOBJPMD
+set %runebook4 FKCJPMD
+set %runebook5 XIIPPMD
+set %runebook6 LSCJPMD
+set %runebook7 IFCJPMD
+set %runebook8 OEQVPMD
+set %viaje M                                      ; S OR C FOR SANCTUM VIATAS, M OR R FOR RECALL
+set %caja KJSDCRD                                 ; A SECURE CONTAINER AT YOUR HOUSE
+set %nsecure 3                                   ; NUMBER OF THE SECURE LOCATION ON YOUR SECURE-RUNEBOOK  / mismo libro para secure y bank
+set %runebooksecure UWTAKRD                      ; RUNEBOOK WHERE SECURE RUNE IS
+set %nbank 4                                     ; NUMBER OF A RUNE TO A BANK (FOR WITHDRAWING THOSE 2000GBP)
+set %pesoMAX 300 ; base 88                                  ; MAXIMUM WEIGHT BEFORE GOING TO SECURE (don't set too high to avoid overweighting problems)
+set %NRunas1 11  ;regs num runas libro 1
+set %NRunas2 2   ;regs2
+set %NRunas3 3  ;regs3
+set %NRunas4 4  ; provisioners 1
+
+set %NBooks 1
+
+loop:
+set %tiempo #scnt
+set %pesoantes #weight
+set %nohaymas #true
+for %u 1 %NBooks
+{
+for %j 1 %NRunas . %u
+    {
+     vuelve:
+     if ( #gold < 2000 ) && ( #weight < ( #maxweight - 40 ) )
+         {
+          gosub recalea %runebooksecure %nbank %viaje
+          event macro 1 0 sacar 2000
+          wait 2s
+          goto vuelve
+         }
+     gosub recalea %runebook . %u %j %viaje
+     gosub COMPRA
+     if #weight > %pesoMAX
+         {
+          gosub recalea %runebooksecure %nsecure %viaje
+          finditem %regs C_ , #backpackid
+          for #findindex 1 #findcnt
+              {
+               exevent drag #findid #findstack
+               wait 5
+               exevent dropc %caja
+               wait 5
+              }
+         }
+    }
+}
+if %nohaymas
+    {
+     gosub recalea %runebooksecure %nsecure %viaje
+          finditem %regs C_ , #backpackid
+          for #findindex 1 #findcnt
+              {
+               exevent drag #findid #findstack
+               wait 15
+               exevent dropc %caja
+               wait 5
+              }
+     while ! #result
+         {
+          gosub escaneajournal world_will_save
+         }
+     wait 90s
+    }
+goto loop
+
+
+
+sub COMPRA
+
+finditem HS_IS_XU_AV_NCB_OCB G_10
+for #findindex 1 #findcnt
+    {
+     if #weight > %pesoMAX
+         {
+          return
+         }
+     if #findrep <> 7
+         {
+          goto pasando
+         }
+     move #findx #findy 5 2s
+     exevent popup #findid 2
+     wait 10
+     pasando:
+    }
+if #weight <> %pesoantes
+{
+ set %nohaymas #false
+}
+return
+
+
+
+
+sub recalea
+if #weight > ( #maxweight + 1 )
+{
+ display ok Sobrepeso!
+ pause
+}
+; %1 = ID runebook
+; %2 = numero de runa
+; %3 = spell (M = magery, C = chivalry)
+;=======SOLO ORDENA===============
+if %soloordena
+    {
+     return
+    }
+;=================================
+esperamana:
+set %actualPosX #charposx
+set %actualPosY #charposy
+
+if %3 = M || %3 = R
+    {
+     set %viajema 145
+     if #mana < 11
+         goto esperamana
+    }
+if %3 = C || %3 = S
+    {
+     set %viajema 180
+     if #mana < 10
+         goto esperamana
+    }
+
+abreLibroRunas: ;ABRIMOS EL LIBRO DE RUNAS_____________________________________________________________________________________________________________
+   set #lobjectid %1
+   set %tiempoRunas #scnt
+esperaLibroRunas:
+   if #contsize <> 452_236 || #contname <> generic_gump
+   {
+      if #scnt >= %tiempoRunas
+      {
+         set %tiempoRunas #scnt + 5
+         event macro 17
+      }
+      goto esperaLibroRunas
+   }
+   set %libroPosX #contposx
+   set %libroPosY #contposy
+
+eligePaginaRunas: ;HACEMOS CLICK EN LA PAGINA CORRESPONDIENTE__________________________________________________________________________
+   set %clickX ( %libroPosX + ( ( ( ( %2 + 1 ) / 2 ) * 35 ) + 105 ) )
+   set %clickY %libroPosY + 195
+   if %2 > 8
+      set %clickX %clickX + 30
+   click %clickX %clickY ;mc
+   wait 10
+
+lanzaHechizo: ;HACEMOS CLICK EN LA GEMA CORRESPONDIENTE PARA LANZAR EL HECHIZO__________________________________________________________
+   set %clickX %libroPosX + 140
+   set %clickY %libroPosY + %viajema ; (sería + 180 en caso de Sacred Journey)
+   if %2 % 2 = 0
+      set %clickX %clickX + 160
+   set %actualPosX #charposx
+   set %actualPosY #charposy
+   click %clickX %clickY ;mc
+   set %tiempoIr #scnt + 10
+
+esperaLlegada: ;ESPERAMOS HASTA QUE LLEGUEMOS AL NUEVO LUGAR___________________________________________________________________________
+   if #scnt > %tiempoIr
+      goto abreLibroRunas
+   if #charposx = %actualPosX && #charposy = %actualPosY
+      {
+       scanjournal 1
+       if blocking in #journal || blocked in #journal
+           {
+            return BLOCK
+           }
+       goto esperaLlegada
+      }
+   wait 1s
+
+return
+
+sub escaneajournal
+
+for %kk 1 10
+    {
+     scanjournal %kk
+     if %1 in #journal
+         {
+          deletejournal
+          return #true
+         }
+    }
+return #false

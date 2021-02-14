@@ -1,0 +1,484 @@
+; ==============================================================================
+; Script Name: Bola Maker
+; Author: slyone
+; Version: 1.0
+; Shard OSI / FS:  OSI
+; Revision Date: none
+; Public Release: TBD
+; Purpose: Make Tons of Bolas
+; Directions: -Stock your resource container with leather and ingots
+;             -Make sure you have enough tinkering
+;             -Press Play!
+;             -Note: The script defaults to making 10 bolas.
+; Special Thanks: C2 and Paulonius for helping to ID iron ingots
+; ==============================================================================
+; Main Routine
+; ==============================================================================
+; Bolas require 4 bola balls, 3 leather, and 60 tink
+; Bola Balls require 10 ingots and 45 tink (tink tali recommended)
+
+set %contsize 530_497 ;Tinker Menu GumpSize
+
+gosub choosebags
+gosub setup
+gosub checkresources
+gosub setuptink ;set tool to iron ingots
+loop:
+gosub showEUOMenu1
+menu GetNum numbola -1
+if #menuRes = -1
+{
+  display Please enter the number of bolas you would like make.
+  goto loop
+}
+else
+  set %numbola #menuRes
+set %made 0
+menu Hide
+; main loop
+repeat
+  gosub cresource
+  gosub createbballs
+  gosub createbolas
+until %made >= %numbola
+gosub unload
+gosub clickxy 5 5
+click %cx %cy r
+gosub showEUOMenu2
+halt
+; ==============================================================================
+; Create Bola Balls: (see name for description...)
+; ==============================================================================
+sub createbballs
+  finditem %ttools C_ , #backpackid
+  if #findkind <> 0
+    gosub maketink
+  set #lobjectid #findid
+retry:
+  event macro 17 0
+  gosub waitforgump %contsize
+  if ! #result
+    goto retry
+  gosub clickxy %partsmenux %partsmenuy
+  click %cx %cy
+  gosub waitforgump %contsize
+  gosub clickxy %bballx %bbally
+  click %cx %cy
+  gosub waitforgump %contsize
+  for %i 1 39
+  {
+    gosub clickxy %makelastx %makelasty
+    click %cx %cy
+    gosub waitforgump %contsize
+    if ! #result
+    {
+      finditem %ttools C_ , #backpackid
+      if #findcnt < 2
+        gosub maketink
+      set #lobjectid #findid
+      event macro 17 0
+      gosub waitforgump %contsize
+      gosub clickxy %partsmenux %partsmenuy
+      click %cx %cy
+      gosub waitforgump %contsize
+      gosub clickxy %bballx %bbally
+      click %cx %cy
+      gosub waitforgump %contsize
+    }
+  }
+return
+; ==============================================================================
+; Create Bolas: (see name for description...)
+; ==============================================================================
+sub createbolas
+  finditem %ttools C_ , #backpackid
+  if #findkind <> 0
+    gosub maketink
+  set #lobjectid #findid
+retry2:
+  event macro 17 0
+  gosub waitforgump %contsize
+  if ! #result
+    goto retry2
+  gosub clickxy %assemblymenux %assemblymenuy
+  click %cx %cy
+  gosub waitforgump
+  gosub clickxy %bolax %bolay
+  click %cx %cy
+  gosub waitforgump
+  for %i 1 9
+  {
+    gosub clickxy %makelastx %makelasty
+    click %cx %cy
+    gosub waitforgump %contsize
+    if ! #result
+    {
+      finditem %ttools C_ , #backpackid
+      if #findcnt < 2
+        gosub maketink
+      set #lobjectid #findid
+      event macro 17 0
+      gosub waitforgump %contsize
+      gosub clickxy %assemblymenux %assemblymenuy
+      click %cx %cy
+      gosub waitforgump %contsize
+      gosub clickxy %bolax %bolay
+      click %cx %cy
+      gosub waitforgump %contsize
+    }
+  }
+  finditem %bola C_ , #backpackid
+  set %made %made + #findstack
+  exevent drag #findid #findstack
+  wait 10
+  exevent dropc %resource
+  wait 10
+return
+; ==============================================================================
+; Check Resources: Check Resources after each make
+; ==============================================================================
+sub cresource
+  finditem %allingots C_ , #backpackid
+  if #findstack < 500
+  {
+    if #findkind = 0
+    {
+      exevent drag #findid #findstack
+      wait 10
+      exevent dropc %resource
+      wait 10
+    }
+    finditem %ingot C_ , %resource
+    if #findkind <> 0
+    {
+      display ok You have no iron ingots to tinker items or to create new tools.  Halting...
+      halt
+    }
+    exevent drag #findid 500
+    wait 10
+    exevent dropc #backpackid
+    wait 10
+  }
+  finditem %leather C_ , #backpackid
+  if #findstack < 6
+  {
+    finditem %leather C_ , %resource
+    if #findkind <> 0
+    {
+      display ok Out of leather
+      halt
+    }
+    exevent drag #findid 30
+    wait 10
+    exevent dropc #backpackid
+    wait 10
+  }
+  finditem %bball C_ , #backpackid
+  if #findstack < 6
+  {
+    finditem %bball C_ , %resource
+    if #findkind = 0
+    {
+      
+      exevent drag #findid 40
+      wait 10
+      exevent dropc #backpackid
+      wait 10
+    }
+  }
+return
+; ==============================================================================
+; Wait for gump:  Waits for gump, %1 = contsize, returns #true when finished
+; ==============================================================================
+sub waitforgump
+  set %timeout #scnt + 5
+  while #contsize <> %1
+  {
+    wait 1
+    if #scnt > %timeout
+    {
+      return #false
+    }
+  }
+  wait %gumpwait
+return #true
+; ==============================================================================
+; Check resources:  Initial Check for resources and tools
+; ==============================================================================
+sub checkresources
+  finditem %allingots C_ , #backpackid
+  if #findkind = 0
+  {
+    exevent drag #findid #findstack
+    wait 10
+    exevent dropc %resource
+    wait 10
+  }
+  finditem %ingot C_ , %resource
+  if #findkind <> 0
+  {
+    display ok You have no iron ingots to tinker items or to create new tools.  Halting...
+    halt
+  }
+  exevent drag #findid 500
+  wait 10
+  exevent dropc #backpackid
+  wait 10
+  finditem %ttools C_ , #backpackid
+  if #findkind <> 0
+  {
+    finditem %ttools C_ , %resource
+    if #findkind <> 0
+    {
+      display ok Go and get some tinker tools and put them in your unraveling bag.  Halting...
+      halt
+    }
+    exevent drag #findid
+    wait 10
+    exevent dropc #backpackid
+    wait 10
+  }
+  if #findcnt < 2
+    gosub maketink
+  finditem %bball C_ , #backpackid
+  if #findkind = 0
+  {
+    exevent drag #findid #findstack
+    wait 10
+    exevent dropc %resource
+    wait 10
+  }
+  finditem %bball C_ , %resource
+  if #findkind = 0
+  {
+    exevent drag #findid 40
+    wait 10
+    exevent dropc #backpackid
+    wait 10
+  }
+  finditem %leather C_ , #backpackid
+  if #findkind = 0
+  {
+    exevent drag #findid #findstack
+    wait 10
+    exevent dropc %resource
+    wait 10
+  }
+  finditem %leather C_ , %resource
+  if #findkind = 0
+  {
+    exevent drag #findid 30
+    wait 10
+    exevent dropc #backpackid
+    wait 10
+  }
+return
+; ==============================================================================
+; Make Tinker Tools:  Makes tinktools
+; ==============================================================================
+sub maketink
+retink2:
+  finditem %ttools C_ , #backpackid
+  if #findkind <> 0
+  {
+    finditem %ttools C_ , %resource
+    if #findkind <> 0
+    {
+      display ok Can't find tinker tools in resource container.  Halting...
+      halt
+    }
+    exevent drag #findid
+    wait 10
+    exevent dropc #backpackid
+    wait 10
+  }
+  set #lobjectid #findid
+tryagain:
+  event macro 17 0
+  gosub waitforgump %contsize
+  if ! #result
+    goto tryagain
+  gosub clickxy %toolsmenux %toolsmenuy
+  click %cx %cy
+  gosub waitforgump %contsize
+  gosub clickxy %ttoolx %ttooly
+  click %cx %cy
+  gosub waitforgump %contsize
+  click %cx %cy r
+  finditem %ttools C_ , #backpackid
+  if #findkind <> 0
+    goto retink2
+  set #lobjectid #findid
+return
+; ==============================================================================
+; Choose Bag:  Chooses resource container
+; ==============================================================================
+sub choosebags
+  display ok Please target your resource container.
+  set #targcurs 1
+  while #targcurs = 1
+    wait 1
+  set %resource #ltargetid
+  set #lobjectid %resource
+  event macro 17 0
+  wait 20
+  event macro 8 7
+  wait 20
+return
+; ==============================================================================
+; Click Sub:  Sets coordinates in gump to click
+; ==============================================================================
+sub clickxy
+  set %cx #contposx + %1
+  set %cy #contposy + %2
+return
+; ==============================================================================
+; Setup Tink:  Sets the tinker tool to use iron ingots
+; ==============================================================================
+sub setuptink
+  finditem %ttools C_ , #backpackid
+  if #findkind <> 0
+  {
+    finditem %ttools C_ , %resource
+    if #findkind <> 0
+    {
+      display ok You need tinkers tools! Halting...
+      halt
+    }
+    exevent drag #findid
+    wait 10
+    exevent dropc #backpackid
+    wait 10
+  }
+  set #lobjectid #findid
+retry3:
+  event macro 17 0
+  gosub waitforgump %contsize
+  if ! #result
+    goto retry3
+  gosub clickxy %ingotmenux %ingotmenuy
+  click %cx %cy
+  gosub waitforgump %contsize
+  gosub clickxy %ironx %irony
+  click %cx %cy
+  gosub waitforgump %contsize
+  click %cx %cy r
+return
+; ==============================================================================
+; Choose Bag:  Chooses resource container
+; ==============================================================================
+sub unload
+  finditem %allingots C_ , #backpackid
+  exevent drag #findid #findstack
+  wait 10
+  exevent dropc %resource
+  wait 10
+  finditem %bball C_ , #backpackid
+  exevent drag #findid #findstack
+  wait 10
+  exevent dropc %resource
+  wait 10
+  finditem %leather C_ , #backpackid
+  exevent drag #findid #findstack
+  wait 10
+  exevent dropc %resource
+  wait 10
+return
+; ==============================================================================
+; Variable Setup:  This is the variable setup routine
+; ==============================================================================
+; ========================Sub Set_Ingots:  Created by C2========================
+sub set_ingots
+  finditem %allingots C_ , %resource
+  for #findindex 1 #findcnt
+  {
+    Event property #findid
+    If shadow notin #property && dull notin #property && copper notin #property && bronze notin #property && gold notin #property && agapite notin #property && verite notin #property && valorite notin #property
+      set %ingot #findid
+    else
+      ignoreitem #findid
+  }
+return
+
+sub setup
+  set #scnt 0
+  set %ttools JTL_KTL          ; Tinker tools bag style
+  set %allingots ENK
+  gosub set_ingots
+  set %leather JJG
+  set %bola KTO
+  set %bball FKF
+  set %assemblymenux 30
+  set %assemblymenuy 210
+  set %bolax 235
+  set %bolay 190
+  set %toolsmenux 30
+  set %toolsmenuy 130
+  set %ttoolx 235
+  set %ttooly 130
+  set %makelastx 285
+  set %makelasty 450
+  set %partsmenux 30
+  set %partsmenuy 150
+  set %bballx 235
+  set %bbally 210
+  set %ingotmenux 30
+  set %ingotmenuy 370
+  set %ironx 235
+  set %irony 70
+  set %gumpwait 5
+return
+; ==============================================================================
+;--------- EasyUO Menu Designer Code Begin ---------
+sub showEUOMenu1
+  menu Clear
+  menu Window Title Bola Maker
+  menu Window Color Black
+  menu Window Size 150 146
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 14
+  menu Font Style
+  menu Font Color Red
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Font BGColor Black
+  menu Text numofbola 36 8 # of Bolas
+  menu Font Size 20
+  menu Font Color WindowText
+  menu Font BGColor BtnFace
+  menu Button startbutton 36 88 89 41 Start
+  menu Font Size 8
+  menu Font BGColor Window
+  menu Edit numbola 36 36 89 #spc
+  menu Show 421 270
+  set #menubutton N/A
+  repeat
+  until #menubutton <> N/A
+return
+sub showEUOMenu2
+  menu Clear
+  menu Window Title All Done
+  menu Window Color WindowText
+  menu Window Size 121 73
+  menu Font Transparent #true
+  menu Font Align Right
+  menu Font Name MS Sans Serif
+  menu Font Size 20
+  menu Font Style
+  menu Font Color WindowText
+  menu Font Transparent #false
+  menu Font Align Left
+  menu Font BGColor Red
+  menu Text EUOLabel1 20 20 DONE!
+  menu Show 421 270
+return
+;--------- EasyUO Menu Designer Code End ---------
+
+
+
+
+
+
+

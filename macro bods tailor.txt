@@ -1,0 +1,1902 @@
+                          ;===================================================================================
+; Script Name: neo's bodbook filler
+; Authors: neo
+; Version: 2.0
+; Client Tested With: 7.0.29.2
+; EUO version tested with: 1.50 236
+; Shard OSI / FS: OSI
+; Revision Date: February 17, 2013
+; Public Release: September 29, 2011
+; Closed Beta testers: MeWonUo and Goliath
+; Special thanks: MeWonUo and The Ghost for testing v2.0 Open Beta and providing me
+;                 with detailed feedback of their runs. Thanks guys! :)
+;
+; Purpose: Fills multiple BOD books from within multiple containers. Puts them back
+;          in place after filling them. Works with both SMITH and TAILOR BODs as of
+;          version 2.0
+;-----------------------------------------------------------------------------------
+; Url:     http://www.scriptuo.com/index.php?topic=8636.0
+;===================================================================================
+; Version 2.0   - Added tailor bod support
+;               - Polished up some of the code
+;
+;------------------------------------------------------------------------------------
+; Version 1.2   - Public release. Thank you very much MeWonUo and Goliath for
+;                 testing this out and sending feedback, I'm sure I wouldn't have
+;                 gotten so far with this script without your help. Thank you! :)
+;------------------------------------------------------------------------------------
+; Version 1.1   - Some more improvements.
+;               - Some clean ups on the code to prepare for public release
+;------------------------------------------------------------------------------------
+; Version 1.0   - Some improvements
+;----------------------------------------------------------------------------------
+; Version 0.9   - Some minor changes
+;------------------------------------------------------------------------------------
+; Version 0.8   - Some more fixes :D
+;               - Bod filling speed improved greatly
+;------------------------------------------------------------------------------------
+; Version 0.6   - Minor fixes
+;-------------------------------------------------------------------------------------
+; Version 0.5   - Some more fixes.
+;               - Added important note in "Instructions". Please read them before using
+;                 this script
+;------------------------------------------------------------------------------------
+; Version 0.4   - More minor fixes.
+;------------------------------------------------------------------------------------
+; Version 0.3   - Some more fixes
+;------------------------------------------------------------------------------------
+; Version 0.2   - A few minor fixes
+;-----------------------------------------------------------------------------------
+; Version 0.1   - Closed beta
+;-----------------------------------------------------------------------------------
+; Instructions:
+;               - Have a salvage bag in your backpack
+;               - Use only ONE color of cloth,having more colors in your secure/backpack
+;                 will break the script
+;               - You need a trash barrel within two tiles for trashing bone items
+;                 since they can't be recycled
+;               - You must add the CONTAINERS which contain bod books to be filled
+;                 to the menu list. When you add the container, all books inside
+;                 that container will be added automatically to the list
+;               - You must have at least 1 tinker tools inside backpack or resource
+;                 secure to craft the tongs (and enough tinker skill of course)
+;               - You must have a secure with all the crafting material in
+;
+;               You have 2 trashing options for non-exceptional items:
+;               - Salvaging. This will require you to have a Salvage Bag inside
+;                 your backpack.
+;               - Throw away in trash. This will require you to have a trash can
+;                 within 2 tiles from your character
+;               YOU MUSTN'T HAVE ANY LOOSE BODS INSIDE YOUR BACKPACK WHEN YOU
+;               HIT PLAY, OTHERWISE YOU WILL BREAK THE SCRIPT.
+; IMPORTANT NOTE: DON'T USE ANY FILTERS ON YOUR BOD BOOKS
+;-----------------------------------------------------------------------------------
+namespace push
+namespace local neobodfiller
+
+;======= vars =======
+set !leathernames LEA_SPI_HOR_BAR
+set !cloth CUI_BUI
+set !_skullcap CZH
+set !_bandana GZH
+set !_floppy_hat BWI
+set !_cap VVI
+set !_widebrim_hat WVI
+set !_straw_hat XVI
+set !_tall_straw_hat YVI
+set !_wizards_hat IWI
+set !_bonnet HWI
+set !_feathered_hat KWI
+set !_tricorne_hat JWI
+set !_jester_hat EWI
+set !_flower_garland JJN
+set !_cloth_ninja_hood BCP
+set !_kasa UCP
+set !_doublet XVL
+set !_shirt FCI
+set !_fancy_shirt TQL
+set !_tunic HCM
+set !_surcoat PAM
+set !_plain_dress DWL
+set !_fancy_dress EWL
+set !_cloak DCI
+set !_robe FWL
+set !_jester_suit XBM
+set !_fur_cape VJN
+set !_gilded_dress RJN
+set !_formal_shirt TJN
+set !_cloth_ninja_jacket ICP
+set !_kamishimo TCP
+set !_hakama-shita QCP
+set !_male_kimono YBP
+set !_female_kimono XBP
+set !_jin-baori BDP
+set !_short_pants EDI
+set !_long_pants VDI
+set !_kilt LDI
+set !_skirt GCI
+set !_fur_sarong XJN
+set !_hakama WCP
+set !_tattsuke-hakama VCP
+set !_body_sash FZH
+set !_half_apron XDI
+set !_full_apron RDI
+set !_obi CDP
+set !_fur_boots LJN
+set !_ninja_tabi JCP
+set !_waraji_and_tabi KCP
+set !_sandals NVI
+set !_shoes AWI
+set !_boots TVI
+set !_thigh_boots CWI
+set !_leather_gorget JKH
+set !_leather_cap NJL
+set !_leather_gloves KKH
+set !_leather_sleeves HKH
+set !_leather_leggings VKH
+set !_leather_tunic QKH
+set !_leather_jingasa GWO
+set !_leather_mempo SWO
+set !_leather_do RWO
+set !_leather_hiro_sode OWO
+set !_leather_suneate UBP
+set !_leather_haidate GCP
+set !_leather_ninja_pants LCP
+set !_leather_ninja_jacket NCP
+set !_leather_ninja_belt MCP
+set !_leather_ninja_mitts OCP
+set !_leather_ninja_hood CCP
+set !_studded_gorget ALH
+set !_studded_gloves XKH
+set !_studded_sleeves YKH
+set !_studded_leggings MLH
+set !_studded_tunic LLH
+set !_studded_mempo PCP
+set !_studded_do MWO
+set !_studded_hiro_sode NWO
+set !_studded_suneate TBP
+set !_studded_haidate FCP
+set !_leather_shorts QSK
+set !_leather_skirt YSK
+set !_leather_bustier ATK
+set !_studded_bustier USK
+set !_female_leather_armor OSK
+set !_studded_armor SSK
+set !_bone_helmet YPH
+set !_bone_gloves VPH
+set !_bone_arms BQH
+set !_bone_leggings CQH
+set !_bone_armor PPH
+set !tcat2p0 CZH_GZH_BWI_VVI_WVI_XVI_YVI_IWI_HWI_KWI
+set !tcat2p1 JWI_EWI_JJN_BCP_UCP
+set !tcat3p0 XVL_FCI_TQL_HCM_PAM_DWL_VQL_DCI_FWL_XBM
+set !tcat3p1 VJN_RJN_TJN_ICP_TCP_QCP_YBP_XBP_BDP_EDI
+set !tcat3p2 VDI_LDI_GCI_XJN_WCP_VCP
+set !tcat4p0 FZH_XDI_RDI_CDP
+set !tcat5p0 XXX_LJN_JCP_KCP_NVI_AWI_TVI_CWI
+set !tcat6p0 XXX_XXX_XXX_JKH_NJL_KKH_HKH_VKH_QKH_GWO
+set !tcat6p1 SWO_RWO_OWO_UBP_GCP_LCP_NCP_MCP_OCP_CCP
+set !tcat8p0 ALH_XKH_YKH_MLH_LLH_PCP_MWO_NWO_TBP_FCP
+set !tcat9p0 QSK_YSK_ATK_USK_OSK_SSK
+set !tcat10p0 YPH_VPH_BQH_CQH_PPH
+set !bod EYM
+set !bone GUF
+set !leather JJG
+set !bodbook DYM
+set !bookcnt 0
+set !tong OBG
+set !sewingkit HAG
+set !tinkertool GTL
+set !matnames IRO_DUL_SHA_COP_BRO_GOL_AGA_VER_VAL
+set !cat1p0 BMH_IMH_XLH_WLH_DPH_APH_ZOH_MSH_ISH_NSH
+set !cat1p1 LSH_HSH_MSK_XXX_PWO_LWO_WBP_ECP_ZBP_VGY
+set !cat2p0 ASH_ESH_GSH_CSH_OSH
+set !cat3p0 FIK_GIK_CIK_NIK_AIK_MIK_HLK_CLK_WCZ_TCZ
+set !cat4p0 FUO_ATF_NPO_JPH_TSF_NMH_VRH_JTF_SOH_BPH
+set !cat5p0 LSF_BSF_NSF_ZRF_RMH_LPH_UOH
+set !cat6p0 HSF_XXX_XXX_XTH_XXX_XXX_XRH_XXX_MTF_RRH
+set !cat7p0 VTH_YSF_BUH_AUO_TRH_ZTH
+set !ingot ENK
+set !forge JBG_WUJ_IVJ_SOJ
+set !_ringmail_gloves BMH
+set !_ringmail_leggings IMH
+set !_ringmail_sleeves XLH
+set !_ringmail_tunic WLH
+set !_chainmail_coif DPH
+set !_chainmail_leggings APH
+set !_chainmail_tunic ZOH
+set !_platemail_arms MSH
+set !_platemail_gloves ISH
+set !_platemail_gorget NSH
+set !_platemail_legs LSH
+set !_platemail_tunic HSH
+set !_female_plate MSK
+set !_bascinet ASH
+set !_close_helmet ESH
+set !_helmet GSH
+set !_norse_helm CSH
+set !_plate_helm OSH
+set !_buckler FIK
+set !_bronze_shield GIK
+set !_heater_shield CIK
+set !_metal_shield NIK
+set !_metal_kite_shield AIK
+set !_tear_kite_shield MIK
+set !_broadsword ATF
+set !_cutlass JPH
+set !_dagger TSF
+set !_katana NMH
+set !_kryss VRH
+set !_longsword JTF
+set !_scimitar SOH
+set !_viking_sword BPH
+set !_axe LSF
+set !_battle_axe BSF
+set !_double_axe NSF
+set !_executioners_axe ZRF
+set !_large_battle_axe RMH
+set !_two_handed_axe LPH
+set !_war_axe UOH
+set !_bardiche HSF
+set !_halberd XTH
+set !_short_spear XRH
+set !_spear MTF
+set !_war_fork RRH
+set !_hammer_pick VTH
+set !_mace YSF
+set !_maul BUH
+set !_scepter AUO
+set !_war_mace TRH
+set !_war_hammer ZTH
+set !message1 trash , #spc , barrel
+set !message2 trashed
+set !filledcnt 0
+set !trashcnt 0
+set !bookindex 0
+set !timerunning 0h:00m:00s
+set !smelt #false
+;======= end vars =======
+gosub menu
+set #menubutton N/A
+
+repeat
+  if #menubutton <> N/A
+    gosub #menubutton
+until #false
+
+;======= sub start_button =======
+sub start_button
+  set #menubutton N/A
+  menu get smelt_chk
+  if #menures
+  {
+    set !smelt #true
+    set !message1 salvage , #spc , bag
+    set !message2 recycled
+  }
+  menu get bs_chk
+    set !bs_chk #menures
+  menu get t_chk
+    set !t_chk #menures
+  if !bs_chk = #false && !t_chk = #false
+  {
+      display You need to select at least one of the main options. Halting
+      menu clear
+      menu hide
+      halt
+  }
+  event sysmessage Please target your resource secure
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set !resource #ltargetid
+  set #lobjectid #ltargetid
+  event macro 17
+  gosub gumpwait N/A N/A #lobjectid
+  wait 10
+  event sysmessage Please target your !message1
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set !trashbag #ltargetid
+  if !t_chk && !smelt
+  {
+      event sysmessage Please target your trash barrel
+      set #targcurs 1
+      while #targcurs = 1
+          wait
+      set !trashbarrel #ltargetid
+      set !message2 recycled/trashed
+  }
+  finditem ENK C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+      gosub move #findid !resource #findstack
+    wait 10
+  }
+  finditem CUI C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+      gosub move #findid !resource #findstack
+    wait 10
+  }
+  finditem JJG C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+      gosub move #findid !resource #findstack
+  }
+  set !starttime #SCNT
+  if !bookcnt > 0
+  {
+    gosub statsmenu
+    for !number 1 !bookcnt
+    {
+      set !bookindex !bookindex + 1
+      gosub timer
+      gosub move !book . !number #backpackid 1
+      wait 10
+      repeat
+        event property !book . !number
+      until Deeds in #property
+      gosub bodsinbook #property
+      set !bookamount #result
+      if !bookamount > 0
+      {
+        set !currentbook !book . !number
+        for !times 1 !bookamount
+          gosub main
+      }
+      gosub move !book . !number !container . !number 1
+      wait 10
+    }
+  }
+  set #menubutton N/A
+  display Filled !filledcnt bods across !bookcnt books.
+  halt
+return
+;======= end sub =======
+
+;======= sub container_button =======
+sub container_button
+  event sysmessage Target a container with bod books to fill
+  set #targcurs 1
+  while #targcurs = 1
+    wait
+  set #lobjectid #ltargetid
+  set !container #ltargetid
+  wait 10
+  event macro 17
+  gosub gumpwait N/A N/A #lobjectid
+  wait 10
+  finditem !bodbook C_ , !container
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+    {
+      set !bookcnt !bookcnt + 1
+      set !container . !bookcnt !container
+      set !book . !bookcnt #findid
+      menu list add list !book . !bookcnt
+    }
+  }
+  set #menubutton N/A
+return
+;======= end sub =======
+
+;======= bodsinbook =======
+sub bodsinbook
+  namespace push
+  namespace local bodsinbook
+  set !property %1
+  str pos !property Book 2
+  set !start ( #strres + 6 )
+  str pos !property $ 4
+  set !end #strres
+  set !len ( !end - !start )
+  str mid !property !start !len
+  set #result #strres
+  namespace pop
+return #result
+;======= end sub =======
+
+;======= main sub =======
+sub main
+  finditem !bod C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+      gosub move #findid !currentbook 1
+    wait 10
+  }
+  if #contname = generic_gump && #contsize = 615_454
+    gosub offsetclick 386 426 f dmc
+  wait 10
+  set !currentbod N/A
+  repeat
+    set #lobjectid !currentbook
+    event macro 17
+    gosub gumpwait generic_gump 615_454 N/A
+    if #result <> #true
+      wait 10
+  until #result
+  gosub offsetclick 41 104 f dmc
+  gosub gumpwait generic_gump 615_454 N/A
+  gosub offsetclick 386 426 f dmc
+  set !findbodtime #SCNT + 4
+  repeat
+    finditem !bod C_ , #backpackid
+  until #findcnt > 0 || !findbodtime <= #SCNT
+  wait 10
+  if #findcnt > 0
+  {
+    set !currentbod #findid
+    set !bodcol #findcol
+    repeat
+      event property #findid
+    until Weight in #property
+    gosub checkbod #property
+    set !small #result
+    if !small
+    {
+      gosub getname !property
+      set !itemname #result
+      gosub gettype !itemname
+      set !item #result
+      repeat
+        event property !currentbod
+      until Weight in #property
+      set !bodproperty #property
+      gosub getamount !itemname !bodproperty
+      if #result > 0
+      {
+          if !bs && !bs_chk
+          {
+            gosub craft
+            if !matfound
+                gosub craftcycle
+          }
+          if !bs = #false && !t_chk
+          {
+              gosub tcraft
+              if !leatherfound || !clothfound
+                  gosub tcraftcycle
+          }
+      }
+    }
+    gosub move !currentbod !currentbook 1
+    gosub gumpwait generic_gump 615_454 N/A
+    if #result
+      gosub offsetclick 390 425 f dmc
+    if #targcurs = 1
+      set #targcurs 0
+  }
+  wait 10
+return
+;======= end sub =======
+
+;======= getkind sub =======
+sub tcraft
+    set !tcraftfirst #true
+    set !iscloth #false
+    set !isleather #false
+    set !told_lpc #lpc
+    set #lpc 200
+    if !material in !leathernames
+    {
+        set !isleather #true
+        set !isbones #false
+        for !c 5 10
+        {
+            for !p 0 2
+            {
+                set !catname tcat . !c , p . !p
+                set !cat ! . !catname
+                if !item in !cat
+                {
+                    str pos !cat !item
+                    set !index ( ( #strres - 1 ) / 4 )
+                    set !category !c
+                    set !page !p
+                }
+            }
+        }
+        if !category = 10
+            set !isbones #true
+        str pos !leathernames !material
+        set !matindex ( ( #strres - 1 ) / 4 )
+        gosub getleather 180
+        if !isbones
+        {
+            gosub getbones 400
+            set !leatherfound !bonesfound
+        }
+        if !leatherfound
+        {
+            finditem !sewingkit C_ , #backpackid
+            if #findcnt < 1
+            {
+                gosub craftsewingkit
+                finditem !sewingkit C_ , #backpackid
+            }
+            set #lobjectid #findid
+            repeat
+                event property #backpackid
+            until Stones in #property
+            set !propbefore #property
+            event macro 17
+            gosub gumpwait generic_gump 530_507 N/A
+            gosub offsetclick 30 375 f dmc
+            gosub fastgumpwait generic_gump 530_507
+            wait 10
+            set !x 235
+            set !y ( 70 + ( !matindex * 20 ) )
+            gosub offsetclick !x !y f dmc
+            gosub fastgumpwait generic_gump 530_507
+            wait 10
+            set !x 30
+            set !y ( 70 + ( !category * 20 ) )
+            gosub offsetclick !x !y f dmc
+            gosub fastgumpwait generic_gump 530_507
+            wait 10
+            if !page > 0
+            {
+                for !i 1 !page
+                {
+                    gosub offsetclick 385 270 f dmc
+                    gosub fastgumpwait generic_gump 530_507
+                    wait 10
+                }
+            }
+            set !x 230
+            set !y ( 70 + ( !index * 20 ) )
+            gosub offsetclick !x !y f dmc
+            gosub gumpwait generic_gump 530_507 N/A
+            set !timeout #SCNT2 + 30
+            repeat
+                finditem !item C_ , #backpackid
+            until #findcnt > 0 || #SCNT2 >= !timeout
+            if #contname = generic_gump && #contsize = 530_507
+                gosub offsetclick 30 455 f dmc
+            wait 10
+        }
+    }
+    if !material notin !leathernames
+    {
+        set !iscloth #true
+        for !c 2 5
+        {
+            for !p 0 2
+            {
+                set !catname tcat . !c , p . !p
+                set !cat ! . !catname
+                if !item in !cat
+                {
+                    str pos !cat !item
+                    set !index ( ( #strres - 1 ) / 4 )
+                    set !category !c
+                    set !page !p
+                }
+            }
+        }
+        gosub getcloth 600
+        if !clothfound
+        {
+            finditem !sewingkit C_ , #backpackid
+            if #findcnt < 1
+            {
+                gosub craftsewingkit
+                finditem !sewingkit C_ , #backpackid
+            }
+            set #lobjectid #findid
+            repeat
+                event property #backpackid
+            until Stones in #property
+            set !propbefore #property
+            event macro 17
+            gosub gumpwait generic_gump 530_507 N/A
+            wait 10
+            set !x 30
+            set !y ( 70 + ( !category * 20 ) )
+            gosub offsetclick !x !y f dmc
+            gosub fastgumpwait generic_gump 530_507
+            wait 10
+            if !page > 0
+            {
+                for !i 1 !page
+                {
+                    gosub offsetclick 385 270 f dmc
+                    gosub fastgumpwait generic_gump 530_507
+                    wait 10
+                }
+            }
+            set !x 230
+            set !y ( 70 + ( !index * 20 ) )
+            gosub offsetclick !x !y f dmc
+            gosub gumpwait generic_gump 530_507 N/A
+            set !timeout #SCNT2 + 30
+            repeat
+                finditem !item C_ , #backpackid
+            until #findcnt > 0 || #SCNT2 >= !timeout
+            if #contname = generic_gump && #contsize = 530_507
+                gosub offsetclick 30 455 f dmc
+            wait 10
+        }
+    }
+return
+;======= end sub =======
+
+;======= tcraftcycle =======
+sub tcraftcycle
+    set !old_lpc #LPC
+    set #LPC 200
+    set !outofmat #false
+    if !isleather
+    {
+        finditem !item C_ , #backpackid
+        if #findcnt > 0 && !
+        {
+            for #findindex 1 #findcnt
+            {
+                if #findcol <> !color
+                    gosub move #findid !trashbag 1
+            }
+        }
+    repeat
+        event property !currentbod
+    until Weight in #property
+    set !bodproperty #property
+    gosub getamount !itemname !bodproperty
+    set !craftcnt #result
+    if !craftcnt > 0
+    {
+        repeat
+            set !trashed #false
+            finditem !item C_ , #backpackid
+            set !itemcnt #findcnt
+            if !itemcnt < !craftcnt
+            {
+                set !itemoffset ( !craftcnt - !itemcnt )
+                for !h 1 !itemoffset
+                {
+                    if #contsize <> 530_507
+                    {
+                        finditem !sewingkit C_ , #backpackid
+                        if #findcnt < 1
+                        {
+                            gosub craftsewingkit
+                            wait 10
+                            finditem !seweingkit C_ , #backpackid
+                        }
+                        set #lobjectid #findid
+                        event macro 17
+                        gosub fastgumpwait generic_gump 530_507
+                    }
+                    gosub getleather 180
+                    if !isbones
+                    {
+                        gosub getbones 400
+                        set !leatherfound !bonesfound
+                    }
+                    if !leatherfound = #false
+                    {
+                        set !outofmat #true
+                        break
+                    }
+                    gosub offsetclick 285 455 f dmc
+                    gosub fastgumpwait generic_gump 530_507
+                }
+                wait 10
+            }
+            if !exceptional
+            {
+                finditem !item C_ , #backpackid
+                for #findindex 1 #findcnt
+                {
+                    repeat
+                        event property #findid
+                    until Weight in #property
+                    if Exceptional notin #property
+                    {
+                        if !isbones = #false
+                        {
+                            gosub move #findid !trashbag 1
+                            set !trashcnt !trashcnt + 1
+                            set !trashed #true
+                        }
+                        if !isbones
+                        {
+                            gosub move #findid !trashbarrel 1
+                            set !trashcnt !trashcnt + 1
+                            set !trashed #true
+                        }
+                    }
+                }
+                if !smelt && !trashed && !isbones = #false
+                {
+                    wait 10
+                    gosub smelt
+                }
+            }
+            wait 10
+            finditem !item C_ , #backpackid
+            if #findcnt > 0 && !isleather = #false
+            {
+                for #findindex 1 #findcnt
+                {
+                    if #findcol <> !color
+                    {
+                        gosub move #findid !trashbag 1
+                        wait 10
+                    }
+                }
+            }
+            finditem !item C_ , #backpackid
+            set !poscnt #findcnt
+        until !poscnt >= !craftcnt || !outofmat
+        if #contname = generic_gump && #contsize = 530_507
+            gosub offsetclick 30 455 f dmc
+        repeat
+            set #lobjectid !currentbod
+            event macro 17
+            gosub gumpwait generic_gump 510_ N/A
+            if #result <> #true
+                wait 10
+        until #result
+        gosub bodclickpos
+        gosub offsetclick 140 #result f dmc
+        for #findindex 1 #findcnt
+        {
+            set #ltargetid #findid
+            set #ltargetkind 1
+            set !targettimer #SCNT + 5
+            repeat
+            until #targcurs = 1 || #SCNT > !targettimer
+            if #SCNT > !targettimer
+            {
+                repeat
+                    set #lobjectid !currentbod
+                    event macro 17
+                    gosub gumpwait generic_gump 510_ N/A
+                    if #result <> #true
+                        wait 10
+                until #result
+                gosub bodclickpos
+                gosub offsetclick 140 #result f dmc
+                set !targettimer #SCNT + 5
+                repeat
+                until #targcurs = 1 || #SCNT > !targettimer
+                wait 20
+            }
+            event macro 22
+        }
+        gosub gumpwait generic_gump 510_ N/A
+        if #result
+        {
+            wait 20
+            set !closex #contposx + 50
+            set !closey #contposy + 50
+            click !closex !closey f dmc r
+        }
+    }
+    if ! !outofmat
+        set !filledcnt !filledcnt + 1
+    wait 10
+    }
+    if !iscloth
+      gosub clothcraftcycle
+    gosub timer
+    set !bodproperty N/A
+    set #LPC !old_lpc
+return
+;======= end sub =======
+
+;======= cloth craft =======
+sub clothcraftcycle
+    finditem !item C_ , #backpackid
+    repeat
+        event property !currentbod
+    until Weight in #property
+    set !bodproperty #property
+    gosub getamount !itemname !bodproperty
+    set !craftcnt #result
+    if !craftcnt > 0
+    {
+        repeat
+            set !trashed #false
+            finditem !item C_ , #backpackid
+            set !itemcnt #findcnt
+            if !itemcnt < !craftcnt
+            {
+                set !itemoffset ( !craftcnt - !itemcnt )
+                for !h 1 !itemoffset
+                {
+                    if #contsize <> 530_507
+                    {
+                        finditem !sewingkit C_ , #backpackid
+                        if #findcnt < 1
+                        {
+                            gosub craftsewingkit
+                            wait 10
+                            finditem !seweingkit C_ , #backpackid
+                        }
+                        set #lobjectid #findid
+                        event macro 17
+                        gosub fastgumpwait generic_gump 530_507
+                    }
+                    gosub getcloth 600
+                    if !clothfound = #false
+                    {
+                        set !outofmat #true
+                        break
+                    }
+                    gosub offsetclick 285 455 f dmc
+                    gosub fastgumpwait generic_gump 530_507
+                }
+                wait 10
+            }
+            if !exceptional
+            {
+                finditem !item C_ , #backpackid
+                for #findindex 1 #findcnt
+                {
+                    repeat
+                        event property #findid
+                    until Weight in #property
+                    if Exceptional notin #property
+                    {
+                        gosub move #findid !trashbag 1
+                        set !trashcnt !trashcnt + 1
+                        set !trashed #true
+                    }
+                }
+                if !smelt && !trashed
+                {
+                    wait 10
+                    gosub smelt
+                }
+            }
+            wait 10
+            finditem !item C_ , #backpackid
+            set !poscnt #findcnt
+        until !poscnt >= !craftcnt || !outofmat
+        if #contname = generic_gump && #contsize = 530_507
+            gosub offsetclick 30 455 f dmc
+        repeat
+            set #lobjectid !currentbod
+            event macro 17
+            gosub gumpwait generic_gump 510_ N/A
+            if #result <> #true
+                wait 10
+        until #result
+        gosub bodclickpos
+        gosub offsetclick 140 #result f dmc
+        for #findindex 1 #findcnt
+        {
+            set #ltargetid #findid
+            set #ltargetkind 1
+            set !targettimer #SCNT + 5
+            repeat
+            until #targcurs = 1 || #SCNT > !targettimer
+            if #SCNT > !targettimer
+            {
+                repeat
+                    set #lobjectid !currentbod
+                    event macro 17
+                    gosub gumpwait generic_gump 510_ N/A
+                    if #result <> #true
+                        wait 10
+                until #result
+                gosub bodclickpos
+                gosub offsetclick 140 #result f dmc
+                set !targettimer #SCNT + 5
+                repeat
+                until #targcurs = 1 || #SCNT > !targettimer
+                wait 20
+            }
+            event macro 22
+        }
+        gosub gumpwait generic_gump 510_ N/A
+        if #result
+        {
+            wait 20
+            set !closex #contposx + 50
+            set !closey #contposy + 50
+            click !closex !closey f dmc r
+        }
+    }
+    if ! !outofmat
+        set !filledcnt !filledcnt + 1
+    wait 10
+return
+;======= end sub =======
+
+
+
+
+
+;======= craft sub =======
+sub craft
+  set !craftfirst #true
+  set !old_lpc #lpc
+  set #lpc 200
+  for !c 1 7
+  {
+      for !p 0 1
+      {
+          set !catname cat . !c , p . !p
+          set !cat ! . !catname
+          if !item in !cat
+          {
+              str pos !cat !item
+              set !index ( ( #strres - 1 ) / 4 )
+              set !category !c
+              set !page !p
+          }
+      }
+  }
+  set #lpc !old_lpc
+  str pos !matnames !material
+  set !matindex ( ( #strres - 1 ) / 4 )
+  gosub getmaterial 700
+  if !matfound
+  {
+    finditem !tong C_ , #backpackid
+    if #findcnt < 1
+    {
+      gosub crafttools
+      finditem !tong C_ , #backpackid
+    }
+    set #lobjectid #findid
+    repeat
+      event property #backpackid
+    until Stones in #property
+    set !propbefore #property
+    event macro 17
+    gosub gumpwait generic_gump 530_507 N/A
+    gosub offsetclick 30 375 f dmc
+    gosub fastgumpwait generic_gump 530_507
+    wait 10
+    set !x 235
+    set !y ( 70 + ( !matindex * 20 ) )
+    gosub offsetclick !x !y f dmc
+    gosub fastgumpwait generic_gump 530_507
+    wait 10
+    set !x 30
+    set !y ( 70 + ( !category * 20 ) )
+    gosub offsetclick !x !y f dmc
+    gosub fastgumpwait generic_gump 530_507
+    wait 10
+    if !page > 0
+    {
+      for !i 1 !page
+      {
+        gosub offsetclick 385 270 f dmc
+        gosub fastgumpwait generic_gump 530_507
+        wait 10
+      }
+    }
+    set !x 230
+    set !y ( 70 + ( !index * 20 ) )
+    gosub offsetclick !x !y f dmc
+    gosub gumpwait generic_gump 530_507 N/A
+    set !timeout #SCNT2 + 30
+    repeat
+      finditem !item C_ , #backpackid
+    until #findcnt > 0 || #SCNT2 >= !timeout
+    if #contname = generic_gump && #contsize = 530_507
+      gosub offsetclick 30 455 f dmc
+    wait 10
+  }
+return
+;======= end sub =======
+
+;======= getleather sub =======
+sub getleather
+  set !leatheramount %1
+  set !leatherfound #false
+  if !material = LEA
+    set !color 0
+  if !material = SPI
+    set !color 2220
+  if !material = HOR
+    set !color 2117
+  if !material = BAR
+    set !color 2129
+  finditem !leather C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+    {
+      if #findcol = !color && #findstack >= 30
+      {
+        set !leatherfound #true
+        return
+      }
+      if #findcol = !color && #findstack < 30
+      {
+        set !leatheramount ( !leatheramount - #findstack )
+        break
+      }
+    }
+  for #findindex 1 #findcnt
+    gosub move #findid !resource #findstack
+  wait 10
+  }
+  finditem !leather C_ , !resource
+  if #findcnt < 1
+  {
+    display You have no more leather in your secure. Halting
+    halt
+  }
+  for #findindex 1 #findcnt
+  {
+    if #findcol = !color && #findstack >= 30
+    {
+      set !leatherfound #true
+      if #findstack < !leatheramount
+        set !leatheramount #findstack
+      gosub move #findid #backpackid !leatheramount
+      break
+    }
+  }
+  wait 10
+return
+;======= end sub =======
+
+;======= getbones sub =======
+sub getbones
+    set !bonesamount %1
+    set !bonesfound #false
+    finditem !bone C_ , #backpackid
+    if #findcnt > 0
+    {
+        for #findindex 1 #findcnt
+        {
+            if #findstack >= 30
+            {
+                set !bonesfound #true
+                return
+            }
+            if #findstack < 30
+            {
+                set !bonesamount ( !bonesamount - #findstack )
+                break
+            }
+        }
+        for #findindex 1 #findcnt
+            gosub move #findid !resource #findstack
+        wait 10
+    }
+    finditem !bone C_ , !resource
+    if #findcnt < 1
+    {
+        display You have no more bones in your secure. Halting
+        halt
+    }
+    for #findindex 1 #findcnt
+    {
+        if #findstack >= 30
+        {
+            set !bonesfound #true
+            if #findstack < !bonesamount
+                set !bonesamount #findstack
+            gosub move #findid #backpackid !bonesamount
+            break
+        }
+    }
+    wait 10
+return
+;======= end sub =======
+
+;======= getcloth sub =======
+sub getcloth
+    set !clothamount %1
+    set !clothfound #false
+    finditem !cloth C_ , #backpackid
+    if #findcnt > 0
+    {
+        for #findindex 1 #findcnt
+        {
+            if #findstack >= 30
+            {
+                set !clothfound #true
+                return
+            }
+            if #findstack < 30
+            {
+                set !clothamount ( !clothamount - #findstack )
+                break
+            }
+        }
+        for #findindex 1 #findcnt
+            gosub move #findid !resource #findstack
+        wait 10
+    }
+    finditem !cloth C_ , !resource
+    if #findcnt < 1
+    {
+        display You have no more cloth in your secure. Halting
+        halt
+    }
+    for #findindex 1 #findcnt
+    {
+        if #findstack >= 30
+        {
+            set !clothfound #true
+            if #findstack < !clothamount
+                set !clothamount #findstack
+            gosub move #findid #backpackid !clothamount
+            break
+        }
+    }
+    wait 10
+return
+;======= end sub =======
+
+
+;======= getmaterial sub =======
+sub getmaterial
+  set !matamount %1
+  set !matfound #false
+  if !material = IRO
+    set !color 0
+  if !material = DUL
+    set !color 2419
+  if !material = SHA
+    set !color 2406
+  if !material = COP
+    set !color 2413
+  if !material = BRO
+    set !color 2418
+  if !material = GOL
+    set !color 2213
+  if !material = AGA
+    set !color 2425
+  if !material = VER
+    set !color 2207
+  if !material = VAL
+    set !color 2219
+  finditem ENK C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+    {
+      if #findcol = !color && #findstack >= 30
+      {
+        set !matfound #true
+        return
+      }
+      if #findcol = !color && #findstack < 30
+      {
+        set !matamount ( !matamount - #findstack )
+        break
+      }
+    }
+    for #findindex 1 #findcnt
+      gosub move #findid !resource #findstack
+    wait 10
+  }
+  finditem ENK C_ , !resource
+  if #findcnt < 1
+  {
+    display You have no more ingots in your secure. Halting
+    halt
+  }
+  for #findindex 1 #findcnt
+  {
+    if #findcol = !color && #findstack >= 30
+    {
+      set !matfound #true
+      if #findstack < !matamount
+        set !matamount #findstack
+      gosub move #findid #backpackid !matamount
+      break
+    }
+  }
+  wait 10
+return
+;======= end sub =======
+
+;======= gettype sub =======
+sub gettype
+  set !string %1
+  str count !string #spc
+  if #strres > 0
+  {
+    set !spccnt #strres
+    for !i 1 !spccnt
+    {
+      str pos !string #spc !i
+      str ins !string _ #strres
+      set !string #strres
+    }
+    repeat
+      str count !string #spc
+      if #strres > 0
+      {
+        str pos !string #spc 1
+        set !del #strres
+        str del !string !del 1
+        set !string #strres
+      }
+    until #strres = 0
+  }
+  str count !string '
+  if #strres > 0
+  {
+    str pos !string ' 1
+    set !del #strres
+    str del !string !del 1
+    set !string #strres
+  }
+  str count !string -
+  if #strres > 0
+  {
+    str pos !string - 1
+    set !del #strres
+    str del !string !del 1
+    set !string #strres
+  }
+  str len !string
+  set !len #strres
+  str count !string _
+  set !last_ #strres
+  str pos !string _ !last_
+  if #strres = !len
+  {
+    set !len !len - 1
+    str left !string !len
+    set !string #strres
+  }
+  set #result !_ . !string
+return #result
+;======= end sub =======
+
+;======= getname sub =======
+sub getname
+  namespace push
+  namespace local getname
+  set !property %1
+  str count !property $
+  set !start #strres - 1
+  str pos !property $ !start
+  str del !property 1 #strres
+  set !property #strres
+  str pos !property :
+  set !end #strres - 1
+  str left !property !end
+  set !result #strres
+  set #result !result
+  namespace pop
+return #result
+;======= end sub =======
+
+;======= checkbod sub =======
+sub checkbod
+  set !property %1
+  set !exceptional #false
+  set !material IRO
+  set !small #true
+  set !bs #true
+  set !exceptional #false
+  if Large , #spc , Bulk in !property
+    set !small #false
+  if !small
+  {
+    if Exceptional in !property
+      set !exceptional #true
+    if With in !property
+    {
+      str pos !property With
+      set !start #strres + 5
+      str mid !property !start 3
+      set !material #strres
+    }
+    if !bodcol = 1155
+    {
+      set !bs #false
+      if Leather in !property
+      {
+          set !material LEA
+          if Spined in !property
+              set !material SPI
+          if Barbed in !property
+              set !material BAR
+          if Horned in !property
+              set !material HOR
+      }
+  }
+  set #result !small
+return #result
+;======= end sub =======
+
+;======= smelt sub =======
+sub smelt
+  exevent popup !trashbag
+  gosub gumpwait normal_gump 106_78 N/A
+  gosub offsetclick 47 47 f dmc
+return
+;======= end sub =======
+
+;======= craftcycle =======
+sub craftcycle
+  set !old_lpc #LPC
+  set #LPC 200
+  set !outofmat #false
+  finditem !item C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+    {
+      if #findcol <> !color
+        gosub move #findid !trashbag 1
+    }
+  }
+  repeat
+    event property !currentbod
+  until Weight in #property
+  set !bodproperty #property
+  gosub getamount !itemname !bodproperty
+  set !craftcnt #result
+  if !craftcnt > 0
+  {
+    repeat
+      set !trashed #false
+      finditem !item C_ , #backpackid
+      set !itemcnt #findcnt
+      if !itemcnt < !craftcnt
+      {
+        set !itemoffset ( !craftcnt - !itemcnt )
+        for !h 1 !itemoffset
+        {
+          if #contsize <> 530_507
+          {
+            finditem !tong C_ , #backpackid
+            if #findcnt < 1
+            {
+              gosub crafttools
+              wait 10
+              finditem !tong C_ , #backpackid
+            }
+            set #lobjectid #findid
+            event macro 17
+            gosub fastgumpwait generic_gump 530_507
+          }
+          gosub getmaterial 700
+          if !matfound = #false
+          {
+            set !outofmat #true
+            break
+          }
+          gosub offsetclick 285 455 f dmc
+          gosub fastgumpwait generic_gump 530_507
+        }
+        wait 10
+      }
+      if !exceptional
+      {
+        finditem !item C_ , #backpackid
+        for #findindex 1 #findcnt
+        {
+          repeat
+            event property #findid
+          until Weight in #property
+          if Exceptional notin #property
+          {
+            gosub move #findid !trashbag 1
+            set !trashcnt !trashcnt + 1
+            set !trashed #true
+          }
+        }
+        if !smelt && !trashed
+        {
+          wait 10
+          gosub smelt
+        }
+      }
+      wait 10
+      finditem !item C_ , #backpackid
+      if #findcnt > 0
+      {
+        for #findindex 1 #findcnt
+        {
+          if #findcol <> !color
+          {
+            gosub move #findid !trashbag 1
+            wait 10
+          }
+        }
+      }
+      finditem !item C_ , #backpackid
+      set !poscnt #findcnt
+    until !poscnt >= !craftcnt || !outofmat
+    if #contname = generic_gump && #contsize = 530_507
+      gosub offsetclick 30 455 f dmc
+    repeat
+      set #lobjectid !currentbod
+      event macro 17
+      gosub gumpwait generic_gump 510_ N/A
+      if #result <> #true
+        wait 10
+    until #result
+    gosub bodclickpos
+    gosub offsetclick 140 #result f dmc
+    for #findindex 1 #findcnt
+    {
+      set #ltargetid #findid
+      set #ltargetkind 1
+      set !targettimer #SCNT + 5
+      repeat
+      until #targcurs = 1 || #scnt > !targettimer
+      if #SCNT > !targettimer
+      {
+        repeat
+          set #lobjectid !currentbod
+          event macro 17
+          gosub gumpwait generic_gump 510_ N/A
+          if #result <> #true
+            wait 10
+        until #result
+        gosub bodclickpos
+        gosub offsetclick 140 #result f dmc
+        set !targettimer #SCNT + 5
+        repeat
+        until #targcurs = 1 || #scnt > !targettimer
+        wait 20
+      }
+      event macro 22
+    }
+    gosub gumpwait generic_gump 510_ N/A
+    if #result
+    {
+      wait 20
+      set !closex #contposx + 50
+      set !closey #contposy + 50
+      click !closex !closey f dmc r
+    }
+  }
+  if ! !outofmat
+    set !filledcnt !filledcnt + 1
+  wait 10
+  gosub timer
+  set !bodproperty N/A
+  set #LPC !old_lpc
+return
+;======= end sub =======
+
+;======= fastgumpwait =======
+sub fastgumpwait
+  namespace push
+  namespace local fastgumpwait
+  set !name %1
+  set !size %2
+  set !timeout #SCNT + 5
+  repeat
+  until ( #contsize = !size && #contname = !name ) || #SCNT >= !timeout
+  namespace pop
+return
+;======= end sub =======
+
+;======= sub craftsewingkit =======
+sub craftsewingkit
+  repeat
+    set !enoughiron #false
+    finditem !tinkertool C_ , #backpackid
+    if #findcnt < 2
+    {
+      gosub crafttinker
+      finditem !tinkertool C_ , #backpackid
+    }
+    set #lobjectid #findid
+    finditem ENK C_ , #backpackid
+    for #findindex 1 #findcnt
+    {
+      if #findcol = 0 && #findstack >= 50
+        set !enoughiron #true
+    }
+    if !enoughiron <> #true
+    {
+      finditem ENK C_ , !resource
+      for #findindex 1 #findcnt
+      {
+        if #findcol = 0
+        {
+          set !tongamount 300
+          if #findstack < !tongamount
+            set !tongamount #findstack
+          gosub move #findid #backpackid !tongamount
+          break
+        }
+      }
+      wait 10
+    }
+    finditem !tinkertool C_ , #backpackid
+    set #lobjectid #findid
+    event macro 17
+    set #lobjectid #findid
+      event macro 17
+      gosub fastgumpwait generic_gump 530_507
+      gosub offsetclick 30 110 f dmc
+      gosub fastgumpwait generic_gump 530_507
+      wait 10
+      gosub offsetclick 235 190 f dmc
+      gosub fastgumpwait generic_gump 530_507
+      wait 10
+    finditem !sewingkit C_ , #backpackid
+    set !sewingkitcnt #findcnt
+  until !sewingkitcnt >= 3
+  if #contname = generic_gump && #contsize = 530_507
+    gosub offsetclick 30 455
+  wait 10
+  finditem ENK C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+        gosub move #findid !resource #findstack
+  }
+  wait 10
+return
+;======= end sub =======
+
+;======= sub crafttools =======
+sub crafttools
+  repeat
+    set !enoughiron #false
+    finditem !tinkertool C_ , #backpackid
+    if #findcnt < 2
+    {
+      gosub crafttinker
+      finditem !tinkertool C_ , #backpackid
+    }
+    set #lobjectid #findid
+    finditem ENK C_ , #backpackid
+    for #findindex 1 #findcnt
+    {
+      if #findcol = 0 && #findstack >= 50
+        set !enoughiron #true
+    }
+    if !enoughiron <> #true
+    {
+      finditem ENK C_ , !resource
+      for #findindex 1 #findcnt
+      {
+        if #findcol = 0
+        {
+          set !tongamount 300
+          if #findstack < !tongamount
+            set !tongamount #findstack
+          gosub move #findid #backpackid !tongamount
+          break
+        }
+      }
+      wait 10
+    }
+    finditem !tinkertool C_ , #backpackid
+    set #lobjectid #findid
+    event macro 17
+    gosub fastgumpwait generic_gump 530_507
+    gosub offsetclick 30 110 f dmc
+    gosub fastgumpwait generic_gump 530_507
+    wait 10
+    gosub offsetclick 385 270 f dmc
+    gosub fastgumpwait generic_gump 530_507
+    wait 10
+    gosub offsetclick 235 110 f dmc
+    gosub fastgumpwait generic_gump 530_507
+    wait 10
+    finditem !tong C_ , #backpackid
+    set !tongcnt #findcnt
+  until !tongcnt >= 3
+  if #contname = generic_gump && #contsize = 530_507
+    gosub offsetclick 30 455
+  wait 10
+  finditem ENK C_ , #backpackid
+  if #findcnt > 0
+  {
+    for #findindex 1 #findcnt
+    {
+      if #findcol <> !color || !bs = #false
+        gosub move #findid !resource #findstack
+    }
+  }
+  wait 10
+return
+;======= end sub =======
+
+;======= sub crafttinker =======
+sub crafttinker
+  repeat
+    set !enoughiron #false
+    finditem ENK C_ , #backpackid
+    for #findindex 1 #findcnt
+    {
+      if #findcol = 0 && #findstack >= 50
+        set !enoughiron #true
+    }
+    if !enoughiron <> #true
+    {
+      finditem ENK C_ , !resource
+      for #findindex 1 #findcnt
+      {
+        if #findcol = 0
+        {
+          set !tongamount 300
+          if #findstack < !tongamount
+            set !tongamount #findstack
+          gosub move #findid #backpackid !tongamount
+          break
+        }
+      }
+      wait 10
+    }
+    finditem !tinkertool C_ , #backpackid
+    if #findcnt < 1
+    {
+      finditem !tinkertool C_ , !resource
+      if #findcnt < 1
+      {
+        display You need tinker tools to continue
+        halt
+      }
+      gosub move #findid #backpackid 1
+      wait 5
+      finditem !tinkertool C_ , #backpackid
+    }
+    if #findcnt = 1
+    {
+      set #lobjectid #findid
+      event macro 17
+      gosub fastgumpwait generic_gump 530_507
+      gosub offsetclick 30 110 f dmc
+      gosub fastgumpwait generic_gump 530_507
+      wait 10
+      gosub offsetclick 235 130 f dmc
+      gosub fastgumpwait generic_gump 530_507
+      wait 10
+    }
+    finditem !tinkertool C_ , #backpackid
+    set !tinkercnt #findcnt
+  until !tinkercnt >= 2
+  set !enoughiron #false
+  if #contname = generic_gump && #contsize = 530_507
+    gosub offsetclick 30 455
+  wait 10
+return
+;======= end sub =======
+
+;======= sub bodclickpos =======
+sub bodclickpos
+  str mid #contsize 5 3
+  set #result #strres - 54
+return #result
+;======= end sub =======
+
+
+;======= offset click sub =======
+sub offsetclick
+  set !clickx ( #contposx + %1 )
+  set !clicky ( #contposy + %2 )
+  click !clickx !clicky %3 %4 %5
+return
+;======= end sub =======
+
+;======= getamount sub =======
+sub getamount
+  namespace push
+  namespace local getamount
+  set !argument %1
+  set !property %2
+  str len !argument
+  set !offset #strres + 1
+  set !string !property
+  str pos !string make
+  set !start #strres + 5
+  str del !string 1 !start
+  set !string #strres
+  str left !string 2
+  set !amount_needed #strres
+  set !string !property
+  str pos !string !argument
+  set !start #strres + !offset
+  str del !string 1 !start
+  set !string #strres
+  str pos !string $
+  if #strres < 3
+  {
+    str left !string 1
+    set !string #strres
+  }
+  if #strres >= 3
+  {
+    str left !string 2
+    set !string #strres
+  }
+  set !amount_finished !string
+  set !amount_buy !amount_needed - !amount_finished
+  set #result !amount_buy
+  namespace pop
+return #result
+;======= end sub =======
+
+;======= Timer Sub =======
+sub timer
+  set !currenttime #scnt
+  set !time ( !currenttime - !starttime )
+  set !hh ( !time / 3600 )
+  set !rest1 ( !time % 3600 )
+  set !minutes ( !rest1 / 60 )
+  if !minutes < 10
+  {
+    set !mm 0 , !minutes
+  }
+  else
+  {
+    set !mm !minutes
+  }
+  set !seconds ( !rest1 % 60 )
+  if !seconds < 10
+  {
+    set !ss 0 , !seconds
+  }
+  else
+  {
+    set !ss !seconds
+  }
+  set !timerunning !hh , h , : , !mm , m , : , !ss , s
+  menu set timerunning !timerunning
+  menu set bookindex !bookindex
+  menu set filledcnt !filledcnt
+  menu set trashcnt !trashcnt
+return
+;======= end sub =======
+
+;======= move sub =======
+sub move
+  namespace push
+  namespace local neomove
+  set !item %1
+  set !bag %2
+  set !amount %3
+  set !timeout1 #scnt2 + 10
+  set !timeout2 #scnt + 6
+  repeat
+    event property !bag
+  until Stones in #property || Weight in #property || Deeds in #property
+  set !initcnt #property
+  exevent drag !item !amount
+  exevent dropc !bag
+  repeat
+    repeat
+      event property !bag
+    until Stones in #property || Weight in #property || Deeds in #property
+    set !newcnt #property
+  until !initcnt <> !newcnt || #scnt >= !timeout2
+  if !initcnt = !newcnt
+  {
+    event macro 9 7
+    wait 1
+    nextCPos 776 577
+    event macro 8 7
+    gosub gumpwait container_gump N/A #backpackid
+    wait 15
+  }
+  repeat
+  until #scnt2 >= !timeout1
+  namespace pop
+return
+;======= end sub =======
+
+;======= Gumpwait Sub =======
+sub gumpwait
+  namespace push
+  namespace local gumpwait
+  set !name %1
+  set !size %2
+  set !id %3
+  set !condcnt 0
+  set !nameyes #true
+  set !sizeyes #true
+  set !idyes #true
+  set !timeout #SCNT + 5
+  if !name = N/A
+  {
+    set !condcnt !condcnt + 1
+    set !nameyes #false
+  }
+  if !size = N/A
+  {
+    set !condcnt !condcnt + 1
+    set !sizeyes #false
+  }
+  if !id = N/A
+  {
+    set !condcnt !condcnt + 1
+    set !idyes #false
+  }
+  repeat
+    if !name in #contname && !nameyes
+    {
+      set !condcnt !condcnt + 1
+      set !nameyes #false
+    }
+    if !size in #contsize && !sizeyes
+    {
+      set !condcnt !condcnt + 1
+      set !sizeyes #false
+    }
+    if !id in #contid && !idyes
+    {
+      set !condcnt !condcnt + 1
+      set !idyes #false
+    }
+  until !condcnt = 3 || #scnt > !timeout
+  if !condcnt = 3
+  {
+    namespace pop
+    return #true
+  }
+  namespace pop
+return #false
+;======= End Sub =======
+
+;======= menu sub =======
+sub menu
+  menu Clear
+	menu Window Title neo's bod filler
+	menu Window Color BtnFace
+	menu Window Size 229 405
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name arial
+	menu Font Size 8
+	menu Font Style
+	menu Font Color WindowText
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Text EUOLabel1 8 176 Add containers with BOD
+	menu Text EUOLabel2 8 188 books to fill within 2 tiles
+	menu Text EUOLabel3 8 216 Main settings
+	menu Text EUOLabel4 8 300 Extra settings
+	menu Text EUOLabel5 8 8 BOD books IDs
+	menu Font BGColor Window
+	menu List Create list 8 24 209 145
+	menu Font BGColor BtnFace
+	menu Button container_button 140 172 75 25 Add container
+	menu Button start_button 76 368 75 25 Start
+	menu Check smelt_chk 4 320 177 41 #false Salvage non-exceptional items when exceptional is needed (Will just trash items otherwise)
+	menu Check bs_chk 8 232 177 29 #false Fill blacksmith BODs
+	menu Check t_chk 8 252 177 29 #false Fill tailor BODs
+	menu Show
+return
+;======= end sub =======
+
+;======= stats menu =======
+sub statsmenu
+  menu Clear
+	menu Window Title neo's bod filler
+	menu Window Color BtnFace
+	menu Window Size 273 126
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name Arial
+	menu Font Size 10
+	menu Font Style b
+	menu Font Color WindowText
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Text EUOLabel1 12 20 Current book
+	menu Text EUOLabel2 12 40 Bods filled
+	menu Text EUOLabel3 12 60 Items !message2
+	menu Text bookindex 204 20 !bookindex
+	menu Text filledcnt 204 40 !filledcnt
+	menu Text trashcnt 204 60 !trashcnt
+	menu Text EUOLabel4 44 96 Time running:
+	menu Text timerunning 144 96 !timerunning
+	menu Show
+return
+;======= end sub =======
+
+

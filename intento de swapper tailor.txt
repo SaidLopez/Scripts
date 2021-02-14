@@ -1,0 +1,100 @@
+set %start yes
+set %srune TNFJNMD
+set %my_g_book XJHBLMD
+set %my_d_book ZSDOOMD  ;a vaciar
+set %bod EYM
+set %my_npc JFKB
+set %popupn 4
+
+inicio:
+
+gosub checks
+gosub entregarbod
+gosub cogerbod
+wait 10
+gosub guardarbod
+
+goto inicio
+halt
+
+sub checks
+if %start = yes
+{
+wait 50
+event macro 31 0
+wait 50
+event macro 8 7
+wait 10
+set #contposx 975
+set #contposy 584
+event macro 8 1
+wait 10
+set #contposx 925
+set #contposy 37
+event macro 8 2
+wait 10
+set #contposx 385
+set #contposy 778
+set %start no
+}
+set %max #maxweight - 50
+if #weight > %max
+{
+  display Sobrepeso biatch
+}
+finditem * C_ , #backpackid
+return
+
+sub cogerbod
+exevent popup %my_npc %popupn
+set %timeout #scnt + 5
+repeat
+until 460_ in #contsize || %timeout = #scnt
+if %timeout = #scnt
+  {
+    display Algo no va bien
+    halt
+  }
+wait 10
+set %my_x #contposx + 113
+str right #contsize 3
+set %my_y #contposy + #strRes - 30
+wait 10
+click %my_x %my_y
+wait 10
+return
+
+sub entregarbod
+finditem %my_npc G_5
+set %XX #findx
+set %yy #findy
+repeat
+event pathfind %XX %yy #CHARPOSZ
+wait 15
+;until #CHARPOSX = %XX && #CHARPOSY = %yy
+set #lobjectid %my_d_book
+event macro 17 0
+set %timeout #scnt + 5
+repeat
+until #contsize = 615_454 || %timeout = #SCNT
+set %my_x #contposx + 40
+set %my_y #contposy + 104
+click %my_x %my_y
+wait 10
+finditem %bod C_ , #backpackid
+if #findcnt < 1
+  gosub entregarbod
+Exevent Drag #findid 1
+wait 10
+Exevent Dropc %my_npc
+wait 10
+return
+
+sub guardarbod
+finditem %bod C_ , #backpackid
+if #findcnt <> -1
+Exevent Drag #findid 1
+wait 10
+Exevent Dropc %my_g_book
+wait 10
+return

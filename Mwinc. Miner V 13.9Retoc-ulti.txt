@@ -1,0 +1,1719 @@
+;=======================================================
+; Script Name: MW Miner
+; Author: MWinc.
+; Version: 13.9
+; Client Tested with: Baja
+; EUO version tested with: 144
+; Shard OSI / FS:  OSI
+; Revision Date: 9/29/09
+; Public Release: 4/27/08
+; Purpose: Recall Mining ftw
+;=======================================================
+; Disclaimers:
+; 1. ONLY MAKES SHOVELS. WILL NOT PULL SHOVELS FROM SECURE
+;    DEAL WITH IT.
+;
+;=======================================================
+
+;Things You will need
+;1. At Least two Runebooks
+;     One Filled with runes next To mountains or in a cave
+;     The Other with the First rune Marked By Your secure,
+;     or at your bank.
+;2. 100% LRC Suit. No If's And's or Butts
+;3. Enough magery/chivalry To recall/Sacred journey
+;4. Either Iron Ingots in your Secure And A tinker Kit on you
+;   Or Lots of Shovels In Your Secure
+;=======================================================
+; Basic Instructions
+; 1. Name Your Book/Books With ore Runes in them "ORE"
+; 2. Name Your Book with your Secure rune in it "HOME"
+; 3. Set %menu TRUE if you want To see My Menu
+; 4. Set %Restart True If you Want To Redo The Setup
+; 5. Set %enemy To the TYPE/TYPES of the Things You want to
+;    Run From.
+;         EXAMPLE: Set %Enemy XX_AUV_YRK
+; 6. Hit Play
+; 7. Follow The Setup
+Set %menu true
+set %enemy  XX_AUV_YRK
+set %restart False
+;=======================================================
+; Advanced Instructions
+; 1. set %diagnostics True If you are Having Problems
+;     Post The Status' at the Bottom of the Script around
+;     when you are having Problems with A description of the
+;     problem.
+; 2. set %positionMonitor False If You are Having Problems with
+;    The Recalling Not Seeming To Realize You have recalled
+; 3. set %recallwait to how long you want it to wait after you
+;    click on your book to recall ( 20 = 1 second )
+set %diagnostics True
+set %PositionMonitor True
+set %recallWait 90
+;======================================================
+set %elfTypes XU_AV
+set %HumanTypes HS_IS
+Finditem #charid
+if #findtype in %elfTypes
+set %maxweight #maxweight
+if #findtype in %HumanTypes
+set %Maxweight #maxweight
+;======================================================
+; NO TOUCHY!!! OR DIE!!!!
+if %restart = True
+gosub ClearGlobals
+set %miner_setup *mwinc_miner_setup_ . #charid
+if  %miner_setup <> Done
+gosub Initial_setup
+set %bank *mwinc_miner_bank_ . #charid
+set %secure *mwinc_miner_Secure_ . #charid
+set %recallmethod *mwinc_miner_recall_ . #charid
+set %crafttinker *mwinc_miner_crafttinker_ . #charid
+set %Hiding *mwinc_Miner_hiding_ . #charid
+set %BlackRockSecure *mwinc_Miner_BlackrockSecure_ . #charid
+set %Prospect *Mwinc_Miner_Prospect_ . #charid
+set %Prospect_Secure *Mwinc_Miner_ProspectSecure_ . #charid
+set %bookspot 1
+set %booktitle ore
+set %keeper 1
+set %choppylimit 30
+set %Prospect_Tool GBG
+set %shovels WWF_TWF
+set %oretypes EWJ_GWJ_TVJ_DWJ
+set %blackrock GWF_FWF_EWF
+set %resources DWJ_TVJ_GWJ_EWJ_GXS_TWS_AXS_VWS_UWS_ZWS_UVF_ENK_GWF_FWF_EWF_BVI_HVF_GVF_FVF_OVF_EVF_UVF_RVF_VUF_BVF
+set %Craftmenu 550_587
+set %fletchingtool UFG
+set %tailoringtool HAG
+set %alchemytool RQF
+set %tinkeringtool JTL_KTL_GTL
+set %blacksmithingtool OBG_FBG_TLH
+set %cookingtool OGG_DND_BCG
+set %carpentrytool BIG_AIG_EGG_AGG_ZHG_CGG_CIG_IGG_WFG_KGG
+set %init True
+set %Tree_found No
+set %spots 0
+set %ore 0
+set %dull 0
+set %shadow 0
+set %copper 0
+set %bronze 0
+set %gold 0
+set %agapite 0
+set %verite 0
+set %valorite 0
+set %startscnt #scnt
+set %humantypes AV_HS_XU_IS
+set %NinjaFormtypes WG_NF_RF_HG_JD_BB_JG_EG_VD_EH ;Rat Rabbit Cat Dog Serpent Bullfrog Ostard llama Wolf Kitsune
+set %StupidNightshade False
+set %hidingtimer #scnt - 1
+set %Log_In
+set %password
+set %char 1
+set %Log_out_Time
+set %Log_In_Time
+gosub menus
+
+
+
+
+;=========================================
+
+Bookie:
+gosub Diagnostics Finding 20
+finditem ZBN C_ , #backpackid
+set %Book_Number 0
+For #findindex 1 #findcnt
+{
+finditem ZBN #findindex C_ , #backpackid
+event property #findid
+if %booktitle In #property
+{
+set %Book_Number %Book_Number + 1
+set % . resourcebook . %Book_Number #findid
+}
+if home in #property
+set %homebook #findid
+}
+if %Homebook = N/A
+{
+Display No Home Book Found. Halting
+halt
+}
+if %Resourcebook1 = N/A
+{
+Display No Ore Book Found. Halting
+Halt
+}
+set %bookkeeper %Book_Number
+gosub Diagnostics Bookdone 20
+set %resourcebook %resourcebook1
+set %book %resourcebook
+goto recall
+
+;===========================================
+
+recall:
+if %Log_In = True
+gosub Check_Time
+gosub Bookkeeper ; clear
+gosub Diagnostics Recall 0
+set %jindexlimit #jindex
+gosub position ; clear
+set #lobjectid %book
+event macro 17 0
+wait 15
+gosub bookgump
+if #result <> Clear
+goto #result
+gosub clicky
+gosub turnthepage
+click %page %y2
+click %side %y3
+if %positionmonitor = True
+{
+Gosub Positionmonitor
+if #result <> Clear
+goto #result
+}
+else
+{
+gosub Diagnostics Recallwait 0
+wait %recallwait
+gosub Scan
+if #result <> Clear
+goto #result
+}
+gosub diagnostics RecallSucceed 20
+if %book = %homebook
+goto Drop
+if %book = %resourcebook
+goto Choppy
+
+
+
+;=========================================
+
+drop:
+gosub hiding
+gosub Diagnostics Drop 0
+if %bank = yes
+{
+gosub bankwait ; clear
+if #result <> Clear
+goto #result
+}
+finditem %secure
+gosub securewait
+if #result <> Clear
+goto #result
+gosub health
+ignoreitem Reset
+finditem %resources C_ , #backpackid
+set %resource #findid
+if #findcnt < 1
+{
+if %menu = True
+gosub menus
+Finditem %Shovels C_ , #backpackid
+if #findcnt < 2
+gosub Shovel
+if %Prospect = True
+{
+Finditem %Prospect_Tool C_ , #backpackid
+if #findcnt < 1
+Gosub Prospect_Tools
+}
+set %book %Resourcebook
+goto recall
+}
+gosub stats
+set %dropweight #weight
+if #findtype in %blackrock && %BlackRocksecure <> N/A
+gosub Droppy2
+else
+gosub Droppy
+goto drop
+
+;=============================================
+; Mining Chopping..... Same Difference
+;=============================================
+Choppy:
+if %chops = 1 && %Prospect = True
+gosub prospect
+if %chops > %choppylimit
+{
+set %bookspot %bookspot + 1
+set %init True
+set %tree_found NO
+set %Chops 0
+goto recall
+}
+set %x_limit #charposx + 2
+set %y_limit #charposy + 2
+gosub health
+if #result <> Clear
+goto #result
+gosub Enemy
+if #result <> Clear
+goto #result
+gosub eyerape
+if #result <> Clear
+goto #result
+if %tree_found = no
+{
+if %init = True
+gosub init
+gosub tiler
+}
+if %tree_found = no
+{
+gosub Diagnostics Notree 20
+set %bookspot ( %bookspot + 1 )
+goto recall
+}
+gosub Diagnostics Lumberjacky 0
+Finditem %Shovels C_ , #backpackid
+if #findcnt < 2
+gosub Shovel
+set #lobjectid #findid
+event macro 17 0
+ target
+event macro 22 0
+wait %delay
+set %chops %chops + 1
+goto choppy
+;===================================================
+; Poop
+;===================================================
+Poop:
+gosub Diagnostics Poop 0
+gosub poop
+Finditem DWJ C_ , #backpackid
+if #findcnt < 1
+{
+set %book %homebook
+goto recall
+}
+exevent drag #findid 20
+wait 15
+exevent dropg %xpos %ypos #charposz
+wait 20
+if #weight > %maxweight || #weight >= %heffer
+{
+set %z ( %z + 1 )
+goto poop
+}
+set %book %homebook
+goto recall
+;==================================================================
+; End Main Parts
+;==================================================================
+
+sub poop
+if %z = 1
+{
+set %xpos #charposx
+set %ypos #charposy
+}
+if %z = 2
+{
+set %xpos ( #charposx + 1 )
+set %ypos #charposy
+}
+if %z = 3
+{
+set %xpos ( #charposx - 1 )
+set %ypos #charposy
+}
+if %z = 4
+{
+set %xpos #charposx
+set %ypos ( #charposy + 1 )
+}
+if %z = 5
+{
+set %xpos #charposx
+set %ypos ( #charposy - 1 )
+}
+return
+
+;==========================================================
+sub droppy
+droppy:
+finditem %resource C_ , #backpackid
+if #findcnt < 1
+return
+exevent drag #findid #findstack
+exevent dropc %secure
+set %limit 1
+while #weight = %dropweight
+{
+wait 1
+set %limit %limit + 1
+if %limit > 40
+{
+wait 20
+gosub backpack
+wait 20
+goto droppy
+}
+}
+wait 15
+return
+
+sub droppy2
+droppy2:
+finditem %resource C_ , #backpackid
+if #findcnt < 1
+return
+exevent drag #findid #findstack
+exevent dropc %blackrocksecure
+set %limit #scnt + 3
+while #weight = %dropweight
+{
+if %limit < #scnt
+{
+wait 20
+gosub backpack
+wait 20
+goto droppy2
+}
+}
+wait 15
+return
+
+;===================================================
+; Menu Stats Display
+;===================================================
+
+sub menus
+menu clear
+set #lpc 100
+set %scnt ( #scnt - %startscnt )
+set %hours ( %scnt / 3600 )
+set %minutes ( ( %scnt - ( %hours * 3600 ) ) / 60 )
+set %seconds ( %scnt - ( %hours * 3600 ) - ( %minutes * 60 ) )
+set %logsperhour ( ( %totallogs * 3600 ) / %scnt )
+set %oreperc  %ore * 100 / %totallogs
+gosub roundit %ore ore %oreperc
+set %dullperc  %dull * 100 / %totallogs
+gosub roundit %dull Dull %dullperc
+set %shadowperc %shadow * 100 / %totallogs
+gosub Roundit %shadow Shadow %shadowperc
+set %Copperperc  %copper * 100 / %totallogs
+gosub Roundit %Copper Copper %copperperc
+set %Bronzeperc %Bronze * 100 / %totallogs
+gosub Roundit %bronze Bronze %bronzeperc
+set %goldperc %Gold * 100 / %totallogs
+gosub Roundit %gold Gold %goldperc
+set %agapiteperc  %agapite * 100 / %totallogs
+gosub Roundit %agapite Agapite %agapiteperc
+set %veriteperc %verite * 100 / %totallogs
+gosub Roundit %verite Verite %veriteperc
+set %valoriteperc  %valorite * 100 / %totallogs
+gosub Roundit %valorite Valorite %valoriteperc
+menu window title Ingots
+menu window size 250 350
+menu show 750 0
+menu window color black
+menu font color white
+menu font size 14
+menu font bgcolor black
+menu font Color Yellow
+menu Text Ingots 0 0 Time: %hours : %minutes : %seconds
+menu Text Ingots 0 25 Ingots/Hour: %logsperhour
+menu Text ingots 0 50 Spot: %bookspot Book: %keeper
+menu font color $909090
+menu text ingots 0 75 #spots: %spots
+menu font color 10000000
+Menu Text ingots 0 100 #ore: %ore
+menu Text Ingots 200 100 %oreperc %
+menu Font Color $909090
+menu Text ingots 0 125 #dull: %dull
+menu text ingots 200 125 %dullperc %
+menu font color $353535
+menu text ingots 0 150 #shadow: %shadow
+menu text ingots 200 150 %shadowperc %
+menu font color 28800
+menu text ingots 0 175 #copper: %copper
+menu text ingots 200 175 %copperperc %
+menu font color 2512000
+menu text ingots 0 200 #bronze: %bronze
+menu text ingots 200 200 %bronzeperc %
+menu font color 100000
+menu text ingots 0 225 #gold: %gold
+menu text ingots 200 225 %goldPerc %
+menu Font Color 10000040
+menu text ingots 0 250 #agapite: %agapite
+menu text ingots 200 250 %agapiteperc %
+menu Font color 100180
+menu text ingots 0 275 #verite: %verite
+menu text ingots 200 275 %veriteperc %
+menu font color 12020080
+menu Text ingots 0 300 #valorite: %valorite
+menu text ingots 200 300 %valoriteperc %
+If %diagnostics = True
+gosub status
+set #lpc 20
+return
+
+;===================================================
+
+sub stats
+event property #findid
+if #findid = %stuff
+return
+set %type ore
+if shadow in #property
+set %type shadow
+if copper in #property
+set %type copper
+if dull in #property
+set %type dull
+if bronze in #property
+set %type bronze
+if gold in #property
+set %type gold
+if agapite in #property
+set %type agapite
+if verite in #property
+set %type Verite
+if valorite in #property
+set %type valorite
+set %stuff #findid
+if #findtype = TVJ
+{
+set %multiplier 1
+set %divider 2
+}
+if #findtype = EWJ || #findtype = GWJ
+{
+set %multiplier 1
+set %divider 1
+}
+if #findtype = DWJ
+{
+set %multiplier 2
+set %divider 1
+}
+set % , %type ( % . %type + ( #findstack / %divider * %multiplier ) )
+set %totallogs ( %totallogs + ( #findstack / %divider * %multiplier ) )
+return
+
+;====================================================
+;Diagnostics
+sub status
+Menu Delete Status
+menu font color Yellow
+if %status = Finding
+menu Text Status 0 325 Recall Succeeded
+if %status = Finding
+menu text Status 0 325 Identifying Your Books
+if %status = Bookdone
+menu text Status 0 325 Books Found
+if %status = Recall
+menu text Status 0 325 Attempting To recall
+if %status = Poop
+menu text Status 0 325 Attempting To Drop Logs
+if %status = Book
+menu text Status 0 325 Waiting for Book To open
+if %status = Bookfail
+menu text Status 0 325 Trying To Reopen Book
+if %status = Spell
+menu text Status 0 325 Waiting For You To Cast
+if %status = Spellfail
+menu text Status 0 300 Failed To Cast Retrying Recall
+if %status = movement
+menu text Status 0 325 Waiting For Position Change
+if %status = movementfail
+menu text Status 0 325 Move Failed Recalling again
+if %status = Lumberjacky
+menu text Status 0 325 Mining
+if %status = Drop
+menu text Status 0 325 Putting Away Resources
+if %status = Tile
+Menu text Status 0 325 Finding Mine Spot
+if %status = Notree
+menu text Status 0 325 No More Spots
+if %status = Block
+Menu text Status 0 325 Blocked, Trying Next
+if %status = Recallwait
+{
+set %recallwaitseconds %recallwait / 20
+menu text Status 0 325 Waiting %recallwaitseconds Seconds
+}
+if %status = Curing
+menu text Statuss 0 325 Curing poison
+if %status = Healing
+menu text Status 0 325 Healing
+if %status = Makingboards
+menu text Status 0 325 Making Boards
+if %status = setwood
+menu text Status 0 325 Changing Setting To %Type
+if %status = carpentry
+menu text Status 0 325 Crafting Jointing Plane
+If %status = Craftfail
+menu Text Status 0 325 Failed to Make Logs Retrying
+if %status = Bank
+menu text Status 0 325 Waiting For Bank To open
+if %status = BankFail
+menu Text Status 0 325 Bank Failed To Open Retrying
+if %status = equipaxe
+menu Text Status 0 325 Equipping Axe
+if %status = Getaxe
+menu text Status 0 325 Getting More Axes
+if %status = Initiating
+menu text Status 0 325 Setting Make Last To Boards
+if %status = Shovel
+menu Text IStatus 0 325 Making Shovels
+return
+;======================================================
+Sub Roundit
+set %roundit ( ( %1 * 1000 / %totallogs ) - ( %1 * 100 / %totallogs * 10 ) )
+if %roundit > 4
+set %3 %3 + 1
+set % , %2 , perc %3
+return
+;===============================================
+; Tile Subs
+;===============================================
+sub init
+tile init nooverrides
+set %x1 #charposx - 2
+set %y1 #charposy - 2
+set %x_limit #charposx + 2
+set %y_limit #charposy + 2
+return
+
+sub tiler
+Tile init Nooverrides
+gosub Diagnostics Tile 0
+Tiler:
+set #lpc 100
+tile cnt %x1 %y1
+for %tilekind 1 #tilecnt
+{
+tile get %x1 %y1 %tilekind
+set %8x8_X %x1 / 8
+set %8x8_Y %y1 / 8
+set %8x8 %8x8_X , _ , %8x8_Y
+set %zlimit #charposz + 22
+if Rock in #tilename || Cave_floor in #tilename
+{
+if %8x8 notin %last8x8 && #tilez < %zlimit
+{
+set %last8x8 %last8x8 , _ , %8x8
+set %tree_found YES
+set #ltargetx %x1
+set #ltargety %y1
+set #ltargettile #tiletype
+if Rock in #tilename
+Set #ltargetkind 2
+if Cave_floor in #tilename
+set #ltargetkind 3
+set #ltargetz #tilez
+set #lpc 20
+set %chops 0
+return
+}
+}
+}
+gosub Next_tile
+if %y1 > %y_limit
+{
+gosub Diagnostics Notree 20
+set %init True
+set %tree_found No
+set %Chops 0
+set %y1 #charposy - 2
+set #lpc 20
+set %last8x8 N/A
+return
+}
+goto tiler
+
+sub Next_Tile
+set %x1 %x1 + 1
+if %x1 > %x_limit
+{
+set %y1 %y1 + 1
+set %x1 #charposx - 2
+}
+return
+;===============================================
+
+;==============================================================================================
+sub Hiding
+if %hiding = No && %Stupidnightshade = False
+return
+if %hidingTimer > #scnt
+Return
+if H in #charstatus
+return
+Event macro 13 21
+set %hidingtimer #scnt + 12
+Return
+;==============================================================================================
+
+sub eyerape
+scanjournal
+if #jindex <> %badjindex
+   {
+   if You_cannot_see_that in #journal
+      {
+      set #ltargetz #ltargetz + 5
+      if #ltargetz < #charposz || #ltargetz >= #charposz + 22
+      {
+      set %bookspot %bookspot + 1
+      set %tree_found No
+      set %Chops 0
+      set %init True
+      return recall
+      }
+      return clear
+      }
+   if Too_far_away in #journal || You_can't_do_that in #journal
+      {
+      set %bookspot %bookspot + 1
+      set %tree_found NO
+      set %Chops 0
+      set %init True
+      Return recall
+      }
+   if Target_cannot_be_seen in #journal
+      {
+      set %bookspot %bookspot + 1
+      set %init True
+      set %tree_found No
+      set %Chops 0
+      return recall
+      }
+   if You_cannot_reach_that_location in #journal
+      {
+      set %bookspot %bookspot + 1
+      set %init True
+      set %Tree_Found No
+      set %Chops 0
+      return recall
+      }
+   if Metal in #journal
+      {
+      set %badjindex #jindex
+      set %trees %trees + 1
+      set %tree_found No
+      set %Chops 0
+      set %init False
+      gosub Next_tile
+      if %y1 > %y_limit
+         {
+         gosub Diagnostics Notree 20
+         set %init True
+         set %tree_found No
+         set %Chops 0
+         set %y1 #charposy - 2
+         set #lpc 20
+         set %bookspot %bookspot + 1
+         set %Last8x8 N/A
+         return recall
+         }
+      return choppy
+      }
+}
+set %weight ( %maxweight - 50 )
+if #weight > %weight
+{
+set %book %homebook
+return recall
+}
+set %delay 16
+set %weight ( %maxweight - #weight )
+if %weight < 120
+set %delay 35
+return clear
+
+
+
+sub health
+if C in #charstatus
+{
+gosub Diagnostics Curing 0
+event macro 15 10
+target 60
+event macro 23 0
+set %tree_found no
+}
+set %biotch #maxhits - 20
+set %biotch2 #maxhits / 30
+if #hits < %biotch
+{
+if #hits < %biotch2
+{
+set %bookspot %bookspot + 1
+set %book %homebook
+set %init True
+set %tree_found NO
+set %Chops 0
+return recall
+}
+event macro 52 1
+event macro 53 0
+gosub diagnostics Healing 0
+event macro 15 28
+target 80
+event macro 23 0
+set %tree_found No
+}
+return Clear
+
+sub enemy
+finditem %enemy
+if #findcnt > 0
+{
+gosub Diagnostics Enemy 20
+set %bookspot ( %bookspot + 1 )
+set %book %homebook
+set %init True
+set %tree_found No
+set %chops 0
+return recall
+}
+return Clear
+
+;===================================================
+; Recall Subs
+sub Positionmonitor
+set %moved False
+gosub Diagnostics movement 0
+set %Timer_Limit #scnt + 7
+set #result Clear
+While %Moved <> True && #Scnt < %Timer_Limit && #result = Clear
+{
+gosub check  ;Clear
+gosub scan   ;Clear
+wait 5
+}
+if #result <> Clear
+Return #Result
+if %Timer_limit <= #scnt
+{
+gosub Diagnostics Movementfail 20
+Return Recall
+}
+return Clear
+
+
+sub bookkeeper
+if %bookspot < 17
+return
+set %bookspot 1
+set %Keeper %keeper + 1
+if %keeper > %bookkeeper
+set %keeper 1
+set %resourcebook % . resourcebook . %keeper
+set %book %resourcebook
+return
+
+sub bookgump
+gosub Diagnostics Book 0
+set %Limit_Timer #Scnt + 2
+while #contsize <> 452_236 && #Scnt < %Limit_Timer
+wait 1
+if %Limit_Timer < #Scnt
+{
+gosub Diagnostics Bookfail
+Return Recall
+}
+return Clear
+
+sub spellwait
+gosub Diagnostics Spell 20
+set %limit #scnt + 3
+Repeat
+{
+gosub Diagnostics Spellfail
+if %limit < #scnt
+goto recall
+}
+until A In #charstatus
+return
+
+sub clicky
+set %page1 #contposx + 135
+set %page2 #contposx + 170
+set %page3 #contposx + 205
+set %page4 #contposx + 240
+set %page5 #contposx + 305
+set %page6 #contposx + 340
+set %page7 #contposx + 375
+set %page8 #contposx + 410
+set %y2 #contposy + 195
+set %leftpage #contposx + 135
+set %rightpage #contposx + 295
+if %recallmethod = Recall
+set %y3 #contposy + 144
+else
+set %y3 #contposy + 180
+return
+
+sub scan
+For %number 0 8
+{
+set %jindex #jindex - %number
+scanjournal %jindex
+if %jindex = %jindexlimit
+return Clear
+if something_is_blocking in #journal || That_location_is_blocked in #journal
+   {
+   if %book = %resourcebook
+      {
+      wait 200
+      set %bookspot %bookspot + 1
+      Return Recall
+      }
+   if %book = %homebook
+      {
+      if %bank = Yes
+         {
+         gosub bankwait
+         if #contsize <> 180_240
+            {
+            set %book %homebook
+            Return Recall
+            }
+         }
+      }
+   }
+}
+return Clear
+
+sub position
+set %posx #charposx
+set %posy #charposy
+return
+
+sub check
+if %book = %homebook
+{
+finditem %secure
+if #findcnt > 0
+{
+set %moved True
+return clear
+}
+}
+if %posx = #charposx && %posy = #charposy
+{
+set %moved False
+return Clear
+}
+set %moved True
+return clear
+
+sub turnthepage
+if %book = %homebook
+{
+set %page %page1
+set %side %leftpage
+return
+}
+if %bookspot > 16
+set %bookspot 1
+set %this ( ( %bookspot + 1 ) / 2 )
+set %page %page . %this
+set %side %bookspot % 2
+if %side > 0
+set %side %leftpage
+if %side = 0
+set %side %rightpage
+return
+
+;============================================
+sub Diagnostics
+if %diagnostics <> True
+return
+if %status = %1
+return
+set %status %1
+gosub status
+return
+;============================================
+; Subs For Crafting
+
+Sub Shovel
+if %book <> %homebook
+{
+set %book %homebook
+goto recall
+}
+Shovel:
+finditem %secure
+set #lobjectid #findid
+event macro 17 0
+set %limit #scnt + 3
+While #contid <> %secure
+{
+if %limit < #scnt
+goto Shovel
+}
+again:
+Finditem %shovels C_ , %secure
+if #FINDKIND <> -1
+{
+            Exevent Drag #findid #findstack
+            wait 5
+            Exevent Dropc #backpackid
+            wait 10
+}
+else
+{
+finditem ENK C_ , #backpackid
+if #findstack < 4
+  gosub resource ENK 4 50
+
+finditem %tinkeringtool C_ , #backpackid
+if #findcnt < 2 && %crafttinker = Yes
+{
+gosub Craft Tinkering Iron 2 1 4
+wait 20
+Gosub Contisizewait %Craftmenu
+gosub Closegump
+}
+
+Gosub Craft Tinkering Iron 2 2 1
+wait 20
+Gosub Contisizewait %Craftmenu
+gosub Closegump
+
+}
+Finditem %shovels C_ , #backpackid
+if #findcnt < 4
+{
+ goto again
+}
+return
+
+sub craft
+gosub ToolEval %1
+Finditem %tool C_ , #backpackid
+if #findcnt < 1
+gosub End OutOfTools
+set #lobjectid #findid
+if #contsize <> %craftmenu
+event macro 17 0
+gosub contsizewait %Craftmenu
+gosub setting %2
+gosub category %3
+gosub page %4
+gosub rownum %5
+return
+
+sub makelast
+gosub tooleval %1
+finditem %tool C_ , #backpackid
+if #findcnt < 1
+gosub end outoftools
+set #lobjectid #findid
+if #contsize <> %craftmenu
+event macro 17 0
+gosub contsizewait %craftmenu
+set %xclick #contposx + 280
+set %yclick #contposy + 550
+click %xclick %yclick
+wait 20
+return
+
+sub resource
+finditem %1 C_ , #backpackid
+set %bagamount #findstack
+if #findstack > %2
+return
+finditem %1 C_ , %secure
+if #findcnt < 1
+gosub end Resource
+set %dragamount %3 - %bagamount
+set %dropweight #weight
+exevent drag #findid %dragamount
+exevent dropc #backpackid
+set %limit 1
+while #weight = %dropweight
+{
+wait 1
+set %limit %limit + 1
+if %limit > 50
+gosub resource %1 %2 %3
+}
+wait 15
+return
+
+sub rownum
+set %xclick #contposx + 235
+set %starty #contposy + 50
+set %yclick ( %starty + ( %1 * 20 ) )
+click %xclick %yclick
+wait 20
+return
+
+sub category
+set %starty #contposy + 70
+set %xclick #contposx + 30
+set %yclick ( %starty + ( %1 * 20 ) )
+click %xclick %yclick
+gosub contsizewait %craftmenu
+return
+
+sub page
+if %1 = 1
+return
+set %clicknum %1 - 1
+set %xclick #contposx + 385
+set %yclick #contposy + 290
+click %xclick %yclick x %clicknum
+return
+
+
+sub Tooleval
+if %1 = alchemy
+set %Tool %Alchemytool
+if %1 = fletching
+set %tool %Fletchingtool
+if %1 = blacksmithing
+set %tool %blacksmithingtool
+if %1 = tailoring
+set %tool %Tailoringtool
+if %1 = tinkering
+set %tool %Tinkeringtool
+if %1 = carpentry
+set %tool %Carpentrytool
+if %1 = cooking
+set %tool %Cookingtool
+set %tool2 %1
+return
+
+sub Contsizewait
+contsizewait:
+set %limit #scnt + 4
+finditem #lobjectid
+if #findcnt < 1
+return
+while #contsize <> %1
+{
+if %limit < #scnt
+{
+event macro 17 0
+goto contsizewait
+}
+}
+return
+
+sub setting
+set %setting % . setting . %tool2
+if %setting = %2
+return
+gosub contsizewait %craftmenu
+set %clickx #contposx + 31
+set %clicky #contposy + 390
+click %clickx %clicky
+wait 10
+set %clickx #contposx + 230
+if %2 = iron
+set %clicky #contposy + 70
+if %2 = Dullcopper
+set %clicky #contposy + 90
+if %2 = shadowiron
+set %clicky #contposy + 110
+if %2 = copper
+set %clicky #contposy + 130
+if %2 = bronze
+set %clicky #contposy + 150
+if %2 = gold
+set %clicky #contposy + 170
+if %2 = Agapite
+set %clicky #contposy + 190
+if %2 = Verite
+set %clicky #contposy + 210
+if %2 = Valorite
+set %clicky #contposy + 230
+if %2 = wood
+set %clicky #contposy + 70
+if %2 = oak
+set %clicky #contposy + 90
+if %2 = ash
+set %clicky #contposy + 110
+if %2 = yew
+set %clicky #contposy + 130
+if %2 = heartwood
+set %clicky #contposy + 150
+if %2 = bloodwood
+set %clicky #contposy + 170
+if %2 = Frostwood
+set %clicky #contposy + 190
+click %clickx %clicky
+gosub Contsizewait %Craftmenu
+set % , setting , %tool2 %2
+wait 10
+return
+
+sub drop
+Finditem %1 C_ , #backpackid
+if #findcnt < 1
+return
+set %dropweight #weight
+exevent drag #findid #findstack
+exevent dropc %secure
+set %limit #scnt + 3
+while #weight = %dropweight
+{
+if %limit < #scnt
+{
+gosub Backpack
+wait 20
+gosub drop %1
+}
+}
+wait 20
+return
+
+Sub End
+if %1 = OutOfTools
+Display You are Out of Tools
+if %1 = Resources
+Display Need more resources
+halt
+
+sub closegump
+if #contsize <> %craftmenu
+return
+set %clickx #contposx + 50
+set %clicky #contposy + 50
+click %clickx %clicky R
+wait 10
+return
+
+;===========================================
+; Resets your Backpack
+
+
+sub Backpack
+Backpack:
+event macro 9 7
+wait 20
+event macro 8 7
+set %Timer_Limit #scnt + 2
+while #contid <> #backpackid  && %Timer_Limit > #Scnt
+wait 1
+if %Timer_Limit <= #scnt
+goto Backpack
+contpos 700 525
+return
+
+;==========================================
+; Initial Setup
+Sub Initial_Setup
+menu clear
+menu window Title MWincSetup
+menu window Color black
+menu window size 400 200
+menu show 0 0
+menu font size 20
+menu font color Silver
+Menu font Bgcolor Black
+;menu Text Mwincsetup 50 50 M
+menu image create Axe 0 0 300 300
+menu image Ellipse Axe  50 30 150 150 Silver #true
+menu image line Axe 70 25 10 200 2511000 40 #true
+menu Image create Tree 350 0 50 200
+menu Image Rectangle Tree  0 0 400 250 2511000 #true
+menu Image
+set #lpc 50
+for %number 1 26
+{
+set %x_menu_pos ( %number * 10 + 0 )
+menu Image pos Axe %x_menu_pos 0 300 300
+if %number = 4
+menu text mwincSetup 50 50 M
+if %number = 5
+menu text mwincsetup 50 50 Ma
+if %number = 7
+menu text mwincsetup 50 50 Man
+if %number = 9
+menu text mwincsetup 50 50 ManW
+if %number = 11
+menu text mwincsetup 50 50 ManWh
+if %number = 12
+menu text mwincsetup 50 50 ManWho
+if %number = 13
+Menu text mwincsetup 50 50 ManWhor
+if %number = 14
+menu text mwincsetup 50 50 ManWhore'
+if %number = 17
+menu Text mwincsetup 50 50 ManWhore's
+if %number = 19
+menu text mwincsetup 50 50 ManWhore's I
+if %number = 23
+menu text mwincsetup 50 50 ManWhore's Inc.
+if %number > 20
+{
+menu Image create Tree 350 0 50 200
+menu Image Rectangle Tree  0 0 400 250 2511000 #true
+}
+}
+wait 10
+Menu Text mwincsetup 50 80 Proudly
+wait 10
+Menu Text mwincsetup 50 80 Proudly Presents~
+wait 20
+menu clear
+Menu Font size 24
+menu Font Bgcolor Black
+Menu Font Color 2511000
+Menu Text mwincSetup 50 80 Mwinc. Miner
+Menu Font color White
+menu Font size 15
+wait 10
+menu Text mwincsetup 0 0 V. 13.9
+wait 25
+Menu Clear
+Menu Clear
+Menu font color Maroon
+Menu font BGcolor Black
+Menu Font Size 24
+Menu Text mwincsetup 50 80 Fear The Hell Monkeys
+wait 10
+Menu Text mwincsetup 50 120 They PARA SPAM!
+wait 10
+Menu Font size 10
+Menu Font Color Silver
+Menu Text Mwincsetup 50 150 (and they stole my cookies)
+wait 15
+Menu Text Mwinc
+Menu clear
+Menu Window Size 250 300
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+SecureSetup:
+Menu Clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 50 25 Target Your Secure.
+set #targcurs 1
+while #targcurs = 1
+wait 1
+Event Property #ltargetid
+set %string #property
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 50 25 Is This Your Secure?
+Menu Font color White
+menu Font size 8
+Menu Text mwincsetup 25 50 %string
+Menu Button Yes 180 60 50 30 Yes
+Menu Button No 180 90 50 30 No
+set #menubutton N/A
+While #menubutton = N/A
+wait 1
+if #menubutton = No
+Goto SecureSetup
+set *mwinc_Miner_Secure_ , #charid #ltargetid
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 10 25 Is The Secure In The Bank?
+Menu Button Yes 100 60 50 30 Yes
+Menu Button No 100 90 50 30 No
+set #menubutton N/A
+while #menubutton = N/A
+wait 1
+set *mwinc_Miner_Bank_ , #charid #menubutton
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 0 25 Put Blackrock In a Diff Cont?
+Menu Button Yes 100 60 75 30 Yes
+Menu Button No 100 90 75 30 No
+set *mwinc_Miner_BlackrockSecure_ , #charid N/A
+set #menubutton N/A
+while #menubutton = N/A
+wait 1
+if #menubutton = Yes
+{
+Secure_Setup1:
+Menu Clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 0 25 Target BlackRock Secure.
+set #targcurs 1
+while #targcurs = 1
+wait 1
+Event Property #ltargetid
+set %string #property
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 50 25 Is This Your Secure?
+Menu Font color White
+menu Font size 8
+Menu Text mwincsetup 25 50 %string
+Menu Button Yes 180 60 50 30 Yes
+Menu Button No 180 90 50 30 No
+set #menubutton N/A
+While #menubutton = N/A
+wait 1
+if #menubutton = No
+Goto SecureSetup1
+set *mwinc_Miner_BlackrockSecure_ , #charid #ltargetid
+}
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 0 25 Use Prospecting Tools?
+Menu Button True 100 60 75 30 True
+Menu Button False 100 90 75 30 False
+set *mwinc_Miner_ProspectSecure_ , #charid N/A
+set *Mwinc_Miner_Prospect_ , #charid N/A
+set #menubutton N/A
+while #menubutton = N/A
+wait 1
+set *Mwinc_Miner_Prospect_ , #charid #Menubutton
+if #menubutton = True
+{
+Secure_Setup2:
+Menu Clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 0 25 Target Prospect Secure.
+set #targcurs 1
+while #targcurs = 1
+wait 1
+Event Property #ltargetid
+set %string #property
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 50 25 Is This Your Secure?
+Menu Font color White
+menu Font size 8
+Menu Text mwincsetup 25 50 %string
+Menu Button Yes 180 60 50 30 Yes
+Menu Button No 180 90 50 30 No
+set #menubutton N/A
+While #menubutton = N/A
+wait 1
+if #menubutton = No
+Goto SecureSetup2
+set *mwinc_Miner_ProspectSecure_ , #charid #ltargetid
+}
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 10 25 Sacred Journey Or Recall?
+Menu Button Sacred 100 60 75 30 Sacred
+Menu Button Recall 100 90 75 30 Recall
+set #menubutton N/A
+while #menubutton = N/A
+wait 1
+set *mwinc_Miner_Recall_ , #charid #menubutton
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 50 25 Craft Tinker Tools?
+Menu Button Yes 100 60 75 30 Yes
+Menu Button No 100 90 75 30 No
+set #menubutton N/A
+while #menubutton = N/A
+wait 1
+set *mwinc_Miner_CraftTinker_ , #charid #menubutton
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 10 25 Do You Wish To Hide?
+Menu Button yes 100 60 75 30 Yes
+Menu Button no 100 90 75 30 No
+set #menubutton N/A
+while #menubutton = N/A
+wait 1
+set *mwinc_Miner_hiding_ , #charid #menubutton
+Menu clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+menu Text mwincsetup 10 25 Do You Like Hammocks?
+Menu Button yes 100 60 75 30 Yes
+Menu Button no 100 90 75 30 No
+set #menubutton N/A
+while #menubutton = N/A
+wait 1
+if #menubutton = No
+{
+Menu Clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+Menu Text MwincSetup 10 25 You Sir Are Lame
+wait 10
+Menu Font Color Silver
+Menu Font Size 8
+Menu Text MwincSetup 10 50 Script speed Reduced 50%
+wait 20
+}
+If #menubutton = Yes
+{
+Menu Clear
+menu Font color yellow
+Menu Font bgcolor black
+menu Font size 14
+Menu Text MwincSetup 10 25 Then Take A Nap!
+wait 10
+Menu Text MwincSetup 10 50 While I do all the work.
+wait 20
+}
+Menu Hide
+
+Wait 20
+set *MWINC_Miner_setup_ , #charid  Done
+Return
+
+Sub ClearGlobals
+set *MWINC_Miner_setup_ , #charid N/A
+set *mwinc_Miner_bad8x8_ , #charid N/A
+return
+
+;=====================================================
+sub bankwait
+bankwait:
+gosub Diagnostics Bank 20
+finditem %secure
+if #findcnt > 0
+return Clear
+msg Bank$
+set %Timer_Limit #scnt + 2
+while #contsize <> 180_240  && %Timer_Limit > #Scnt ; lol Keep switching this up.....  #Scnt < %Timer_Limit
+wait 1
+if %Timer_Limit <= #Scnt
+{
+gosub diagnostics Bankfail 20
+return recall
+}
+return Clear
+;=================================================
+
+sub Coast_Check
+set %coast Clear
+finditem %humantypes
+For #findindex 1 #findcnt
+{
+Event property #findid
+if Brigand notin #property && Healer notin #property
+set %coast Not_Clear
+}
+Finditem %NinjaFormtypes
+;Rat Rabbit Cat Dog Serpent Bullfrog Ostard llama Wolf Kitsune
+For #findindex 1 #findcnt
+{
+Event property #findid
+if Rat notin #property && Rabbit notin #property && Cat notin #property && dog Notin #property && Serpent notin #property && Frog Notin #property && Ostard Notin #property && Llama Notin #property && Wolf Notin #property && Kitsune Notin #property
+set %coast Not_Clear
+}
+return
+
+;==============================================================================
+; Waits for your secure to APPEAR
+sub securewait
+set %Timer_Limit #scnt + 2
+While #findcnt < 1 && #scnt < %Timer_Limit
+{
+wait 1
+finditem %secure
+}
+if %Timer_Limit <= #Scnt
+return Recall
+return Clear
+;================================================================================
+sub Prospect
+finditem %Prospect_Tool C_ , #backpackid
+if #findcnt >= 1
+{
+set #Lobjectid #findid
+event macro 17 0
+target 20
+event macro 22 0
+wait 10
+}
+return
+
+;====================================
+; Log in Log out
+;====================================
+
+Sub Check_Time
+if #contsize = 203_121
+{
+set %clickx #contposx + 100
+set %Clicky #contposy + 88
+click %Clickx %clicky
+wait 600
+gosub Login
+}
+if #time >= %Log_Out_Time && #Time <= %Log_In_Time
+Gosub Logout
+return
+
+sub logout
+Paperdoll:
+event macro 8 1
+set %Time_Limit #scnt + 3
+while #contsize <> 262_324 && %Time_Limit >= #scnt
+wait 1
+if #scnt > %Time_Limit
+goto paperdoll
+wait 20
+set %xclick #contposx + 220
+set %yclick #contposy + 110
+click %xclick %yclick
+Logout:
+set %Time_Limit #scnt + 3
+while #contsize <> 178_108 && %Time_Limit > #scnt
+wait 1
+if #scnt >= %Time_Limit
+goto logout
+wait 20
+set %xclick #contposx + 121
+set %yclick #contposy + 83
+click %xclick %yclick
+wait 20
+while #contname <> MainMenu_gump
+wait 1
+while #time < %log_in_time
+wait 5
+gosub Login
+return
+
+sub Login
+wait 20
+msg %password
+login:
+key enter
+wait 40
+while #contid = Waiting_gump
+{
+wait 1
+if #contsize = 203_121
+{
+set %clickx #contposx + 100
+set %Clicky #contposy + 88
+click %Clickx %clicky
+wait 600
+goto Login
+}
+}
+wait 40
+key enter
+while #contid = Waiting_gump
+{
+wait 1
+if #contsize = 203_121
+{
+set %clickx #contposx + 100
+set %Clicky #contposy + 88
+click %Clickx %clicky
+wait 600
+goto Login
+}
+}
+Character:
+wait 40
+gosub character
+click 370 %yclick D
+wait 20
+set %Limit_Timer #scnt + 3
+while #clilogged <> 1 && %Limit_Timer >= #scnt
+{
+wait 1
+if #contsize = 203_121
+{
+set %clickx #contposx + 100
+set %Clicky #contposy + 88
+click %Clickx %clicky
+wait 600
+goto Login
+}
+}
+if #scnt > %Limit_Timer
+goto character
+wait 40
+return
+
+
+sub character
+if %char = 1
+set %yclick 140
+if %char = 2
+set %yclick 180
+if %char = 3
+set %yclick 220
+if %char = 4
+set %yclick 260
+if %char = 5
+set %yclick 300
+if %char = 6
+set %yclick 340
+return
+
+Sub Prospect_Tools
+Open_Secure:
+Set #lobjectid %Prospect_Secure
+Event macro 17 0
+set %Time_Limit #scnt + 4
+while #Scnt < %Time_Limit && #contid <> %Prospect_Secure
+wait 1
+if %Time_Limit <= #Scnt
+Goto Open_Secure
+Wait 20
+Finditem %Prospect_Tool C_ , %Prospect_Secure
+if #Findcnt < 1
+   {
+   set %Prospect False
+   Return
+   }
+if #findcnt > 1
+   {
+   For #Findindex 1 2
+    Gosub Drag #findid 1 #Backpackid
+   }
+else
+Gosub Drag #Findid 1 #Backpackid
+return
+    
+    
+
+
+
+sub drag
+set %DropWeight #weight
+exevent drag %1 %2
+exevent dropc %3
+set %Time_Limit #Scnt + 3
+while #weight = %dropweight && %Timer_Limit > #Scnt
+wait 1
+if %Timer_Limit < #Scnt
+{
+Wait 20
+Gosub backpack
+}
+Wait 20
+return

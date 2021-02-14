@@ -1,0 +1,167 @@
+set %my_npc RDIL
+set %tooltk KTL
+set %toolbs TBG
+set %my_secure CWAQNMD ;tu banco
+set %my_resource ENK
+
+
+inicio:
+gosub restock
+gosub comprueba_base
+gosub makelast %toolbs 10
+goto inicio
+halt
+
+;########### restock ###########
+sub Restock
+finditem %my_resource C_ , #backpackid
+set %cantidad 1500 - #findstack
+  if #findstack > 1500
+    return
+finditem %my_resource C_ , %my_secure
+  if #findcnt = 1
+  {
+    if #findstack < 1500
+    {
+      display Nos hemos quedado sin iron!
+      halt
+    }
+  }
+exevent drag #findid %cantidad
+wait 5
+Exevent Dropc #backpackid
+wait 5
+return
+
+;########### Comprueba_base ###########
+sub comprueba_base
+  if ( #weight + 50 ) > #maxweight
+    gosub vender
+wait 5
+finditem * c_ , #backpackid
+  if #findcnt > 50
+    gosub vender
+wait 5
+finditem %tooltk C_ , #backpackid
+  if #findcnt < 3
+    gosub makeone %tooltk 2 4 2
+wait 5
+finditem %toolbs C_ , #backpackid
+  if #findcnt < 5
+    gosub makeone %tooltk 2 13 4
+wait 5
+if #CONTSIZE = 530_497
+set %tempx #contposx + 50
+set %tempy #contposy + 50
+click %tempx %tempy r
+return
+
+
+;########### Makeone ###########
+sub makeone   ; gosub makeone toolid numCategory numItem nºitems
+set %amount %4 + 1
+finditem %1 C_ , #BACKPACKID
+if #FINDKIND = -1
+     display notool , #spc , %1
+set #LOBJECTID #FINDID
+set #LTARGETKIND 1
+event Macro 17 0
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 530_497 || %timeout = #SCNT
+ set %YY #CONTPOSY + ( 70 + ( 20 * %2 ) )  ; categoria  %1 = 1-9
+ set %XX #CONTPOSX + 30
+ click %XX %YY
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 530_497 || %timeout = #SCNT
+
+if %3 > 10
+{
+   if  ! ( %3 % 10 )
+   {
+      set %3 %3 - 10
+      set %itemnum 10
+   }
+   else
+   {
+      set %itemnum  ( %3 % 10 )
+   }
+   set %contNext ( %3 / 10 )
+   for %i 1 %contNext
+   {
+      set %nextY #CONTPOSY + 290
+      set %nextX #CONTPOSX + 385
+      click %nextX %nextY
+      set %timeout #SCNT + 5
+      repeat
+      until #CONTSIZE = 530_497 || %timeout = #SCNT
+   }
+}
+else
+{
+   set %itemnum %3
+}
+set %YY #CONTPOSY + ( 70 + ( 20 * ( %itemnum - 1 ) ) )   ; items
+set %XX #CONTPOSX + 235
+click %XX %YY
+set %timeout #SCNT + 5
+repeat
+until #CONTSIZE = 530_497 || %timeout = #SCNT
+gosub craftlast %1 %amount
+return
+
+;########### makelast ###########
+sub makelast
+;gosub makelast toolid nºitems
+set #LTARGETKIND 1
+set %toolid %1
+set %nitems %2
+for %i 1 %nitems
+{
+  if #CONTSIZE <> 530_497
+  {
+    finditem %toolid C_ , #backpackid
+    set #LOBJECTID #findid
+    event Macro 17 0
+    gosub waitforgump 530_497
+  }
+gosub clikea 285 455
+gosub waitforgump 530_497
+}
+return
+
+sub vender
+finditem %my_npc G_10
+exevent popup %my_npc 4
+wait 10
+finditem POF C_ , #backpackid
+;if #FINDCNT > 0
+;{
+        Exevent Drag #findid #findstack
+        wait 5
+        Exevent Dropc %my_secure
+        wait 5
+return
+
+;########### Clikea ###########
+sub clikea
+
+set %my_x #contposx + %1
+set %my_y #contposy + %2
+click %my_x %my_y
+
+return
+
+;########### waitforgump ###########
+sub waitforgump
+set #result 0
+set %Csize %1
+set %timeout #SCNT + 7
+repeat
+until #CONTSIZE = %Csize || %timeout = #SCNT
+if %timeout = #SCNT
+  return no
+return
+
+halt

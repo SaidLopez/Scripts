@@ -1,0 +1,713 @@
+;C2's Fish Fry & Enchanted Items
+;Author: C2
+;Version: 1.3b
+;Purpose: Train skill to desired level and craft specials
+;Server: OSI
+;Date: 8/7/08
+;revisions
+;2/23/09 changed crafting gump work and streamlined some code
+;2/23/09 changed how it handles enchanted food now that it stacks
+;4/26/09 updated drag amounts for making huge amounts
+;        added smoke bombs
+;11/16   added wood pulp
+gosub setupvalues
+set %makelastgump 530_497
+;;;;;;;;;;;;;;;;;;;;;;;;;;MAIN COOK LOOP;;;;;;;;;;;;;;;;;;;;;;
+Main:
+repeat
+gosub menubutton
+gosub SkillCheck
+if #contsize <> %makelastgump
+   gosub newtool
+finditem %raw C_ , #backpackid
+if #findkind = -1
+   gosub get_it %raw 1 %secure #backpackid
+set %clickx #CONTPOSX + %itemx
+set %clicky #CONTPOSY + %rawy
+click %clickx %clicky f
+if #weight >= ( #maxweight - 50 )
+   gosub get_it %cooked #findstack #backpackid %donebag
+gosub gumpwait
+until #charghost = yes
+halt
+;;;;;;;;;;;;;;;Done Main Cook Loop;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;Enchanted Loop;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+sub enchanted
+if %craft <> bomb && %craft <> pulp
+   {
+   set %clickx #CONTPOSX + %headingx
+   set %clicky #CONTPOSY + %enchantedy
+   click %clickx %clicky f
+   }
+if %craft = bomb || %craft = pulp
+   {
+   set %clickx #CONTPOSX + %headingx
+   set %clicky #CONTPOSY + %prep
+   click %clickx %clicky f
+   }
+menu getnum amount
+set %amount #menures
+set %dragthis 50
+if %amount < 50
+   set %dragthis %amount
+set %completed 0
+If %craft = apple
+   {
+   set %report Apples
+   set %clickitem %appley
+   set %tomake CBS ;enchanted apple
+   set %itemone UUF ;GH Pot
+   set %itemonename GreaterHealPots
+   set %itemtwo QQD ; apple
+   set %itemtwoname Apples
+   }
+If %craft = grape
+   {
+   set %report Grapes
+   set %clickitem %grapesy
+   set %tomake RAS ;grapes of wrath
+   set %itemone XUF ;Gstrength
+   set %itemonename StrengthPots
+   set %itemtwo PQD ;grapes
+   set %itemtwoname Grapes
+   }
+If %craft = bomb
+   {
+   set %report Bombs
+   set %page 2
+   set %clickitem %eggy
+   set %tomake BHP ; Egg Bomb
+   set %itemone DUD ; Eggs
+   set %itemonename StrengthPots
+   set %itemtwo PGG_SGG ;sack of flour SGG when open
+   set %itemtwoname Bombs
+   }
+If %craft = pulp
+   {
+   set %report Pulp
+   set %page 2
+   set %clickitem %pulpy
+   set %tomake %pulp ; Wood Pulp
+   set %itemone %bark ; Bark
+   set %itemonename Bark
+   set %itemtwo %water ; pitchers of water
+   set %itemtwoname Water
+   }
+gosub dump %empties %secure
+gosub showEUOMenu3
+finditem %tomake C_         ;;;establish starting amounts to take off total
+for #findindex 1 #findcnt
+    {
+    set %originalAMT ( %originalAMT + #findstack )
+    }
+finditem %itemone C_ , ;%secure
+if #findkind = -1
+   {
+   display Get more %itemonename
+   halt
+   }
+gosub get_it %itemone %dragthis %secure #backpackid
+finditem %itemtwo C_ , ;%secure
+if #findkind = -1
+   {
+   if %itemtwo <> %water
+      {
+      display Get more %itemtwoname
+      halt
+      }
+   if %itemtwo = %water
+      gosub refill
+   }
+if %craft <> bomb && %craft <> pulp
+   gosub get_it %itemtwo %dragthis %secure #backpackid
+if %craft = bomb
+   {
+   gosub get_it %itemtwo 1 %secure #backpackid
+   gosub get_it %itemtwo 1 %secure #backpackid
+   gosub get_it %itemtwo 1 %secure #backpackid
+   }
+gosub resourcecheck
+if #contsize <> %makelastgump
+   gosub newtool
+if %page = 2
+   {
+   set %clickx #CONTPOSX + %nextx
+   set %clicky #CONTPOSY + %nexty
+   click %clickx %clicky f
+   }
+set %clickx #CONTPOSX + %itemx
+set %clicky #CONTPOSY + %clickitem
+click %clickx %clicky f
+;;;;;;;;;;;;;;Crafting Loop;;;;;;;;;;;;;;;;;;
+set %completed 0
+repeat
+gosub menubutton
+gosub resourcecheck
+if #contsize <> %makelastgump
+   gosub newtool
+set %clickx #CONTPOSX + %makelastx
+set %clicky #CONTPOSY + %makelasty
+click %clickx %clicky f
+gosub gumpwait
+if #weight >= ( #maxweight - 150 )
+   gosub dump %tomake %donebag
+set %completed 0
+finditem %tomake C_
+for #findindex 1 #findcnt
+    {
+    set %completed %completed + #findstack
+    }
+set %completed %completed - %originalAMT
+gosub adjustmenu
+until %completed >= %amount
+gosub dump %tomake %donebag ;%1 item list to dump %2 where
+gosub dump %empties_DND %secure
+display You have made %amount %report
+halt
+return
+
+sub resourcecheck
+finditem %itemone C_ , #backpackid
+if #findkind = -1
+   gosub get_it %itemone %dragthis %secure #backpackid
+finditem %itemtwo C_ , #backpackid
+if %craft <> bomb && #findkind = -1 && %craft <> pulp
+   gosub get_it %itemtwo %dragthis %secure #backpackid
+if %craft = bomb && #findcnt < 3
+   {
+   gosub get_it %itemtwo 1 %secure #backpackid
+   gosub get_it %itemtwo 1 %secure #backpackid
+   gosub get_it %itemtwo 1 %secure #backpackid
+   }
+if %craft = pulp && #findkind = -1
+   gosub refill
+return
+
+sub refill
+finditem WEE_TEE_VEE_QEE_BKF g_2
+set %tank #findid
+finditem %empty c_ , #backpackid
+for #findindex 1 #findcnt
+      {
+      set #lobjectid #findid
+      event macro 17
+      wait 30
+      set #ltargetid %tank
+      set #ltargetkind 1
+      event macro 22
+      wait 20
+      }
+return
+
+sub adjustmenu
+menu delete made
+menu Font Name Comic Sans MS
+menu Font Size 8
+menu Font Style b
+menu Font BGColor $FFFFFFFF
+menu Font Color Yellow
+menu Text made 52 44 %completed
+return
+
+;;;;;;;;;;;;;;;;;;;;;;Done Enchanted;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+sub newtool
+finditem %skillet C_ , #backpackid
+if #findkind = -1 && %tinker = #false
+   gosub Handle_Menu %skillet 230 230 2 %ingots 3
+if #findcnt < 1 && %tinker = #True
+   gosub Handle_Menu %skillet 230 230 2 %ingots 3 ;makes tools
+finditem %skillet C_ , #backpackid
+set #lobjectid #findid
+event macro 17
+wait 30
+return
+
+sub Handle_Menu   ;%1 what, %2 xpos on menu, %3 y pos, %4 page, %5 material needed, %6 how many
+set %ItemMade %1
+set %xposition %2
+set %yposition %3
+set %page %4
+set %material %5
+set %HowMany %6
+;for nontinkers
+if %tinker = #false
+   {
+   finditem %ItemMade C_ , %secure
+   if #findkind = -1
+      {
+      display Get More Skillets!!!
+      halt
+      }
+   set %dragamount ( %HowMany - #findcnt )
+   set %attempts 1
+   repeat
+   finditem %skillet C_ , %secure
+   exevent drag #findid
+   wait 10
+   exevent dropc #backpackid
+   wait 20
+   set %attempts ( %attempts + 1 )
+   finditem %skillet C_ , #backpackid
+   until #findcnt = %dragamount || %attempts = %dragamount
+   return
+   }
+;---------------------find material- get material--------------------------
+finditem %material c_ , %secure
+if #findkind = -1
+  {
+  Display ok You are out of the material needed to craft more tools! Halting
+  halt
+  }
+exevent drag #findid 50
+wait 10
+exevent dropc #backpackid
+wait 20
+;-----------------locate tinker tool and open----------------------------------------
+TinkerSet:
+finditem %tinktools C_ , #backpackid
+if #findcnt < 1
+  	{
+  	Display ok Your Are Out Of Tinkering Tools! Halting
+ 	  halt
+ 	  }
+set #lobjectid #findid
+event macro 17
+set %timer #SCNT + 10
+repeat
+until #CONTNAME = generic_gump || #SCNT > %timer
+if #findcnt < 2
+	{
+	gosub click 30 110 generic_gump
+	gosub click %tinkerToolx %TinkerTooly generic_gump
+	}
+gosub click 30 130 generic_gump   ; selects tools for new crafting
+;------------------find page of actual crafting of tools needed below--------------------------
+if %page > 2
+	gosub click 380 270 generic_gump
+if %page > 1
+	gosub click 380 270 generic_gump
+gosub click %xposition %yposition generic_gump
+set %attempts 1
+finditem %ItemMade C_ , #backpackid
+if #findcnt >= %HowMany
+	return
+repeat
+gosub click %makelastx %makelasty generic_gump
+set %attempts ( %attempts + 1 )
+finditem %ItemMade C_ , #backpackid
+until %attempts > 10 || #findcnt >= %HowMany
+;----------------clean up and reset to crafting tool------------------------------
+gosub dump ENK %secure
+finditem %skillet C_ , #backpackid
+set #lobjectid #findid
+event macro 17
+wait 30
+return
+
+sub click ;%1 = xpos  %2 = ypos %3 container size
+set !gumpx %1
+set !gumpy %2
+set !name %3
+set %GumpTimer #SCNT + 10
+	repeat
+	until #CONTNAME = !name || #SCNT > %GumpTimer
+set %ClickGumpx #CONTPOSX + !gumpx
+set %ClickGumpy #CONTPOSY + !gumpy
+click %ClickGumpx %ClickGumpy f
+return
+
+sub dump ;%1 item list to dump %2 where
+set %safety_timer #scnt + 15
+repeat
+finditem %1 C_ , #backpackid
+exevent drag #findid #findstack
+wait 10
+exevent dropc %2
+wait 20
+until #findkind = -1 || ( #scnt > %safety_timer )
+if #scnt > %safety_timer
+      ignoreitem #findid
+return
+
+sub drag_tools
+repeat
+finditem %skillet C_ , %secure
+if #findkind = -1 && %inpack = 0
+  {
+  display You are out of tools!!!
+  Halt
+  }
+exevent drag #findid
+wait 10
+exevent dropc #backpackid
+wait 20
+finditem %skillet C_ , #backpackid
+until #findcnt >= 5 || #findkind = -1
+return
+
+sub get_it  ; %1 item to get, %2 how much to get, %3 where from, %4 where to?
+finditem %1 C_ , %3
+if #findkind = -1
+  {
+  Display ok You Are Out Of Resources! Halting!
+  halt
+  }
+exevent drag #findid %2
+wait 5
+exevent dropc %4
+wait 20
+return
+
+sub GumpWait
+  set %safety_timer #scnt + 2
+  repeat
+  until #contsize = %makelastgump || ( #scnt > %safety_timer )
+return
+
+sub targets
+display Target Your Secure Container With Supplies
+wait 1
+set #targcurs 1
+target
+while #targcurs = 1
+wait 0
+set %secure #ltargetid
+wait 5
+set #lobjectid %secure
+wait 5
+event macro 17
+wait 30
+if #contname = container_gump
+      {
+      set #CONTPOSX 0
+      set #CONTPOSY 0
+      }
+display Target Your Bag in the Secure Container For Items
+wait 1
+set #targcurs 1
+target
+while #targcurs = 1
+wait 0
+set %donebag #ltargetid
+wait 5
+set #lobjectid %donebag
+wait 5
+event macro 17
+wait 30
+if #contname = container_gump
+      {
+      set #CONTPOSX 240
+      set #CONTPOSY 0
+      }
+event macro 8 7
+wait 20
+if #contname = container_gump
+      {
+      set #CONTPOSX 460
+      set #CONTPOSY 0
+      }
+return
+
+;--------- EasyUO Menu Designer Code Begin ---------
+sub showEUOMenu1
+	menu Clear
+	menu Window Title C2's Fish Fry & Enchanted Items
+	menu Window Color $FFFFFFFF
+	menu Window Size 295 118
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name Comic Sans MS
+	menu Font Size 10
+	menu Font Style b
+	menu Font Color Silver
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+	menu Text tomake 4 4 I Want To...
+	menu Font Size 8
+	menu Text EUOLabel1 4 36 If Training , Train to:
+	menu Text EUOLabel2 4 64 If Making Enchanted Item, make:
+	menu Font Color Lime
+	menu Button Begin 228 32 59 29 Begin
+	menu Font Name MS Sans Serif
+	menu Font Style
+	menu Font Color WindowText
+	menu Font BGColor Window
+	menu Combo Create list 116 4 145
+	menu Combo Add list Train Skill - Fish Fry
+	menu Combo Add list Enchanted Apples
+	menu Combo Add list Grapes Of Wrath
+	menu Combo Add list Smoke Bombs
+	menu Combo Add list Wood Pulp
+	menu Font Name MS Sans Serif
+	menu Font Style
+	menu Font Color WindowText
+	menu Edit goal 156 36 37 1000
+	menu Edit amount 228 64 29 100
+	menu Font Name Comic Sans MS
+	menu Font Style b
+	menu Font Color Silver
+	menu Font BGColor $FFFFFFFF
+	menu Check Tinker 4 92 149 17 #true Use Tinker?
+	menu Show 421 270
+  set #menubutton N/A
+  repeat
+  until #menubutton <> N/A
+  menu delete begin
+  menu hide
+return
+;--------- EasyUO Menu Designer Code End ---------
+
+;--------- EasyUO Menu Designer Code Begin ---------
+sub showEUOMenu2
+	menu Clear
+	menu Window Title C2's Fish Fry Trainer  ;change C2's skill track to your own title
+	menu Window Color $FFFFFFFF
+	menu Window Size 138 119
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name Comic Sans MS
+	menu Font Size 8
+	menu Font Style b
+	menu Font Color Silver
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+	menu Text EUOLabel1 4 0 Starting Skill
+	menu Text EUOLabel2 4 24 Current Skill
+	menu Text EUOLabel3 4 48 Skill Change
+	menu Font BGColor $FFFFFFFF
+	menu Text EUOLabel4 100 0 000
+	menu Font Color Lime
+	menu Text EUOLabel5 100 24 000
+	menu Font Color Red
+	menu Text EUOLabel6 92 48 000
+	menu Font Color Green
+	menu Font BGColor White
+	menu Button Begin 12 80 51 25 Begin
+	menu Button Pause 76 80 51 25 Pause
+	menu Show 421 270
+  set #menubutton N/A
+  repeat
+  until #menubutton <> N/A
+  menu delete begin
+ 	menu Font Color Green
+	menu Font BGColor White
+	menu Button exit 12 80 51 25 Exit
+	menu HideEUO
+return
+;--------- EasyUO Menu Designer Code End ---------
+;--------- EasyUO Menu Designer Code Begin ---------
+sub showEUOMenu3
+	menu Clear
+	menu Window Title C2's Fish Fry Trainer  ;change C2's skill track to your own title
+	menu Window Color $FFFFFFFF
+	menu Window Size 170 119
+	menu Font Transparent #true
+	menu Font Align Right
+	menu Font Name Comic Sans MS
+	menu Font Size 10
+	menu Font Style b
+	menu Font Color Silver
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor $FFFFFFFF
+	menu Text EUOLabel1 4 4 Making:
+	menu Font Color White
+	menu Text making 76 4 %report
+	menu Font Size 8
+	menu Font Color Yellow
+	menu Text EUOLabel2 4 44 Made:
+	menu Font Color Red
+	menu Text made 52 44 %completed
+	menu Font Color White
+	menu Font BGColor Black
+	menu Text EUOLabel3 72 44 of
+	menu Font Color Red
+	menu Font BGColor $FFFFFFFF
+	menu Text maketotal 92 44 %amount
+	menu Font Color Green
+	menu Font BGColor White
+	menu Button Begin 12 80 51 25 Begin
+	menu Button Pause 76 80 51 25 Pause
+	menu Button exit 12 80 51 25 Exit
+	menu Show 421 270
+  menu delete begin
+ 	menu Font Color Green
+	menu Font BGColor White
+	menu Button exit 12 80 51 25 Exit
+  menu HideEUO
+return
+;--------- EasyUO Menu Designer Code End ---------
+
+sub menubutton
+if #menubutton = pause
+    {
+    gosub pause
+    menu delete resume
+    menu Font Color Green
+    menu Font BGColor White
+    menu button Pause 76 80 51 25 Pause
+    }
+if #menuButton = exit
+    {
+    gosub dump %empties %secure
+    Display Thank you for Training with Us!!!
+    Halt
+    }
+return
+
+sub pause
+menu delete pause
+menu Font Color Green
+menu Font BGColor White
+menu Button resume 76 80 51 25 Resume
+set #menubutton n/a
+repeat
+until #menubutton <> N/A
+return
+
+sub set_menu_skills_up
+chooseskill %trainit real
+  set %startingskill #skill
+  set %currentskill #skill
+  str len %startingskill
+  str ins %startingskill #dot #strRes
+menu Delete EUOLabel4          ; startingskill
+	menu Font Name Comic Sans MS
+	menu Font Size 8
+	menu Font Style b
+	menu Font Color Silver
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+menu Text EUOLabel4 100 0 #strRes   ; text startingskill
+  str len %currentskill
+  str ins %currentskill #dot #strRes
+menu delete EUOLabel5  ; text current skill here
+	menu Font Name Comic Sans MS
+	menu Font Size 8
+	menu Font Style b
+	menu Font Color lime
+	menu Font Transparent #false
+	menu Font Align Left
+	menu Font BGColor Black
+menu text EUOLabel5 100 24 #strRes ; text current skill here
+return
+
+Sub SkillCheck
+chooseskill %trainit real
+If #Skill >= %goal
+ {
+ gosub dump %empties %secure
+ display You Have Reached Selected Level!
+ halt
+ }
+  chooseskill %trainit
+  if #skill > %currentskill
+  {
+    Set %currentskill #skill
+    str len %currentskill
+    str ins %currentskill #dot #strRes
+    Menu delete EUOLabel5 ;currentskill
+      menu Font Name Comic Sans MS
+	    menu Font Size 8
+	    menu Font Style b
+	    menu Font Color Lime
+	    menu Font Transparent #false
+	    menu Font Align Left
+	    menu Font BGColor Black
+    Menu text EUOLabel5 100 24 #strRes  ;current skill
+    Set %totalgains %currentskill - %startingskill
+    str len %totalgains
+    str ins %totalgains #dot #strRes
+    Menu delete EUOLabel6 ;totalgains
+      menu Font Name Comic Sans MS
+	    menu Font Size 8
+	    menu Font Style b
+	    menu Font Color red
+	    menu Font Transparent #false
+	    menu Font Align Left
+	    menu Font BGColor B lack
+    Menu text EUOLabel6 92 48 + #strRes  ;text total gains
+  }
+Return
+
+sub setupvalues
+set %Raw IND
+set %cooked HND
+set %skillet DND
+set %PULP euo
+set %BARK NWS
+set %water VBM
+set %empty WYF
+set %ingots ENK
+set %tinktools JTL_KTL
+set %headingx 25
+set %barbecuey 150
+set %enchantedy 170
+set %prepy 110
+set %pulpy 230
+set %appley 90
+set %grapesy 110
+set %eggy 130
+set %itemx 235
+set %rawy 110
+set %makelastx 284
+set %makelasty 452
+set %nextx 385
+set %nexty 270
+finditem %ingots C_ , %secure
+for #findindex 1 #findcnt
+{
+Event property #findid
+if copper || shadow || bronze || agapite || gold || verite || valorite in #property
+   ignoreitem #findid
+}
+gosub showEUOMenu1
+menu get list
+if #menures = 1
+   set %trainit cook
+if #menures = 2
+   set %craft apple
+if #menures = 3
+   set %craft grape
+if #menures = 4
+   set %craft bomb
+if #menures = 5
+   set %craft pulp
+if %trainit = cook
+   {
+   chooseskill %trainit
+   if #skilllock <> up
+      exevent SkillLock %trainit up
+   menu getnum goal
+   set %goal #menures
+   }
+menu get Tinker
+if #menures = #true
+   set %tinker #true
+menu get Tinker
+if #menures = #false
+   set %tinker #false
+if %tinker = #true
+   set %empties WUF_CBS_UUF_RAS_XUF_PDQ_ENK_IND_HND
+gosub targets
+finditem %skillet C_ , #backpackid
+if #findcnt < 1
+   gosub Handle_Menu %skillet 230 230 2 %ingots 3 ;makes tools
+set %tool #findid
+set #lobjectid #findid
+event macro 17
+wait 30
+If %craft = apple || %craft = grape || %craft = bomb || %craft = pulp
+   gosub enchanted
+set %clickx #CONTPOSX + %headingx
+set %clicky #CONTPOSY + %barbecuey
+click %clickx %clicky f
+gosub showEUOMenu2
+gosub set_menu_skills_up
+return
+
+
